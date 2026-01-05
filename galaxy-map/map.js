@@ -14,7 +14,15 @@ mapGroup.selectAll(".oversector")
   .append("polygon")
   .attr("class", "oversector")
   .attr("points", d => d.points.map(p => p.join(",")).join(" "))
-  .attr("fill", d => d.color);
+  .attr("fill", d => d.color)
+  .attr("opacity", 0.25);
+
+mapGroup.append("circle")
+  .attr("cx", 0)
+  .attr("cy", 0)
+  .attr("r", 10)
+  .attr("fill", "red");
+
 
 /* ---------------- PLANETS ---------------- */
 const planetNodes = mapGroup.selectAll(".planet")
@@ -24,7 +32,9 @@ const planetNodes = mapGroup.selectAll(".planet")
   .attr("class", "planet")
   .attr("cx", d => d.x)
   .attr("cy", d => d.y)
-  .attr("r", 2);
+  .attr("r", 5) 
+  .attr("fill", "#e5e7eb"); 
+
 
 /* ---------------- ZOOM & PAN ---------------- */
 const zoom = d3.zoom()
