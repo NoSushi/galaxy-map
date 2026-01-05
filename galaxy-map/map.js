@@ -17,13 +17,6 @@ mapGroup.selectAll(".oversector")
   .attr("fill", d => d.color)
   .attr("opacity", 0.25);
 
-mapGroup.append("circle")
-  .attr("cx", 0)
-  .attr("cy", 0)
-  .attr("r", 10)
-  .attr("fill", "red");
-
-
 /* ---------------- PLANETS ---------------- */
 const planetNodes = mapGroup.selectAll(".planet")
   .data(planets)
