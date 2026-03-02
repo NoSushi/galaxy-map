@@ -164,6 +164,7 @@ interface MapContextType {
   updatePlanet: (planet: Planet) => void;
   addPlanet: (planet: Planet) => void;
   updateSector: (sector: Sector) => void;
+  updateSectorPoints: (sectorId: string, points: [number, number][]) => void;
 }
 
 export const MapContext = createContext<MapContextType | undefined>(undefined);

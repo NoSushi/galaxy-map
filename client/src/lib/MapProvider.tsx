@@ -49,6 +49,13 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const updateSectorPoints = (sectorId: string, points: [number, number][]) => {
+    setSectors(sectors.map(s => s.id === sectorId ? { ...s, points } : s));
+    if (selectedSector?.id === sectorId) {
+      setSelectedSector({ ...selectedSector, points });
+    }
+  };
+
   return (
     <MapContext.Provider value={{
       planets,
@@ -77,7 +84,8 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
       setFilters,
       updatePlanet,
       addPlanet,
-      updateSector
+      updateSector,
+      updateSectorPoints
     }}>
       {children}
     </MapContext.Provider>
