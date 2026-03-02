@@ -190,31 +190,38 @@ export const GalaxyMap = () => {
                       onMouseDown={(e) => {
                         if (editMode) {
                           setDraggingPlanet(planet.id);
-                          // Setup window listeners for drag
-                          const handleMouseMove = (mvEvent: MouseEvent) => {
-                            // This is simplified, real implementation would need complex coordinate mapping
-                            // taking zoom/pan into account. For mockup, we use a basic offset.
-                          };
-                          const handleMouseUp = () => {
-                            setDraggingPlanet(null);
-                            window.removeEventListener('mouseup', handleMouseUp);
-                          };
-                          window.addEventListener('mouseup', handleMouseUp);
                         }
                       }}
                     >
-                      <div className={cn(
-                        "w-4 h-4 rounded-full bg-primary relative",
-                        isSelected ? "shadow-[0_0_15px_hsl(var(--primary))]" : "shadow-[0_0_5px_hsl(var(--primary)/0.5)]",
-                        planet.faction === 'Sith Empire' && "bg-destructive shadow-[0_0_10px_hsl(var(--destructive))]",
-                        planet.faction === 'Hutt Cartel' && "bg-green-500 shadow-[0_0_10px_#22c55e]",
-                        !planet.habitable && "bg-muted-foreground",
-                        editMode && draggingPlanet === planet.id && "scale-150 shadow-[0_0_20px_hsl(var(--primary))]"
-                      )}>
-                        {isSelected && (
-                          <div className="absolute inset-[-4px] border border-primary rounded-full animate-ping opacity-75"></div>
-                        )}
-                      </div>
+                      {planet.markerImage ? (
+                        <div className={cn(
+                          "relative transition-all duration-300",
+                          isSelected ? "scale-125 drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]" : "hover:scale-110",
+                          editMode && draggingPlanet === planet.id && "scale-150 opacity-50"
+                        )}>
+                          <img 
+                            src={planet.markerImage} 
+                            alt={planet.name}
+                            className="w-8 h-8 object-contain pointer-events-none"
+                          />
+                          {isSelected && (
+                            <div className="absolute inset-[-4px] border border-primary rounded-full animate-ping opacity-75"></div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className={cn(
+                          "w-4 h-4 rounded-full bg-primary relative",
+                          isSelected ? "shadow-[0_0_15px_hsl(var(--primary))]" : "shadow-[0_0_5px_hsl(var(--primary)/0.5)]",
+                          planet.faction === 'Sith Empire' && "bg-destructive shadow-[0_0_10px_hsl(var(--destructive))]",
+                          planet.faction === 'Hutt Cartel' && "bg-green-500 shadow-[0_0_10px_#22c55e]",
+                          !planet.habitable && "bg-muted-foreground",
+                          editMode && draggingPlanet === planet.id && "scale-150 shadow-[0_0_20px_hsl(var(--primary))]"
+                        )}>
+                          {isSelected && (
+                            <div className="absolute inset-[-4px] border border-primary rounded-full animate-ping opacity-75"></div>
+                          )}
+                        </div>
+                      )}
                       
                       {showLabels && (
                         <div className={cn(

@@ -16,6 +16,7 @@ export interface Planet {
   population?: string;
   description: string;
   image?: string;
+  markerImage?: string;
 }
 
 export interface Sector {

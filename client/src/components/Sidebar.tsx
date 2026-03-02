@@ -111,6 +111,16 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
         </div>
 
         <div className="space-y-2">
+          <Label>Marker Image URL (PNG/WebP)</Label>
+          <Input 
+            value={planet.markerImage || ''} 
+            onChange={e => updatePlanet({...planet, markerImage: e.target.value})}
+            className="bg-black/40 border-primary/30"
+            placeholder="/planet-marker.png"
+          />
+        </div>
+
+        <div className="space-y-2">
           <Label>Population</Label>
           <Input 
             value={planet.population || ''} 
