@@ -85,6 +85,27 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
     setFleets([...fleets, newFleet]);
   };
 
+  const deletePlanet = (id: string) => {
+    setPlanets(planets.filter(p => p.id !== id));
+    if (selectedPlanet?.id === id) setSelectedPlanet(null);
+    setLanes(lanes.filter(l => !l.planetIds.includes(id)));
+  };
+
+  const deleteFleet = (id: string) => {
+    setFleets(fleets.filter(f => f.id !== id));
+    if (selectedFleet?.id === id) setSelectedFleet(null);
+  };
+
+  const deleteSector = (id: string) => {
+    setSectors(sectors.filter(s => s.id !== id));
+    if (selectedSector?.id === id) setSelectedSector(null);
+  };
+
+  const deleteLane = (id: string) => {
+    setLanes(lanes.filter(l => l.id !== id));
+    if (selectedLane?.id === id) setSelectedLane(null);
+  };
+
   return (
     <MapContext.Provider value={{
       planets,
@@ -123,7 +144,11 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
       updateLane,
       addLane,
       updateFleet,
-      addFleet
+      addFleet,
+      deletePlanet,
+      deleteFleet,
+      deleteSector,
+      deleteLane
     }}>
       {children}
     </MapContext.Provider>

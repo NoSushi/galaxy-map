@@ -16,8 +16,8 @@ export const GalaxyMap = () => {
     searchQuery, filters
   } = useMap();
 
-  const mapWidth = 4000;
-  const mapHeight = 2250; 
+  const mapWidth = 5000;
+  const mapHeight = 5000; 
   
   const [draggingPlanet, setDraggingPlanet] = useState<string | null>(null);
   const [draggingSectorPoint, setDraggingSectorPoint] = useState<{sectorId: string, pointIndex: number} | null>(null);
@@ -169,7 +169,7 @@ export const GalaxyMap = () => {
                   width: `${mapWidth}px`, 
                   height: `${mapHeight}px`,
                   backgroundImage: `url('/galaxy-map.png')`,
-                  backgroundSize: '2000px 1125px', // Main image size
+                  backgroundSize: '100% 100%',
                   backgroundRepeat: 'no-repeat',
                   backgroundPosition: 'center',
                 }}
@@ -301,12 +301,21 @@ export const GalaxyMap = () => {
                       onClick={(e) => handleFleetClick(e, fleet)}
                       onMouseDown={(e) => editMode && setDraggingFleet(fleet.id)}
                     >
+                      {fleet.isCapitalShip && (
+                        <div className="mb-1 text-primary drop-shadow-[0_0_8px_currentColor] animate-pulse">
+                          <Crown className="w-5 h-5 fill-primary/20" />
+                        </div>
+                      )}
                       <div className={cn(
-                        "p-2 rounded-full bg-background/95 border-2 transition-all duration-300 shadow-xl",
+                        "p-2 rounded-full bg-background/95 border-2 transition-all duration-300 shadow-xl overflow-hidden flex items-center justify-center",
                         isSelected ? "border-primary scale-125 shadow-[0_0_20px_hsl(var(--primary))]" : "border-muted-foreground/50",
                         fleet.faction === 'Sith Empire' && isSelected && "border-destructive shadow-[0_0_20px_hsl(var(--destructive))]"
                       )}>
-                        <Ship className={cn("w-5 h-5", isSelected ? "text-primary" : "text-muted-foreground")} />
+                        {fleet.markerImage ? (
+                          <img src={fleet.markerImage} alt={fleet.name} className="w-6 h-6 object-contain" />
+                        ) : (
+                          <Ship className={cn("w-5 h-5", isSelected ? "text-primary" : "text-muted-foreground")} />
+                        )}
                       </div>
                       <div className="mt-1 px-2 py-0.5 rounded text-[9px] font-display tracking-widest bg-background/95 border border-primary/30 text-primary uppercase">
                         {fleet.name}

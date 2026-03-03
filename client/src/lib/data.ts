@@ -44,6 +44,8 @@ export interface Fleet {
   icon: string;
   faction: Faction;
   description: string;
+  markerImage?: string;
+  isCapitalShip?: boolean;
 }
 
 export const initialSectors: Sector[] = [
@@ -186,6 +188,10 @@ interface MapContextType {
   addLane: (lane: HyperspaceLane) => void;
   updateFleet: (fleet: Fleet) => void;
   addFleet: (fleet: Fleet) => void;
+  deletePlanet: (id: string) => void;
+  deleteFleet: (id: string) => void;
+  deleteSector: (id: string) => void;
+  deleteLane: (id: string) => void;
 }
 
 export const MapContext = createContext<MapContextType | undefined>(undefined);

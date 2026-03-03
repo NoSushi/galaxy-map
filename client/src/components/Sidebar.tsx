@@ -57,13 +57,17 @@ export const Sidebar = () => {
 };
 
 const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: Planet, editMode: boolean, sectors: Sector[], lanes: HyperspaceLane[], planets: Planet[] }) => {
-  const { updatePlanet } = useMap();
+  const { updatePlanet, deletePlanet } = useMap();
   const sector = sectors.find(s => s.id === planet.sectorId);
   const connectedLanes = lanes.filter(l => l.planetIds.includes(planet.id));
 
   if (editMode) {
     return (
       <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-300">
+        <div className="flex justify-between items-center">
+          <Label className="text-[10px] uppercase text-primary/70">Planet Settings</Label>
+          <Button variant="ghost" size="sm" onClick={() => deletePlanet(planet.id)} className="h-6 text-[9px] text-destructive hover:text-destructive/80 hover:bg-destructive/10 gap-1"><Trash2 className="w-3 h-3" /> DELETE</Button>
+        </div>
         <div className="space-y-1">
           <Label className="text-[10px] uppercase text-primary/70">Planet Name</Label>
           <Input value={planet.name} onChange={e => updatePlanet({...planet, name: e.target.value})} className="bg-black/60 border-primary/20 h-8 text-xs" />
@@ -175,12 +179,16 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
 };
 
 const SectorDetails = ({ sector, editMode, planets }: { sector: Sector, editMode: boolean, planets: Planet[] }) => {
-  const { updateSector, setPlanets } = useMap();
+  const { updateSector, deleteSector } = useMap();
   const sectorPlanets = planets.filter(p => p.sectorId === sector.id);
 
   if (editMode) {
     return (
       <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <Label className="text-[10px] uppercase text-primary/70">Sector Settings</Label>
+          <Button variant="ghost" size="sm" onClick={() => deleteSector(sector.id)} className="h-6 text-[9px] text-destructive hover:text-destructive/80 hover:bg-destructive/10 gap-1"><Trash2 className="w-3 h-3" /> DELETE</Button>
+        </div>
         <div className="space-y-1">
           <Label className="text-[10px] uppercase text-primary/70">Sector Designation</Label>
           <Input value={sector.name} onChange={e => updateSector({...sector, name: e.target.value})} className="bg-black/60 border-primary/20 h-8 text-xs" />
@@ -229,13 +237,17 @@ const SectorDetails = ({ sector, editMode, planets }: { sector: Sector, editMode
 };
 
 const LaneDetails = ({ lane, editMode, planets }: { lane: HyperspaceLane, editMode: boolean, planets: Planet[] }) => {
-  const { updateLane } = useMap();
+  const { updateLane, deleteLane } = useMap();
   const p1 = planets.find(p => p.id === lane.planetIds[0]);
   const p2 = planets.find(p => p.id === lane.planetIds[1]);
 
   if (editMode) {
     return (
       <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <Label className="text-[10px] uppercase text-primary/70">Route Settings</Label>
+          <Button variant="ghost" size="sm" onClick={() => deleteLane(lane.id)} className="h-6 text-[9px] text-destructive hover:text-destructive/80 hover:bg-destructive/10 gap-1"><Trash2 className="w-3 h-3" /> DELETE</Button>
+        </div>
         <div className="space-y-1">
           <Label className="text-[10px] uppercase text-primary/70">Route Designation</Label>
           <Input value={lane.name} onChange={e => updateLane({...lane, name: e.target.value})} className="bg-black/60 border-primary/20 h-8 text-xs" />
@@ -277,14 +289,32 @@ const LaneDetails = ({ lane, editMode, planets }: { lane: HyperspaceLane, editMo
 };
 
 const FleetDetails = ({ fleet, editMode }: { fleet: Fleet, editMode: boolean }) => {
-  const { updateFleet } = useMap();
+  const { updateFleet, deleteFleet } = useMap();
   if (editMode) {
     return (
       <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <Label className="text-[10px] uppercase text-primary/70">Fleet Settings</Label>
+          <Button variant="ghost" size="sm" onClick={() => deleteFleet(fleet.id)} className="h-6 text-[9px] text-destructive hover:text-destructive/80 hover:bg-destructive/10 gap-1"><Trash2 className="w-3 h-3" /> DELETE</Button>
+        </div>
         <div className="space-y-1">
           <Label className="text-[10px] uppercase text-primary/70">Fleet ID</Label>
           <Input value={fleet.name} onChange={e => updateFleet({...fleet, name: e.target.value})} className="bg-black/60 border-primary/20 h-8 text-xs" />
         </div>
+
+        <div className="flex items-center justify-between p-2 bg-white/5 rounded border border-white/10">
+          <div className="flex items-center gap-2">
+            <Crown className={cn("w-4 h-4", fleet.isCapitalShip ? "text-primary" : "text-muted-foreground")} />
+            <Label htmlFor="is-capital-ship" className="text-xs">Flagship / Capital Ship</Label>
+          </div>
+          <Switch checked={fleet.isCapitalShip} onCheckedChange={c => updateFleet({...fleet, isCapitalShip: c})} id="is-capital-ship" />
+        </div>
+
+        <div className="space-y-1">
+          <Label className="text-[10px] uppercase text-primary/70">Ship Image URL</Label>
+          <Input value={fleet.markerImage || ''} onChange={e => updateFleet({...fleet, markerImage: e.target.value})} className="bg-black/60 border-primary/20 h-8 text-xs" placeholder="e.g. /star-destroyer.png" />
+        </div>
+
         <div className="space-y-1">
           <Label className="text-[10px] uppercase text-primary/70">Faction Command</Label>
           <Select value={fleet.faction} onValueChange={(val: any) => updateFleet({...fleet, faction: val})}>
