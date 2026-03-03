@@ -17,6 +17,8 @@ export interface Planet {
   description: string;
   image?: string;
   markerImage?: string;
+  isCapital?: boolean;
+  capitalOf?: string;
 }
 
 export interface Sector {
@@ -32,6 +34,16 @@ export interface HyperspaceLane {
   name: string;
   planetIds: [string, string]; // connections between two planets
   type: RouteType;
+}
+
+export interface Fleet {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  icon: string;
+  faction: Faction;
+  description: string;
 }
 
 export const initialSectors: Sector[] = [
@@ -139,6 +151,7 @@ interface MapContextType {
   selectedPlanet: Planet | null;
   selectedSector: Sector | null;
   selectedLane: HyperspaceLane | null;
+  selectedFleet: Fleet | null;
   showLanes: boolean;
   showSectors: boolean;
   showLabels: boolean;
@@ -149,12 +162,15 @@ interface MapContextType {
     habitable: string;
     environment: string;
   };
+  fleets: Fleet[];
   setPlanets: (planets: Planet[]) => void;
   setSectors: (sectors: Sector[]) => void;
   setLanes: (lanes: HyperspaceLane[]) => void;
+  setFleets: (fleets: Fleet[]) => void;
   setSelectedPlanet: (planet: Planet | null) => void;
   setSelectedSector: (sector: Sector | null) => void;
   setSelectedLane: (lane: HyperspaceLane | null) => void;
+  setSelectedFleet: (fleet: Fleet | null) => void;
   setShowLanes: (show: boolean) => void;
   setShowSectors: (show: boolean) => void;
   setShowLabels: (show: boolean) => void;
@@ -164,7 +180,12 @@ interface MapContextType {
   updatePlanet: (planet: Planet) => void;
   addPlanet: (planet: Planet) => void;
   updateSector: (sector: Sector) => void;
+  addSector: (sector: Sector) => void;
   updateSectorPoints: (sectorId: string, points: [number, number][]) => void;
+  updateLane: (lane: HyperspaceLane) => void;
+  addLane: (lane: HyperspaceLane) => void;
+  updateFleet: (fleet: Fleet) => void;
+  addFleet: (fleet: Fleet) => void;
 }
 
 export const MapContext = createContext<MapContextType | undefined>(undefined);

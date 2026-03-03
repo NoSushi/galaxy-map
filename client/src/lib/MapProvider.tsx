@@ -6,17 +6,20 @@ import {
   initialLanes,
   Planet,
   Sector,
-  HyperspaceLane
+  HyperspaceLane,
+  Fleet
 } from './data';
 
 export const MapProvider = ({ children }: { children: ReactNode }) => {
   const [planets, setPlanets] = useState<Planet[]>(initialPlanets);
   const [sectors, setSectors] = useState<Sector[]>(initialSectors);
   const [lanes, setLanes] = useState<HyperspaceLane[]>(initialLanes);
+  const [fleets, setFleets] = useState<Fleet[]>([]);
   
   const [selectedPlanet, setSelectedPlanet] = useState<Planet | null>(null);
   const [selectedSector, setSelectedSector] = useState<Sector | null>(null);
   const [selectedLane, setSelectedLane] = useState<HyperspaceLane | null>(null);
+  const [selectedFleet, setSelectedFleet] = useState<Fleet | null>(null);
   
   const [showLanes, setShowLanes] = useState(true);
   const [showSectors, setShowSectors] = useState(true);
@@ -49,11 +52,37 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const addSector = (newSector: Sector) => {
+    setSectors([...sectors, newSector]);
+  };
+
   const updateSectorPoints = (sectorId: string, points: [number, number][]) => {
     setSectors(sectors.map(s => s.id === sectorId ? { ...s, points } : s));
     if (selectedSector?.id === sectorId) {
-      setSelectedSector({ ...selectedSector, points });
+      setSelectedSector(prev => prev ? { ...prev, points } : null);
     }
+  };
+
+  const updateLane = (updatedLane: HyperspaceLane) => {
+    setLanes(lanes.map(l => l.id === updatedLane.id ? updatedLane : l));
+    if (selectedLane?.id === updatedLane.id) {
+      setSelectedLane(updatedLane);
+    }
+  };
+
+  const addLane = (newLane: HyperspaceLane) => {
+    setLanes([...lanes, newLane]);
+  };
+
+  const updateFleet = (updatedFleet: Fleet) => {
+    setFleets(fleets.map(f => f.id === updatedFleet.id ? updatedFleet : f));
+    if (selectedFleet?.id === updatedFleet.id) {
+      setSelectedFleet(updatedFleet);
+    }
+  };
+
+  const addFleet = (newFleet: Fleet) => {
+    setFleets([...fleets, newFleet]);
   };
 
   return (
@@ -61,9 +90,11 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
       planets,
       sectors,
       lanes,
+      fleets,
       selectedPlanet,
       selectedSector,
       selectedLane,
+      selectedFleet,
       showLanes,
       showSectors,
       showLabels,
@@ -73,9 +104,11 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
       setPlanets,
       setSectors,
       setLanes,
+      setFleets,
       setSelectedPlanet,
       setSelectedSector,
       setSelectedLane,
+      setSelectedFleet,
       setShowLanes,
       setShowSectors,
       setShowLabels,
@@ -85,7 +118,12 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
       updatePlanet,
       addPlanet,
       updateSector,
-      updateSectorPoints
+      addSector,
+      updateSectorPoints,
+      updateLane,
+      addLane,
+      updateFleet,
+      addFleet
     }}>
       {children}
     </MapContext.Provider>
