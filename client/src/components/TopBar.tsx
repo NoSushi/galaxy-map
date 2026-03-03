@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
-import { useMap, Planet } from '@/lib/data';
-import { Search, Map as MapIcon, Route, Orbit, Edit3, Settings, LogOut, Hexagon, Plus, Lock } from 'lucide-react';
+import { useMap, Planet, Sector, Fleet } from '@/lib/data';
+import { Search, Map as MapIcon, Route, Orbit, Edit3, Settings, LogOut, Hexagon, Plus, Lock, Ship } from 'lucide-react';
 import { Input } from './ui/input';
 import { Switch } from './ui/switch';
 import { Label } from './ui/label';
@@ -17,7 +17,7 @@ export const TopBar = () => {
     editMode, setEditMode,
     searchQuery, setSearchQuery,
     filters, setFilters,
-    addPlanet, setSelectedPlanet
+    addPlanet, setSelectedPlanet, addSector, addFleet
   } = useMap();
 
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
@@ -33,30 +33,54 @@ export const TopBar = () => {
   };
 
   const handlePasswordSubmit = () => {
-    if (password === 'admin123') { // Simple mockup password
+    if (password === 'admin123') { 
       setEditMode(true);
       setIsPasswordDialogOpen(false);
       setPassword('');
       setError('');
     } else {
-      setError('Invalid security clearance code.');
+      setError('Access denied. Level 5 clearance required.');
     }
   };
 
   const handleCreatePlanet = () => {
     const newPlanet: Planet = {
       id: `p${Date.now()}`,
-      name: 'New Unknown World',
-      x: 1000,
-      y: 500,
+      name: 'Uncharted World',
+      x: 1500,
+      y: 1125,
       sectorId: 's1',
       faction: 'Independent',
-      habitable: false,
+      habitable: true,
       environment: 'Unknown',
-      description: 'A newly charted system.',
+      description: 'Discovery pending analysis.',
     };
     addPlanet(newPlanet);
     setSelectedPlanet(newPlanet);
+  };
+
+  const handleCreateSector = () => {
+    const newSector: Sector = {
+      id: `s${Date.now()}`,
+      name: 'New Sector',
+      color: '200 50% 50%',
+      points: [[1400, 1000], [1600, 1000], [1600, 1200], [1400, 1200]],
+      faction: 'Independent'
+    };
+    addSector(newSector);
+  };
+
+  const handleCreateFleet = () => {
+    const newFleet: Fleet = {
+      id: `f${Date.now()}`,
+      name: 'Strike Group A',
+      x: 1500,
+      y: 1125,
+      icon: 'default',
+      faction: 'Independent',
+      description: 'Fleet awaiting orders.'
+    };
+    addFleet(newFleet);
   };
 
   return (
@@ -64,105 +88,52 @@ export const TopBar = () => {
       <div className="absolute top-0 left-0 w-full z-10 glass-panel-primary border-x-0 border-t-0 p-3 flex justify-between items-center px-6">
         
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 mr-4">
-            <Hexagon className="w-8 h-8 text-primary glow-text" />
+          <div className="flex items-center gap-2 mr-4 group cursor-pointer">
+            <Hexagon className="w-10 h-10 text-primary glow-text transition-transform group-hover:rotate-90 duration-500" />
             <div className="flex flex-col">
-              <h1 className="font-display font-bold text-lg leading-none tracking-widest text-primary glow-text uppercase">Galactic</h1>
-              <span className="text-[10px] tracking-[0.2em] text-muted-foreground uppercase">Cartography Nav</span>
+              <h1 className="font-display font-black text-xl leading-none tracking-tighter text-primary glow-text uppercase">GALACTIC</h1>
+              <span className="text-[9px] tracking-[0.3em] text-primary/60 uppercase font-bold">NAVIGATIONAL HUB</span>
             </div>
           </div>
 
-          <div className="relative w-64">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-primary/50" />
+          <div className="relative w-72">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-primary/40" />
             <Input 
-              placeholder="Search systems..." 
-              className="pl-9 bg-black/40 border-primary/30 h-9 font-sans focus-visible:ring-primary"
+              placeholder="Query celestial database..." 
+              className="pl-9 bg-black/60 border-primary/20 h-9 font-sans focus-visible:ring-primary text-xs uppercase tracking-wider"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              data-testid="input-search-planets"
             />
           </div>
 
-          <div className="flex items-center gap-2 ml-2 border-l border-primary/20 pl-4">
+          <div className="flex items-center gap-2 ml-2 border-l border-primary/10 pl-4">
             <Select value={filters.faction} onValueChange={(val) => setFilters({...filters, faction: val})}>
-              <SelectTrigger className="w-[140px] h-9 bg-black/40 border-primary/30 text-xs" data-testid="select-filter-faction">
-                <SelectValue placeholder="Faction" />
-              </SelectTrigger>
+              <SelectTrigger className="w-[150px] h-9 bg-black/60 border-primary/20 text-[10px] uppercase font-bold tracking-widest"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="All">All Factions</SelectItem>
-                <SelectItem value="Galactic Republic">Galactic Republic</SelectItem>
+                <SelectItem value="Galactic Republic">The Republic</SelectItem>
                 <SelectItem value="Sith Empire">Sith Empire</SelectItem>
                 <SelectItem value="Hutt Cartel">Hutt Cartel</SelectItem>
-                <SelectItem value="Independent">Independent</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={filters.environment} onValueChange={(val) => setFilters({...filters, environment: val})}>
-              <SelectTrigger className="w-[120px] h-9 bg-black/40 border-primary/30 text-xs" data-testid="select-filter-env">
-                <SelectValue placeholder="Environment" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="All">All Biomes</SelectItem>
-                <SelectItem value="Desert">Desert</SelectItem>
-                <SelectItem value="Forest">Forest</SelectItem>
-                <SelectItem value="City">City</SelectItem>
-                <SelectItem value="Volcanic">Volcanic</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
 
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4">
           {editMode && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleCreatePlanet}
-              className="border-primary/50 text-primary hover:bg-primary/20 transition-all font-display tracking-wider gap-2"
-            >
-              <Plus className="w-4 h-4" /> ADD PLANET
-            </Button>
+            <div className="flex gap-1 bg-primary/5 p-1 rounded-md border border-primary/10">
+              <Button variant="ghost" size="sm" onClick={handleCreatePlanet} className="h-8 text-[9px] font-display text-primary hover:bg-primary/20 gap-1.5"><Plus className="w-3 h-3" /> PLANET</Button>
+              <Button variant="ghost" size="sm" onClick={handleCreateSector} className="h-8 text-[9px] font-display text-primary hover:bg-primary/20 gap-1.5"><MapIcon className="w-3 h-3" /> SECTOR</Button>
+              <Button variant="ghost" size="sm" onClick={handleCreateFleet} className="h-8 text-[9px] font-display text-primary hover:bg-primary/20 gap-1.5"><Ship className="w-3 h-3" /> FLEET</Button>
+            </div>
           )}
 
-          <div className="flex items-center gap-4 bg-black/30 p-1.5 px-4 rounded-full border border-primary/20">
-            <div className="flex items-center space-x-2">
-              <Switch 
-                id="lanes" 
-                checked={showLanes} 
-                onCheckedChange={setShowLanes} 
-                className="data-[state=checked]:bg-primary"
-                data-testid="toggle-lanes"
-              />
-              <Label htmlFor="lanes" className="text-xs flex items-center gap-1 cursor-pointer">
-                <Route className="w-3 h-3 text-primary/70" /> Lanes
-              </Label>
-            </div>
-            <div className="w-px h-4 bg-primary/20" />
-            <div className="flex items-center space-x-2">
-              <Switch 
-                id="sectors" 
-                checked={showSectors} 
-                onCheckedChange={setShowSectors}
-                className="data-[state=checked]:bg-primary"
-                data-testid="toggle-sectors"
-              />
-              <Label htmlFor="sectors" className="text-xs flex items-center gap-1 cursor-pointer">
-                <MapIcon className="w-3 h-3 text-primary/70" /> Sectors
-              </Label>
-            </div>
-            <div className="w-px h-4 bg-primary/20" />
-            <div className="flex items-center space-x-2">
-              <Switch 
-                id="labels" 
-                checked={showLabels} 
-                onCheckedChange={setShowLabels}
-                className="data-[state=checked]:bg-primary"
-                data-testid="toggle-labels"
-              />
-              <Label htmlFor="labels" className="text-xs flex items-center gap-1 cursor-pointer">
-                Labels
-              </Label>
-            </div>
+          <div className="flex items-center gap-4 bg-black/40 p-1.5 px-4 rounded-full border border-primary/10">
+            <ToggleSwitch id="lanes" checked={showLanes} onChange={setShowLanes} label="Routes" icon={<Route className="w-3 h-3" />} />
+            <div className="w-px h-4 bg-primary/10" />
+            <ToggleSwitch id="sectors" checked={showSectors} onChange={setShowSectors} label="Regions" icon={<MapIcon className="w-3 h-3" />} />
+            <div className="w-px h-4 bg-primary/10" />
+            <ToggleSwitch id="labels" checked={showLabels} onChange={setShowLabels} label="Tags" icon={<Orbit className="w-3 h-3" />} />
           </div>
 
           <Button 
@@ -170,42 +141,58 @@ export const TopBar = () => {
             size="sm"
             onClick={handleAdminToggle}
             className={cn(
-              "font-display tracking-widest gap-2 transition-all duration-300",
-              editMode ? "bg-primary text-background hover:bg-primary/90 shadow-[0_0_15px_hsl(var(--primary)/0.5)]" : "border-primary/50 text-primary hover:bg-primary/10 hover:text-primary"
+              "font-display font-black tracking-widest h-9 px-4 gap-2 transition-all duration-500",
+              editMode ? "bg-primary text-background hover:scale-105 shadow-[0_0_20px_hsl(var(--primary)/0.6)]" : "border-primary/30 text-primary hover:bg-primary/10"
             )}
-            data-testid="button-toggle-edit-mode"
           >
             {editMode ? <LogOut className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-            {editMode ? "EXIT ADMIN" : "ADMIN ACCESS"}
+            {editMode ? "LOGOUT" : "ADMIN"}
           </Button>
         </div>
       </div>
 
       <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
-        <DialogContent className="glass-panel-primary border-primary/30 sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-primary font-display tracking-widest">GALACTIC SECURITY CLEARANCE</DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              Enter admin access code to enable cartography editing tools.
-            </DialogDescription>
+        <DialogContent className="glass-panel-primary border-primary/30 sm:max-w-md bg-[#05080f]/95 backdrop-blur-3xl">
+          <DialogHeader className="items-center text-center">
+            <div className="w-16 h-16 rounded-full border-2 border-primary flex items-center justify-center mb-4 animate-pulse">
+              <Lock className="w-8 h-8 text-primary" />
+            </div>
+            <DialogTitle className="text-primary font-display font-black text-2xl tracking-[0.2em]">SECURITY OVERRIDE</DialogTitle>
+            <DialogDescription className="text-primary/60 text-[10px] uppercase font-bold tracking-[0.3em]">Authorized Cartography Personnel Only</DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <Input
-              type="password"
-              placeholder="Access Code"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="bg-black/40 border-primary/30 focus-visible:ring-primary font-mono"
-              onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
-            />
-            {error && <p className="text-destructive text-xs mt-2">{error}</p>}
+          <div className="py-6 space-y-4">
+            <div className="space-y-2">
+              <Label className="text-[10px] uppercase tracking-widest text-primary/70">Clearance Code</Label>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="bg-black/60 border-primary/30 focus-visible:ring-primary font-mono text-center tracking-[0.5em] h-12 text-lg"
+                onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
+                autoFocus
+              />
+            </div>
+            {error && <div className="p-2 bg-destructive/10 border border-destructive/20 text-destructive text-[10px] text-center font-bold uppercase tracking-widest animate-shake">{error}</div>}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsPasswordDialogOpen(false)} className="border-primary/30">Cancel</Button>
-            <Button onClick={handlePasswordSubmit} className="bg-primary text-background hover:bg-primary/90">Verify Code</Button>
+          <DialogFooter className="sm:justify-center">
+            <Button onClick={handlePasswordSubmit} className="bg-primary text-background font-display font-black tracking-[0.2em] w-full h-12 hover:scale-105 transition-transform">VERIFY IDENTITY</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
   );
 };
+
+const ToggleSwitch = ({ id, checked, onChange, label, icon }: { id: string, checked: boolean, onChange: (v: boolean) => void, label: string, icon: React.ReactNode }) => (
+  <div className="flex items-center space-x-2">
+    <Switch 
+      id={id} 
+      checked={checked} 
+      onCheckedChange={onChange} 
+      className="data-[state=checked]:bg-primary h-4 w-8"
+    />
+    <Label htmlFor={id} className={cn("text-[9px] uppercase font-bold tracking-widest flex items-center gap-1 cursor-pointer transition-colors", checked ? "text-primary" : "text-primary/40")}>
+      {icon} {label}
+    </Label>
+  </div>
+);
