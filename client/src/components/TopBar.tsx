@@ -1,12 +1,12 @@
 import { cn } from "@/lib/utils";
 import { useMap, Planet, Sector, Fleet } from '@/lib/data';
-import { Search, Map as MapIcon, Route, Orbit, Edit3, Settings, LogOut, Hexagon, Plus, Lock, Ship } from 'lucide-react';
+import { Search, Map as MapIcon, Route, Orbit, Edit3, Settings, LogOut, Hexagon, Plus, Lock, Ship, Compass } from 'lucide-react';
 import { Input } from './ui/input';
 import { Switch } from './ui/switch';
 import { Label } from './ui/label';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 
 export const TopBar = () => {
@@ -17,12 +17,88 @@ export const TopBar = () => {
     editMode, setEditMode,
     searchQuery, setSearchQuery,
     filters, setFilters,
+    planets, lanes,
     addPlanet, setSelectedPlanet, addSector, addFleet
   } = useMap();
 
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [isTravelTimeOpen, setIsTravelTimeOpen] = useState(false);
+  const [travelCalc, setTravelCalc] = useState({
+    start: '',
+    end: '',
+    hyperdrive: '1.0'
+  });
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+
+  // Dijkstra's algorithm for shortest path between planets along lanes
+  const travelResult = useMemo(() => {
+    if (!travelCalc.start || !travelCalc.end || travelCalc.start === travelCalc.end) return null;
+    
+    const adj: Record<string, {node: string, dist: number}[]> = {};
+    planets.forEach(p => adj[p.id] = []);
+    lanes.forEach(l => {
+      const p1 = planets.find(p => p.id === l.planetIds[0]);
+      const p2 = planets.find(p => p.id === l.planetIds[1]);
+      if (p1 && p2) {
+        const dx = p1.x - p2.x;
+        const dy = p1.y - p2.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        adj[p1.id].push({node: p2.id, dist});
+        adj[p2.id].push({node: p1.id, dist});
+      }
+    });
+
+    const distances: Record<string, number> = {};
+    const prev: Record<string, string | null> = {};
+    const pq = new Set(planets.map(p => p.id));
+    
+    planets.forEach(p => {
+      distances[p.id] = Infinity;
+      prev[p.id] = null;
+    });
+    distances[travelCalc.start] = 0;
+
+    while (pq.size > 0) {
+      let u = Array.from(pq).reduce((min, node) => 
+        distances[node] < distances[min] ? node : min, Array.from(pq)[0]);
+      
+      if (distances[u] === Infinity || u === travelCalc.end) break;
+      pq.delete(u);
+
+      adj[u]?.forEach(edge => {
+        const alt = distances[u] + edge.dist;
+        if (alt < distances[edge.node]) {
+          distances[edge.node] = alt;
+          prev[edge.node] = u;
+        }
+      });
+    }
+
+    if (distances[travelCalc.end] === Infinity) return { error: "No hyperspace route found between these systems." };
+
+    // 5000x5000 map = 120,000 light years
+    const mapToLy = 120000 / 5000;
+    const totalLy = distances[travelCalc.end] * mapToLy;
+    const baseSpeed = 111; // LY per hour for Class 1
+    const hdClass = parseFloat(travelCalc.hyperdrive) || 1.0;
+    
+    // Time = Distance / (Speed / Class)
+    // Class 1 = 111 LY/h
+    // Class 0.5 = 222 LY/h (twice as fast)
+    // Class 2 = 55.5 LY/h (twice as slow)
+    const hours = totalLy / (baseSpeed / hdClass);
+    
+    const days = Math.floor(hours / 24);
+    const remainingHours = Math.round(hours % 24);
+
+    return { 
+      distance: Math.round(totalLy), 
+      days, 
+      hours: remainingHours,
+      totalHours: Math.round(hours)
+    };
+  }, [travelCalc, planets, lanes]);
 
   const handleAdminToggle = () => {
     if (editMode) {
@@ -137,6 +213,15 @@ export const TopBar = () => {
           </div>
 
           <Button 
+            variant="outline"
+            size="sm"
+            onClick={() => setIsTravelTimeOpen(true)}
+            className="border-primary/30 text-primary hover:bg-primary/10 gap-2 font-display tracking-widest"
+          >
+            <Compass className="w-4 h-4" /> CALCULATE TRAVEL
+          </Button>
+
+          <Button 
             variant={editMode ? "default" : "outline"}
             size="sm"
             onClick={handleAdminToggle}
@@ -150,6 +235,80 @@ export const TopBar = () => {
           </Button>
         </div>
       </div>
+
+      <Dialog open={isTravelTimeOpen} onOpenChange={setIsTravelTimeOpen}>
+        <DialogContent className="glass-panel-primary border-primary/30 sm:max-w-md bg-[#05080f]/95 backdrop-blur-3xl">
+          <DialogHeader className="items-center text-center">
+            <Compass className="w-12 h-12 text-primary mb-2 animate-spin-slow" />
+            <DialogTitle className="text-primary font-display font-black text-xl tracking-[0.2em]">TRAVEL CALCULATOR</DialogTitle>
+            <DialogDescription className="text-primary/60 text-[10px] uppercase font-bold tracking-[0.2em]">Astrogation Computer Interface</DialogDescription>
+          </DialogHeader>
+          <div className="py-6 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase tracking-widest text-primary/70">Origin Point</Label>
+                <Select value={travelCalc.start} onValueChange={(v) => setTravelCalc(prev => ({...prev, start: v}))}>
+                  <SelectTrigger className="bg-black/60 border-primary/20 text-[10px] uppercase"><SelectValue placeholder="Select Origin" /></SelectTrigger>
+                  <SelectContent>
+                    {planets.map(p => <SelectItem key={`start-${p.id}`} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase tracking-widest text-primary/70">Destination</Label>
+                <Select value={travelCalc.end} onValueChange={(v) => setTravelCalc(prev => ({...prev, end: v}))}>
+                  <SelectTrigger className="bg-black/60 border-primary/20 text-[10px] uppercase"><SelectValue placeholder="Select Dest" /></SelectTrigger>
+                  <SelectContent>
+                    {planets.map(p => <SelectItem key={`end-${p.id}`} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] uppercase tracking-widest text-primary/70">Hyperdrive Class</Label>
+              <div className="flex gap-2">
+                <Input 
+                  type="number" step="0.1" min="0.1"
+                  value={travelCalc.hyperdrive}
+                  onChange={(e) => setTravelCalc(prev => ({...prev, hyperdrive: e.target.value}))}
+                  className="bg-black/60 border-primary/30 text-center font-mono"
+                />
+                <div className="flex-1 flex items-center px-4 bg-primary/5 rounded border border-primary/10 text-[10px] text-primary/60 uppercase italic">
+                  Lower is faster (0.5 is 2x faster than 1.0)
+                </div>
+              </div>
+            </div>
+
+            {travelResult && (
+              <div className="mt-4 p-4 bg-primary/10 border border-primary/30 rounded-lg animate-in fade-in zoom-in-95 duration-300">
+                {'error' in travelResult ? (
+                  <div className="text-destructive text-center text-xs font-bold uppercase tracking-wider">{travelResult.error}</div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center border-b border-primary/20 pb-2">
+                      <span className="text-[10px] uppercase text-primary/60 font-bold">Total Distance</span>
+                      <span className="text-primary font-display font-bold">{travelResult.distance.toLocaleString()} LY</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] uppercase text-primary/60 font-bold">Estimated Time</span>
+                      <div className="text-right">
+                        <div className="text-primary font-display font-black text-2xl leading-none">
+                          {travelResult.days > 0 && <span>{travelResult.days}D </span>}
+                          {travelResult.hours}H
+                        </div>
+                        <div className="text-[9px] text-primary/40 uppercase mt-1">Total {travelResult.totalHours} Hours</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setIsTravelTimeOpen(false)} className="bg-primary text-background font-display font-black tracking-[0.2em] w-full h-12">CLOSE NAV-COMPUTER</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
         <DialogContent className="glass-panel-primary border-primary/30 sm:max-w-md bg-[#05080f]/95 backdrop-blur-3xl">
