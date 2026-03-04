@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import { 
   MapContext, 
   initialPlanets, 
@@ -10,11 +10,42 @@ import {
   Fleet
 } from './data';
 
+const STORAGE_KEY = 'galactic_cartography_data';
+
 export const MapProvider = ({ children }: { children: ReactNode }) => {
+  const [isLoaded, setIsLoaded] = useState(false);
   const [planets, setPlanets] = useState<Planet[]>(initialPlanets);
   const [sectors, setSectors] = useState<Sector[]>(initialSectors);
   const [lanes, setLanes] = useState<HyperspaceLane[]>(initialLanes);
   const [fleets, setFleets] = useState<Fleet[]>([]);
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        if (data.planets) setPlanets(data.planets);
+        if (data.sectors) setSectors(data.sectors);
+        if (data.lanes) setLanes(data.lanes);
+        if (data.fleets) setFleets(data.fleets);
+      } catch (e) {
+        console.error('Failed to parse saved map data', e);
+      }
+    }
+    setIsLoaded(true);
+  }, []);
+
+  // Save to localStorage whenever data changes
+  useEffect(() => {
+    if (!isLoaded) return;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      planets,
+      sectors,
+      lanes,
+      fleets
+    }));
+  }, [planets, sectors, lanes, fleets, isLoaded]);
   
   const [selectedPlanet, setSelectedPlanet] = useState<Planet | null>(null);
   const [selectedSector, setSelectedSector] = useState<Sector | null>(null);

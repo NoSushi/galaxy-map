@@ -111,9 +111,7 @@ export const GalaxyMap = () => {
 
   const handleMapClick = (e: React.MouseEvent) => {
     if (editMode && selectedSector) {
-      const { x, y } = getMapCoords(e);
-      const newPoints = [...selectedSector.points, [x, y]] as [number, number][];
-      updateSectorPoints(selectedSector.id, newPoints);
+      // Logic for clicking map to add point is now handled by sector edges
     } else {
       setSelectedPlanet(null);
       setSelectedSector(null);
@@ -203,6 +201,39 @@ export const GalaxyMap = () => {
                           onClick={(e) => handleSectorClick(e, sector)}
                           filter={isSelected ? "url(#glow)" : undefined}
                         />
+                        {/* Edge click zones for adding points */}
+                        {editMode && isSelected && sector.points.map((p1, i) => {
+                          const p2 = sector.points[(i + 1) % sector.points.length];
+                          return (
+                            <line
+                              key={`edge-${sector.id}-${i}`}
+                              x1={p1[0]} y1={p1[1]} x2={p2[0]} y2={p2[1]}
+                              stroke="transparent"
+                              strokeWidth={20}
+                              className="pointer-events-auto cursor-crosshair"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const rect = e.currentTarget.ownerSVGElement?.getBoundingClientRect();
+                                if (!rect) return;
+                                
+                                // Calculate position relative to map scale
+                                const clientX = e.clientX;
+                                const clientY = e.clientY;
+                                const rectLeft = rect.left;
+                                const rectTop = rect.top;
+                                const rectWidth = rect.width;
+                                const rectHeight = rect.height;
+                                
+                                const x = Math.round(((clientX - rectLeft) / rectWidth) * mapWidth);
+                                const y = Math.round(((clientY - rectTop) / rectHeight) * mapHeight);
+                                
+                                const newPoints = [...sector.points] as [number, number][];
+                                newPoints.splice(i + 1, 0, [x, y]);
+                                updateSectorPoints(sector.id, newPoints);
+                              }}
+                            />
+                          );
+                        })}
                         {editMode && isSelected && sector.points.map((point, idx) => (
                           <circle
                             key={`${sector.id}-p-${idx}`}
