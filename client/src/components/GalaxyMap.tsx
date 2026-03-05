@@ -28,7 +28,7 @@ export const GalaxyMap = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       if (transformRef.current) {
-        transformRef.current.centerView(1, 0);
+        transformRef.current.centerView(0.2, 0);
       }
     }, 100);
     return () => clearTimeout(timer);
@@ -44,10 +44,16 @@ export const GalaxyMap = () => {
     return matchesSearch && matchesFaction && matchesHabitable && matchesEnv;
   });
 
+  const pad = 1000;
+  const totalWidth = mapWidth + pad * 2;
+  const totalHeight = mapHeight + pad * 2;
+
   const getMapCoords = (e: React.MouseEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = Math.round(((e.clientX - rect.left) / rect.width) * mapWidth);
-    const y = Math.round(((e.clientY - rect.top) / rect.height) * mapHeight);
+    const rawX = ((e.clientX - rect.left) / rect.width) * totalWidth;
+    const rawY = ((e.clientY - rect.top) / rect.height) * totalHeight;
+    const x = Math.round(rawX - pad);
+    const y = Math.round(rawY - pad);
     return { x, y };
   };
 
@@ -143,11 +149,11 @@ export const GalaxyMap = () => {
       
       <TransformWrapper
         ref={transformRef}
-        initialScale={1}
-        minScale={1}
+        initialScale={0.2}
+        minScale={0.15}
         maxScale={10}
         centerOnInit
-        limitToBounds={true}
+        limitToBounds={false}
         disabled={draggingPlanet !== null || draggingSectorPoint !== null || draggingFleet !== null}
       >
         {({ zoomIn, zoomOut, resetTransform, centerView }) => (
@@ -175,19 +181,42 @@ export const GalaxyMap = () => {
               <div 
                 className="relative cursor-grab active:cursor-grabbing origin-top-left"
                 style={{ 
-                  width: `${mapWidth}px`, 
-                  height: `${mapHeight}px`,
-                  backgroundImage: `url('/galaxy-map.png')`,
-                  backgroundSize: '100% 100%',
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'center',
+                  width: `${totalWidth}px`, 
+                  height: `${totalHeight}px`,
                 }}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
               >
+                {/* Outer glow / fade layer */}
+                <div 
+                  className="absolute"
+                  style={{
+                    left: '1000px',
+                    top: '1000px',
+                    width: `${mapWidth}px`,
+                    height: `${mapHeight}px`,
+                    boxShadow: '0 0 400px 200px rgba(30, 60, 100, 0.15), 0 0 800px 400px rgba(10, 20, 50, 0.1)',
+                  }}
+                />
+                {/* Main galaxy image */}
+                <div
+                  className="absolute"
+                  style={{
+                    left: '1000px',
+                    top: '1000px',
+                    width: `${mapWidth}px`,
+                    height: `${mapHeight}px`,
+                    backgroundImage: `url('/galaxy-map.png')`,
+                    backgroundSize: '100% 100%',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'center',
+                    mask: 'radial-gradient(ellipse at center, black 60%, transparent 100%)',
+                    WebkitMask: 'radial-gradient(ellipse at center, black 60%, transparent 100%)',
+                  }}
+                />
                 
-                <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox={`0 0 ${mapWidth} ${mapHeight}`}>
+                <svg className="absolute pointer-events-none" style={{ left: '1000px', top: '1000px', width: `${mapWidth}px`, height: `${mapHeight}px` }} viewBox={`0 0 ${mapWidth} ${mapHeight}`}>
                   <defs>
                     <filter id="glow">
                       <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
@@ -297,7 +326,7 @@ export const GalaxyMap = () => {
                     <div
                       key={planet.id}
                       className={cn("absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center", editMode ? "cursor-move" : "cursor-pointer")}
-                      style={{ left: planet.x, top: planet.y }}
+                      style={{ left: planet.x + 1000, top: planet.y + 1000 }}
                       onClick={(e) => handlePlanetClick(e, planet)}
                       onMouseDown={(e) => editMode && setDraggingPlanet(planet.id)}
                     >
@@ -339,7 +368,7 @@ export const GalaxyMap = () => {
                     <div
                       key={fleet.id}
                       className={cn("absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-10", editMode ? "cursor-move" : "cursor-pointer")}
-                      style={{ left: fleet.x, top: fleet.y }}
+                      style={{ left: fleet.x + 1000, top: fleet.y + 1000 }}
                       onClick={(e) => handleFleetClick(e, fleet)}
                       onMouseDown={(e) => editMode && setDraggingFleet(fleet.id)}
                     >
