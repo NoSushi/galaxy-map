@@ -153,7 +153,7 @@ export const GalaxyMap = () => {
         minScale={0.15}
         maxScale={10}
         centerOnInit
-        limitToBounds={false}
+        limitToBounds={true}
         disabled={draggingPlanet !== null || draggingSectorPoint !== null || draggingFleet !== null}
       >
         {({ zoomIn, zoomOut, resetTransform, centerView }) => (
