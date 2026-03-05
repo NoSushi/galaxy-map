@@ -212,7 +212,7 @@ export const GalaxyMap = () => {
       const { x, y } = getMapCoords(e);
       const hitRadius = 30;
       const endPlanet = planets.find(p => {
-        if (p.id === laneDrawStartPlanet) return false;
+        if (p.id === laneDrawStartPlanet && laneDrawPoints.length < 10) return false;
         const dx = p.x - x;
         const dy = p.y - y;
         return Math.sqrt(dx * dx + dy * dy) < hitRadius;
@@ -312,11 +312,18 @@ export const GalaxyMap = () => {
       ? [laneDrawStartPlanet, endPlanetId]
       : [laneDrawStartPlanet];
     
-    const intermediatePlanets = findPlanetsAlongPath(pathPoints, endpointIds);
-    const planetIds = endpointIds.length === 2
-      ? [endpointIds[0], endpointIds[1], ...intermediatePlanets]
-      : [endpointIds[0], ...intermediatePlanets];
-    const uniquePlanetIds = [...new Set(planetIds)];
+    const isLoop = endPlanetId === laneDrawStartPlanet;
+    const excludeFromSearch = isLoop ? [laneDrawStartPlanet] : endpointIds;
+    const intermediatePlanets = findPlanetsAlongPath(pathPoints, excludeFromSearch);
+    
+    let uniquePlanetIds: string[];
+    if (isLoop) {
+      uniquePlanetIds = [laneDrawStartPlanet, laneDrawStartPlanet, ...intermediatePlanets.filter(id => id !== laneDrawStartPlanet)];
+    } else if (endpointIds.length === 2) {
+      uniquePlanetIds = [endpointIds[0], endpointIds[1], ...intermediatePlanets];
+    } else {
+      uniquePlanetIds = [endpointIds[0], ...intermediatePlanets];
+    }
     
     if (pathPoints.length > 0 || endPlanetId) {
       addLane({
@@ -393,13 +400,15 @@ export const GalaxyMap = () => {
     const p1 = getPlanetPoint(lane.planetIds[0]);
     if (!p1) return null;
     const p2 = lane.planetIds[1] ? getPlanetPoint(lane.planetIds[1]) : null;
+    const isLoop = lane.planetIds[1] === lane.planetIds[0];
 
     if (lane.pathPoints && lane.pathPoints.length > 0) {
       const allPoints: number[][] = [[p1.x, p1.y], ...lane.pathPoints];
-      if (p2) allPoints.push([p2.x, p2.y]);
+      if (p2 && !isLoop) allPoints.push([p2.x, p2.y]);
+      if (isLoop) allPoints.push([p1.x, p1.y]);
       return `M ${allPoints.map(p => `${p[0]},${p[1]}`).join(' L ')}`;
     }
-    if (p2) return `M ${p1.x},${p1.y} L ${p2.x},${p2.y}`;
+    if (p2 && !isLoop) return `M ${p1.x},${p1.y} L ${p2.x},${p2.y}`;
     return null;
   };
 
@@ -415,7 +424,7 @@ export const GalaxyMap = () => {
     if (laneDrawMode && !laneDrawStartPlanet) return "HOLD CLICK ON A PLANET TO START DRAWING";
     if (laneDrawStartPlanet && isLaneDrawing) {
       const startName = planets.find(p => p.id === laneDrawStartPlanet)?.name || 'Unknown';
-      return `DRAWING FROM ${startName} — RELEASE ON PLANET TO CONNECT, OR IN SPACE TO END (SHIFT: STRAIGHT, ESC: CANCEL)`;
+      return `DRAWING FROM ${startName} — RELEASE ON ANY PLANET TO CONNECT (INCLUDING START FOR LOOP), OR IN SPACE TO END (SHIFT: STRAIGHT, ESC: CANCEL)`;
     }
     return null;
   };
