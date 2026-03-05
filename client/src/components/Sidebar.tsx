@@ -373,6 +373,20 @@ const LaneDetails = ({ lane, editMode, planets }: { lane: HyperspaceLane, editMo
   const uniquePlanetIds = [...new Set(lane.planetIds)];
   const routePlanets = uniquePlanetIds.map(id => planets.find(p => p.id === id)).filter(Boolean) as Planet[];
 
+  const endpointIds = lane.planetIds.slice(0, 2);
+  const intermediatePlanetIds = lane.planetIds.slice(2);
+  const availablePlanets = planets.filter(p => !lane.planetIds.includes(p.id));
+
+  const removePlanetFromLane = (planetId: string) => {
+    const newPlanetIds = [...endpointIds, ...intermediatePlanetIds.filter(id => id !== planetId)];
+    updateLane({ ...lane, planetIds: newPlanetIds });
+  };
+
+  const addPlanetToLane = (planetId: string) => {
+    const newPlanetIds = [...lane.planetIds, planetId];
+    updateLane({ ...lane, planetIds: newPlanetIds });
+  };
+
   if (editMode) {
     return (
       <div className="space-y-4">
@@ -394,6 +408,41 @@ const LaneDetails = ({ lane, editMode, planets }: { lane: HyperspaceLane, editMo
               <SelectItem value="Dangerous">Dangerous</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-[10px] uppercase text-primary/70">Associated Planets</Label>
+          <div className="space-y-1">
+            {routePlanets.map(planet => {
+              const isEndpoint = endpointIds.includes(planet.id);
+              return (
+                <div key={planet.id} className="flex items-center justify-between p-1.5 bg-white/5 rounded border border-white/10">
+                  <div className="flex items-center gap-2">
+                    <div className={cn("w-2 h-2 rounded-full", planet.faction === 'Empire' ? "bg-destructive" : "bg-primary")} />
+                    <span className="text-[11px] font-display uppercase tracking-wider">{planet.name}</span>
+                    {isEndpoint && <span className="text-[8px] text-muted-foreground bg-white/10 px-1 rounded">ENDPOINT</span>}
+                  </div>
+                  {!isEndpoint && (
+                    <button onClick={() => removePlanetFromLane(planet.id)} className="w-5 h-5 flex items-center justify-center text-destructive/70 hover:text-destructive hover:bg-destructive/10 rounded transition-colors" data-testid={`remove-lane-planet-${planet.id}`}>
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {availablePlanets.length > 0 && (
+            <Select onValueChange={addPlanetToLane}>
+              <SelectTrigger className="bg-black/60 border-primary/20 h-8 text-xs">
+                <SelectValue placeholder="Add planet to route..." />
+              </SelectTrigger>
+              <SelectContent>
+                {availablePlanets.map(p => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </div>
     );
