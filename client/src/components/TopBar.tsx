@@ -42,9 +42,19 @@ export const TopBar = () => {
       const p1 = planets.find(p => p.id === l.planetIds[0]);
       const p2 = planets.find(p => p.id === l.planetIds[1]);
       if (p1 && p2) {
-        const dx = p1.x - p2.x;
-        const dy = p1.y - p2.y;
-        const dist = Math.sqrt(dx*dx + dy*dy);
+        let dist = 0;
+        if (l.pathPoints && l.pathPoints.length > 0) {
+          const allPts: [number, number][] = [[p1.x, p1.y], ...l.pathPoints, [p2.x, p2.y]];
+          for (let i = 1; i < allPts.length; i++) {
+            const dx = allPts[i][0] - allPts[i-1][0];
+            const dy = allPts[i][1] - allPts[i-1][1];
+            dist += Math.sqrt(dx*dx + dy*dy);
+          }
+        } else {
+          const dx = p1.x - p2.x;
+          const dy = p1.y - p2.y;
+          dist = Math.sqrt(dx*dx + dy*dy);
+        }
         adj[p1.id].push({node: p2.id, dist});
         adj[p2.id].push({node: p1.id, dist});
       }
