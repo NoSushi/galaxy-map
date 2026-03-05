@@ -44,7 +44,7 @@ export const GalaxyMap = () => {
     return matchesSearch && matchesFaction && matchesHabitable && matchesEnv;
   });
 
-  const pad = 1000;
+  const pad = 500;
   const totalWidth = mapWidth + pad * 2;
   const totalHeight = mapHeight + pad * 2;
 
@@ -192,8 +192,8 @@ export const GalaxyMap = () => {
                 <div 
                   className="absolute"
                   style={{
-                    left: '1000px',
-                    top: '1000px',
+                    left: `${pad}px`,
+                    top: `${pad}px`,
                     width: `${mapWidth}px`,
                     height: `${mapHeight}px`,
                     boxShadow: '0 0 400px 200px rgba(30, 60, 100, 0.15), 0 0 800px 400px rgba(10, 20, 50, 0.1)',
@@ -203,8 +203,8 @@ export const GalaxyMap = () => {
                 <div
                   className="absolute"
                   style={{
-                    left: '1000px',
-                    top: '1000px',
+                    left: `${pad}px`,
+                    top: `${pad}px`,
                     width: `${mapWidth}px`,
                     height: `${mapHeight}px`,
                     backgroundImage: `url('/galaxy-map.png')`,
@@ -216,7 +216,7 @@ export const GalaxyMap = () => {
                   }}
                 />
                 
-                <svg className="absolute pointer-events-none" style={{ left: '1000px', top: '1000px', width: `${mapWidth}px`, height: `${mapHeight}px` }} viewBox={`0 0 ${mapWidth} ${mapHeight}`}>
+                <svg className="absolute pointer-events-none" style={{ left: `${pad}px`, top: `${pad}px`, width: `${mapWidth}px`, height: `${mapHeight}px` }} viewBox={`0 0 ${mapWidth} ${mapHeight}`}>
                   <defs>
                     <filter id="glow">
                       <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
@@ -326,7 +326,7 @@ export const GalaxyMap = () => {
                     <div
                       key={planet.id}
                       className={cn("absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center", editMode ? "cursor-move" : "cursor-pointer")}
-                      style={{ left: planet.x + 1000, top: planet.y + 1000 }}
+                      style={{ left: planet.x + pad, top: planet.y + pad }}
                       onClick={(e) => handlePlanetClick(e, planet)}
                       onMouseDown={(e) => editMode && setDraggingPlanet(planet.id)}
                     >
@@ -368,7 +368,7 @@ export const GalaxyMap = () => {
                     <div
                       key={fleet.id}
                       className={cn("absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-10", editMode ? "cursor-move" : "cursor-pointer")}
-                      style={{ left: fleet.x + 1000, top: fleet.y + 1000 }}
+                      style={{ left: fleet.x + pad, top: fleet.y + pad }}
                       onClick={(e) => handleFleetClick(e, fleet)}
                       onMouseDown={(e) => editMode && setDraggingFleet(fleet.id)}
                     >
