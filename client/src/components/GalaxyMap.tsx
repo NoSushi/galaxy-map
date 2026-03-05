@@ -313,13 +313,16 @@ export const GalaxyMap = () => {
       : [laneDrawStartPlanet];
     
     const intermediatePlanets = findPlanetsAlongPath(pathPoints, endpointIds);
-    const planetIds = [...new Set([...endpointIds, ...intermediatePlanets])];
+    const planetIds = endpointIds.length === 2
+      ? [endpointIds[0], endpointIds[1], ...intermediatePlanets]
+      : [endpointIds[0], ...intermediatePlanets];
+    const uniquePlanetIds = [...new Set(planetIds)];
     
     if (pathPoints.length > 0 || endPlanetId) {
       addLane({
         id: `l${Date.now()}`,
         name: 'New Hyperlane',
-        planetIds,
+        planetIds: uniquePlanetIds,
         type: 'Minor',
         pathPoints: pathPoints.length > 0 ? pathPoints : undefined,
       });

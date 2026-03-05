@@ -82,7 +82,8 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
         });
         if (isNear) {
           changed = true;
-          const updatedLane = { ...lane, planetIds: [...lane.planetIds, planet.id] };
+          const newPlanetIds = [...lane.planetIds, planet.id];
+          const updatedLane = { ...lane, planetIds: newPlanetIds };
           debouncedApiCall(`lane-${lane.id}`, () => laneApi.update(updatedLane));
           return updatedLane;
         }
