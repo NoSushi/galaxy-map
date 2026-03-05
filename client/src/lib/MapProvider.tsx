@@ -1,51 +1,19 @@
-import { ReactNode, useState, useEffect } from 'react';
+import { ReactNode, useState, useEffect, useCallback, useRef } from 'react';
 import { 
   MapContext, 
-  initialPlanets, 
-  initialSectors, 
-  initialLanes,
   Planet,
   Sector,
   HyperspaceLane,
   Fleet
 } from './data';
-
-const STORAGE_KEY = 'galactic_cartography_data';
+import { planetApi, sectorApi, laneApi, fleetApi } from './api';
 
 export const MapProvider = ({ children }: { children: ReactNode }) => {
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [planets, setPlanets] = useState<Planet[]>(initialPlanets);
-  const [sectors, setSectors] = useState<Sector[]>(initialSectors);
-  const [lanes, setLanes] = useState<HyperspaceLane[]>(initialLanes);
+  const [planets, setPlanets] = useState<Planet[]>([]);
+  const [sectors, setSectors] = useState<Sector[]>([]);
+  const [lanes, setLanes] = useState<HyperspaceLane[]>([]);
   const [fleets, setFleets] = useState<Fleet[]>([]);
-
-  // Load from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        if (data.planets) setPlanets(data.planets);
-        if (data.sectors) setSectors(data.sectors);
-        if (data.lanes) setLanes(data.lanes);
-        if (data.fleets) setFleets(data.fleets);
-      } catch (e) {
-        console.error('Failed to parse saved map data', e);
-      }
-    }
-    setIsLoaded(true);
-  }, []);
-
-  // Save to localStorage whenever data changes
-  useEffect(() => {
-    if (!isLoaded) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      planets,
-      sectors,
-      lanes,
-      fleets
-    }));
-  }, [planets, sectors, lanes, fleets, isLoaded]);
+  const [isLoading, setIsLoading] = useState(true);
   
   const [selectedPlanet, setSelectedPlanet] = useState<Planet | null>(null);
   const [selectedSector, setSelectedSector] = useState<Sector | null>(null);
@@ -65,76 +33,130 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
     environment: 'All'
   });
 
+  // Debounce timer refs for API updates
+  const updateTimers = useRef<Record<string, NodeJS.Timeout>>({});
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [p, s, l, f] = await Promise.all([
+          planetApi.getAll(),
+          sectorApi.getAll(),
+          laneApi.getAll(),
+          fleetApi.getAll()
+        ]);
+        setPlanets(p);
+        setSectors(s);
+        setLanes(l);
+        setFleets(f);
+      } catch (err) {
+        console.error('Failed to load map data:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  const debouncedApiCall = useCallback((key: string, fn: () => Promise<any>, delay = 300) => {
+    if (updateTimers.current[key]) clearTimeout(updateTimers.current[key]);
+    updateTimers.current[key] = setTimeout(() => {
+      fn().catch(err => console.error('API update failed:', err));
+    }, delay);
+  }, []);
+
   const updatePlanet = (updatedPlanet: Planet) => {
-    setPlanets(planets.map(p => p.id === updatedPlanet.id ? updatedPlanet : p));
-    if (selectedPlanet?.id === updatedPlanet.id) {
-      setSelectedPlanet(updatedPlanet);
-    }
+    setPlanets(prev => prev.map(p => p.id === updatedPlanet.id ? updatedPlanet : p));
+    if (selectedPlanet?.id === updatedPlanet.id) setSelectedPlanet(updatedPlanet);
+    debouncedApiCall(`planet-${updatedPlanet.id}`, () => planetApi.update(updatedPlanet));
   };
 
   const addPlanet = (newPlanet: Planet) => {
-    setPlanets([...planets, newPlanet]);
+    setPlanets(prev => [...prev, newPlanet]);
+    planetApi.create(newPlanet).catch(err => console.error('Failed to create planet:', err));
   };
 
   const updateSector = (updatedSector: Sector) => {
-    setSectors(sectors.map(s => s.id === updatedSector.id ? updatedSector : s));
-    if (selectedSector?.id === updatedSector.id) {
-      setSelectedSector(updatedSector);
-    }
+    setSectors(prev => prev.map(s => s.id === updatedSector.id ? updatedSector : s));
+    if (selectedSector?.id === updatedSector.id) setSelectedSector(updatedSector);
+    debouncedApiCall(`sector-${updatedSector.id}`, () => sectorApi.update(updatedSector));
   };
 
   const addSector = (newSector: Sector) => {
-    setSectors([...sectors, newSector]);
+    setSectors(prev => [...prev, newSector]);
+    sectorApi.create(newSector).catch(err => console.error('Failed to create sector:', err));
   };
 
   const updateSectorPoints = (sectorId: string, points: [number, number][]) => {
-    setSectors(sectors.map(s => s.id === sectorId ? { ...s, points } : s));
+    let fullSector: Sector | null = null;
+    setSectors(prev => {
+      const updated = prev.map(s => {
+        if (s.id === sectorId) {
+          fullSector = { ...s, points };
+          return fullSector;
+        }
+        return s;
+      });
+      return updated;
+    });
     if (selectedSector?.id === sectorId) {
       setSelectedSector(prev => prev ? { ...prev, points } : null);
+    }
+    if (fullSector) {
+      const sectorToUpdate = fullSector;
+      debouncedApiCall(`sector-points-${sectorId}`, () => sectorApi.update(sectorToUpdate));
     }
   };
 
   const updateLane = (updatedLane: HyperspaceLane) => {
-    setLanes(lanes.map(l => l.id === updatedLane.id ? updatedLane : l));
-    if (selectedLane?.id === updatedLane.id) {
-      setSelectedLane(updatedLane);
-    }
+    setLanes(prev => prev.map(l => l.id === updatedLane.id ? updatedLane : l));
+    if (selectedLane?.id === updatedLane.id) setSelectedLane(updatedLane);
+    debouncedApiCall(`lane-${updatedLane.id}`, () => laneApi.update(updatedLane));
   };
 
   const addLane = (newLane: HyperspaceLane) => {
-    setLanes([...lanes, newLane]);
+    setLanes(prev => [...prev, newLane]);
+    laneApi.create(newLane).catch(err => console.error('Failed to create lane:', err));
   };
 
   const updateFleet = (updatedFleet: Fleet) => {
-    setFleets(fleets.map(f => f.id === updatedFleet.id ? updatedFleet : f));
-    if (selectedFleet?.id === updatedFleet.id) {
-      setSelectedFleet(updatedFleet);
-    }
+    setFleets(prev => prev.map(f => f.id === updatedFleet.id ? updatedFleet : f));
+    if (selectedFleet?.id === updatedFleet.id) setSelectedFleet(updatedFleet);
+    debouncedApiCall(`fleet-${updatedFleet.id}`, () => fleetApi.update(updatedFleet));
   };
 
   const addFleet = (newFleet: Fleet) => {
-    setFleets([...fleets, newFleet]);
+    setFleets(prev => [...prev, newFleet]);
+    fleetApi.create(newFleet).catch(err => console.error('Failed to create fleet:', err));
   };
 
   const deletePlanet = (id: string) => {
-    setPlanets(planets.filter(p => p.id !== id));
+    setPlanets(prev => prev.filter(p => p.id !== id));
     if (selectedPlanet?.id === id) setSelectedPlanet(null);
-    setLanes(lanes.filter(l => !l.planetIds.includes(id)));
+    setLanes(prev => {
+      const toDelete = prev.filter(l => l.planetIds.includes(id));
+      toDelete.forEach(l => laneApi.delete(l.id).catch(console.error));
+      return prev.filter(l => !l.planetIds.includes(id));
+    });
+    planetApi.delete(id).catch(err => console.error('Failed to delete planet:', err));
   };
 
   const deleteFleet = (id: string) => {
-    setFleets(fleets.filter(f => f.id !== id));
+    setFleets(prev => prev.filter(f => f.id !== id));
     if (selectedFleet?.id === id) setSelectedFleet(null);
+    fleetApi.delete(id).catch(err => console.error('Failed to delete fleet:', err));
   };
 
   const deleteSector = (id: string) => {
-    setSectors(sectors.filter(s => s.id !== id));
+    setSectors(prev => prev.filter(s => s.id !== id));
     if (selectedSector?.id === id) setSelectedSector(null);
+    sectorApi.delete(id).catch(err => console.error('Failed to delete sector:', err));
   };
 
   const deleteLane = (id: string) => {
-    setLanes(lanes.filter(l => l.id !== id));
+    setLanes(prev => prev.filter(l => l.id !== id));
     if (selectedLane?.id === id) setSelectedLane(null);
+    laneApi.delete(id).catch(err => console.error('Failed to delete lane:', err));
   };
 
   return (
@@ -153,6 +175,7 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
       editMode,
       searchQuery,
       filters,
+      isLoading,
       setPlanets,
       setSectors,
       setLanes,

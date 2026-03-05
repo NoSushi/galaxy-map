@@ -1,18 +1,62 @@
-import { sql } from "drizzle-orm";
-import { pgTable, text, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { sql } from "drizzle-orm";
 
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+export const planets = pgTable("planets", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  name: text("name").notNull(),
+  x: integer("x").notNull(),
+  y: integer("y").notNull(),
+  sectorId: varchar("sector_id", { length: 64 }),
+  faction: text("faction").notNull().default("Independent"),
+  habitable: boolean("habitable").notNull().default(true),
+  environment: text("environment").notNull().default("Unknown"),
+  population: text("population"),
+  description: text("description").notNull().default(""),
+  image: text("image"),
+  markerImage: text("marker_image"),
+  isCapital: boolean("is_capital").default(false),
+  capitalOf: text("capital_of"),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+export const sectors = pgTable("sectors", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  name: text("name").notNull(),
+  color: text("color").notNull(),
+  points: jsonb("points").notNull().$type<[number, number][]>(),
+  faction: text("faction").notNull().default("Independent"),
 });
 
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+export const hyperspaceLanes = pgTable("hyperspace_lanes", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  name: text("name").notNull(),
+  planetIds: jsonb("planet_ids").notNull().$type<[string, string]>(),
+  type: text("type").notNull().default("Minor"),
+});
+
+export const fleets = pgTable("fleets", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  name: text("name").notNull(),
+  x: integer("x").notNull(),
+  y: integer("y").notNull(),
+  icon: text("icon").default("default"),
+  faction: text("faction").notNull().default("Independent"),
+  description: text("description").notNull().default(""),
+  markerImage: text("marker_image"),
+  isCapitalShip: boolean("is_capital_ship").default(false),
+});
+
+export const insertPlanetSchema = createInsertSchema(planets);
+export const insertSectorSchema = createInsertSchema(sectors);
+export const insertLaneSchema = createInsertSchema(hyperspaceLanes);
+export const insertFleetSchema = createInsertSchema(fleets);
+
+export type Planet = typeof planets.$inferSelect;
+export type InsertPlanet = z.infer<typeof insertPlanetSchema>;
+export type Sector = typeof sectors.$inferSelect;
+export type InsertSector = z.infer<typeof insertSectorSchema>;
+export type HyperspaceLane = typeof hyperspaceLanes.$inferSelect;
+export type InsertLane = z.infer<typeof insertLaneSchema>;
+export type Fleet = typeof fleets.$inferSelect;
+export type InsertFleet = z.infer<typeof insertFleetSchema>;
