@@ -333,14 +333,14 @@ export const TopBar = () => {
             <Hexagon className="w-10 h-10 text-primary glow-text transition-transform group-hover:rotate-90 duration-500" />
             <div className="flex flex-col">
               <h1 className="font-display font-black text-xl leading-none tracking-tighter text-primary glow-text uppercase">GALACTIC</h1>
-              <span className="text-[9px] tracking-[0.3em] text-primary/60 uppercase font-bold">NAVIGATIONAL HUB</span>
+              <span className="text-[9px] tracking-[0.3em] text-primary/60 uppercase font-bold">ASTROGATION DATABASE</span>
             </div>
           </div>
 
           <div className="relative w-72">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-primary/40" />
             <Input 
-              placeholder="Query celestial database..." 
+              placeholder="Query Astrogation Database..." 
               className="pl-9 bg-black/60 border-primary/20 h-9 font-sans focus-visible:ring-primary text-xs uppercase tracking-wider"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}

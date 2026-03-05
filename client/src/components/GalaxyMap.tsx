@@ -46,6 +46,8 @@ export const GalaxyMap = () => {
   const [sectorDrawPoints, setSectorDrawPoints] = useState<[number, number][]>([]);
   const [isSectorDrawing, setIsSectorDrawing] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<{ type: 'planet' | 'fleet' | 'lane'; id: string } | null>(null);
+  const [laneTooltipPos, setLaneTooltipPos] = useState<{ x: number; y: number } | null>(null);
+  const hoveredLane = hoveredItem?.type === 'lane' ? lanes.find(l => l.id === hoveredItem.id) : null;
 
   const transformRef = useRef<ReactZoomPanPinchRef | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -440,6 +442,16 @@ export const GalaxyMap = () => {
     <div className="w-full h-full overflow-hidden relative" onClick={handleMapClick}
          style={{ background: '#020408', backgroundImage: `url('/starfield-bg.png')`, backgroundSize: '512px 512px', backgroundRepeat: 'repeat' }}>
 
+      {hoveredLane && laneTooltipPos && (
+        <div
+          className="fixed z-50 pointer-events-none px-3 py-1.5 rounded bg-background/95 backdrop-blur-md border border-primary/40 shadow-[0_0_12px_hsl(var(--primary)/0.3)]"
+          style={{ left: laneTooltipPos.x + 16, top: laneTooltipPos.y - 12 }}
+        >
+          <span className="text-[10px] font-display tracking-widest text-primary uppercase">{hoveredLane.name}</span>
+          <span className="text-[9px] text-muted-foreground ml-2 uppercase">{hoveredLane.type}</span>
+        </div>
+      )}
+
       {(isInLaneCreation || isInSectorCreation) && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 glass-panel rounded-md px-4 py-2 text-[11px] font-display text-primary animate-pulse tracking-widest">
           {isInSectorCreation ? getSectorDrawStatus() : getLaneDrawStatus()}
@@ -642,8 +654,11 @@ export const GalaxyMap = () => {
 
                     return (
                       <g key={lane.id} className="pointer-events-auto cursor-pointer" onClick={(e) => handleLaneClick(e, lane)}
-                        onMouseEnter={() => setHoveredItem({ type: 'lane', id: lane.id })}
-                        onMouseLeave={() => setHoveredItem(null)}
+                        onMouseEnter={() => { setHoveredItem({ type: 'lane', id: lane.id }); }}
+                        onMouseLeave={() => { setHoveredItem(null); setLaneTooltipPos(null); }}
+                        onMouseMove={(e) => {
+                          setLaneTooltipPos({ x: e.clientX, y: e.clientY });
+                        }}
                       >
                         <path d={pathD} fill="none" stroke="transparent" strokeWidth={20} />
                         <path
