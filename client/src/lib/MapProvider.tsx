@@ -68,15 +68,41 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
     }, delay);
   }, []);
 
+  const autoConnectPlanetToLanes = useCallback((planet: Planet) => {
+    const threshold = 40;
+    setLanes(prev => {
+      let changed = false;
+      const updated = prev.map(lane => {
+        if (lane.planetIds.includes(planet.id)) return lane;
+        const pts = lane.pathPoints || [];
+        const isNear = pts.some(pt => {
+          const dx = planet.x - pt[0];
+          const dy = planet.y - pt[1];
+          return Math.sqrt(dx * dx + dy * dy) < threshold;
+        });
+        if (isNear) {
+          changed = true;
+          const updatedLane = { ...lane, planetIds: [...lane.planetIds, planet.id] };
+          debouncedApiCall(`lane-${lane.id}`, () => laneApi.update(updatedLane));
+          return updatedLane;
+        }
+        return lane;
+      });
+      return changed ? updated : prev;
+    });
+  }, [debouncedApiCall]);
+
   const updatePlanet = (updatedPlanet: Planet) => {
     setPlanets(prev => prev.map(p => p.id === updatedPlanet.id ? updatedPlanet : p));
     if (selectedPlanet?.id === updatedPlanet.id) setSelectedPlanet(updatedPlanet);
     debouncedApiCall(`planet-${updatedPlanet.id}`, () => planetApi.update(updatedPlanet));
+    autoConnectPlanetToLanes(updatedPlanet);
   };
 
   const addPlanet = (newPlanet: Planet) => {
     setPlanets(prev => [...prev, newPlanet]);
     planetApi.create(newPlanet).catch(err => console.error('Failed to create planet:', err));
+    autoConnectPlanetToLanes(newPlanet);
   };
 
   const updateSector = (updatedSector: Sector) => {

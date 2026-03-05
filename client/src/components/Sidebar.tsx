@@ -12,10 +12,29 @@ const ENV_IMAGES: Record<string, string> = {
   'Forest': '/planet-forest.png',
   'City': '/planet-city.png',
   'Volcanic': '/planet-desert.png',
+  'Icy': '/planet-desert.png',
+  'Arid': '/planet-desert.png',
+  'Barren': '/planet-desert.png',
+  'Oceanic': '/planet-forest.png',
+  'Swamp': '/planet-forest.png',
+  'Tropical': '/planet-forest.png',
+  'Gaseous': '/planet-desert.png',
+  'Mountainous': '/planet-desert.png',
   'Unknown': '/planet-desert.png',
 };
 
 const getDefaultPlanetImage = (environment: string) => ENV_IMAGES[environment] || '/planet-desert.png';
+
+const pointInPolygon = (x: number, y: number, polygon: [number, number][]): boolean => {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i][0], yi = polygon[i][1];
+    const xj = polygon[j][0], yj = polygon[j][1];
+    const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+};
 
 export const Sidebar = () => {
   const { 
@@ -106,6 +125,14 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
                 <SelectItem value="Forest">Forest</SelectItem>
                 <SelectItem value="City">City</SelectItem>
                 <SelectItem value="Volcanic">Volcanic</SelectItem>
+                <SelectItem value="Icy">Icy</SelectItem>
+                <SelectItem value="Arid">Arid</SelectItem>
+                <SelectItem value="Barren">Barren</SelectItem>
+                <SelectItem value="Oceanic">Oceanic</SelectItem>
+                <SelectItem value="Swamp">Swamp</SelectItem>
+                <SelectItem value="Tropical">Tropical</SelectItem>
+                <SelectItem value="Gaseous">Gaseous</SelectItem>
+                <SelectItem value="Mountainous">Mountainous</SelectItem>
                 <SelectItem value="Unknown">Unknown</SelectItem>
               </SelectContent>
             </Select>
@@ -126,6 +153,14 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
             <Input value={planet.capitalOf || ''} onChange={e => updatePlanet({...planet, capitalOf: e.target.value})} className="bg-black/60 border-primary/20 h-8 text-xs" placeholder="e.g. Galactic Empire" />
           </div>
         )}
+
+        <div className="flex items-center justify-between p-2 bg-white/5 rounded border border-white/10">
+          <div className="flex items-center gap-2">
+            <Globe className={cn("w-4 h-4", planet.habitable ? "text-green-400" : "text-muted-foreground")} />
+            <Label htmlFor="is-habitable" className="text-xs">Habitable</Label>
+          </div>
+          <Switch checked={planet.habitable} onCheckedChange={c => updatePlanet({...planet, habitable: c})} id="is-habitable" />
+        </div>
 
         <div className="space-y-1">
           <Label className="text-[10px] uppercase text-primary/70">Marker URL (PNG/WebP)</Label>
@@ -167,7 +202,7 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
         <DataRow label="Sector" value={sector?.name || 'Unknown'} />
         <DataRow label="Political Affiliation" value={planet.faction} valueClass={planet.faction === 'Empire' ? 'text-destructive' : 'text-primary'} />
         <DataRow label="Primary Biome" value={planet.environment} />
-        <DataRow label="Habitability" value={planet.habitable ? 'Class M' : 'Inhabitable'} />
+        <DataRow label="Habitable" value={planet.habitable ? 'Yes' : 'No'} valueClass={planet.habitable ? 'text-green-400' : 'text-red-400'} />
         {planet.population && <DataRow label="Citizenry" value={planet.population} />}
       </div>
 
@@ -201,7 +236,9 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
 
 const SectorDetails = ({ sector, editMode, planets }: { sector: Sector, editMode: boolean, planets: Planet[] }) => {
   const { updateSector, deleteSector } = useMap();
-  const sectorPlanets = planets.filter(p => p.sectorId === sector.id);
+  const sectorPlanets = planets.filter(p => 
+    p.sectorId === sector.id || (sector.points.length >= 3 && pointInPolygon(p.x, p.y, sector.points))
+  );
 
   if (editMode) {
     return (
@@ -283,7 +320,7 @@ const SectorDetails = ({ sector, editMode, planets }: { sector: Sector, editMode
         <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase font-bold">
           <span>Authority: {sector.faction}</span>
           <span className="w-1 h-1 rounded-full bg-white/20" />
-          <span>Nodes: {sectorPlanets.length}</span>
+          <span>{sectorPlanets.length} {sectorPlanets.length === 1 ? 'Planet' : 'Planets'}</span>
         </div>
       </div>
       <div className="space-y-2">

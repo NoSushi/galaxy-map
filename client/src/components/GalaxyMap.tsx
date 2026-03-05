@@ -289,12 +289,31 @@ export const GalaxyMap = () => {
     }
   };
 
+  const findPlanetsAlongPath = (pathPoints: [number, number][], excludeIds: string[], proximityThreshold = 40): string[] => {
+    const foundIds: string[] = [];
+    for (const planet of planets) {
+      if (excludeIds.includes(planet.id)) continue;
+      for (const pt of pathPoints) {
+        const dx = planet.x - pt[0];
+        const dy = planet.y - pt[1];
+        if (Math.sqrt(dx * dx + dy * dy) < proximityThreshold) {
+          foundIds.push(planet.id);
+          break;
+        }
+      }
+    }
+    return foundIds;
+  };
+
   const finalizeLane = (endPlanetId?: string) => {
     if (!laneDrawStartPlanet) return;
     const pathPoints = laneDrawPoints.slice(1);
-    const planetIds = endPlanetId 
+    const endpointIds = endPlanetId 
       ? [laneDrawStartPlanet, endPlanetId]
       : [laneDrawStartPlanet];
+    
+    const intermediatePlanets = findPlanetsAlongPath(pathPoints, endpointIds);
+    const planetIds = [...new Set([...endpointIds, ...intermediatePlanets])];
     
     if (pathPoints.length > 0 || endPlanetId) {
       addLane({
