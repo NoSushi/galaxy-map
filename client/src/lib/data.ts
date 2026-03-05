@@ -60,6 +60,7 @@ export interface MapContextType {
   showLanes: boolean;
   showSectors: boolean;
   showLabels: boolean;
+  showOverlay: boolean;
   editMode: boolean;
   searchQuery: string;
   filters: {
@@ -79,6 +80,7 @@ export interface MapContextType {
   setShowLanes: (show: boolean) => void;
   setShowSectors: (show: boolean) => void;
   setShowLabels: (show: boolean) => void;
+  setShowOverlay: (show: boolean) => void;
   setEditMode: (edit: boolean) => void;
   setSearchQuery: (query: string) => void;
   setFilters: (filters: any) => void;

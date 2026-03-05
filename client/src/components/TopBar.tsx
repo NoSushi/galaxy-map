@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { useMap, Planet, Sector, Fleet } from '@/lib/data';
-import { Search, Map as MapIcon, Route, Orbit, Edit3, Settings, LogOut, Hexagon, Plus, Lock, Ship, Compass } from 'lucide-react';
+import { Search, Map as MapIcon, Route, Orbit, Edit3, Settings, LogOut, Hexagon, Plus, Lock, Ship, Compass, Layers } from 'lucide-react';
 import { Input } from './ui/input';
 import { Switch } from './ui/switch';
 import { Label } from './ui/label';
@@ -14,6 +14,7 @@ export const TopBar = () => {
     showLanes, setShowLanes,
     showSectors, setShowSectors,
     showLabels, setShowLabels,
+    showOverlay, setShowOverlay,
     editMode, setEditMode,
     searchQuery, setSearchQuery,
     filters, setFilters,
@@ -210,6 +211,12 @@ export const TopBar = () => {
             <ToggleSwitch id="sectors" checked={showSectors} onChange={setShowSectors} label="Regions" icon={<MapIcon className="w-3 h-3" />} />
             <div className="w-px h-4 bg-primary/10" />
             <ToggleSwitch id="labels" checked={showLabels} onChange={setShowLabels} label="Tags" icon={<Orbit className="w-3 h-3" />} />
+            {editMode && (
+              <>
+                <div className="w-px h-4 bg-primary/10" />
+                <ToggleSwitch id="overlay" checked={showOverlay} onChange={setShowOverlay} label="Overlay" icon={<Layers className="w-3 h-3" />} />
+              </>
+            )}
           </div>
 
           <Button 

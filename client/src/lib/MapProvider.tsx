@@ -23,6 +23,7 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
   const [showLanes, setShowLanes] = useState(true);
   const [showSectors, setShowSectors] = useState(true);
   const [showLabels, setShowLabels] = useState(true);
+  const [showOverlay, setShowOverlay] = useState(false);
   
   const [editMode, setEditMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -172,6 +173,7 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
       showLanes,
       showSectors,
       showLabels,
+      showOverlay,
       editMode,
       searchQuery,
       filters,
@@ -187,6 +189,7 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
       setShowLanes,
       setShowSectors,
       setShowLabels,
+      setShowOverlay,
       setEditMode,
       setSearchQuery,
       setFilters,

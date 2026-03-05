@@ -7,7 +7,7 @@ import { Circle, Hexagon, Triangle, Move, Crown, Ship, Plus } from 'lucide-react
 export const GalaxyMap = () => {
   const { 
     planets, sectors, lanes, fleets,
-    showLanes, showSectors, showLabels, 
+    showLanes, showSectors, showLabels, showOverlay,
     selectedPlanet, setSelectedPlanet,
     selectedSector, setSelectedSector,
     selectedLane, setSelectedLane,
@@ -215,6 +215,23 @@ export const GalaxyMap = () => {
                     WebkitMask: 'radial-gradient(ellipse at center, black 40%, transparent 85%)',
                   }}
                 />
+                {showOverlay && editMode && (
+                  <div
+                    className="absolute pointer-events-none"
+                    style={{
+                      left: `${pad}px`,
+                      top: `${pad}px`,
+                      width: `${mapWidth}px`,
+                      height: `${mapHeight}px`,
+                      backgroundImage: `url('/reference-map.png')`,
+                      backgroundSize: '100% 100%',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'center',
+                      opacity: 0.5,
+                      zIndex: 5,
+                    }}
+                  />
+                )}
                 
                 <svg className="absolute pointer-events-none" style={{ left: `${pad}px`, top: `${pad}px`, width: `${mapWidth}px`, height: `${mapHeight}px` }} viewBox={`0 0 ${mapWidth} ${mapHeight}`}>
                   <defs>
