@@ -366,9 +366,12 @@ const SectorDetails = ({ sector, editMode, planets }: { sector: Sector, editMode
 };
 
 const LaneDetails = ({ lane, editMode, planets }: { lane: HyperspaceLane, editMode: boolean, planets: Planet[] }) => {
-  const { updateLane, deleteLane } = useMap();
+  const { updateLane, deleteLane, setSelectedPlanet, setSelectedLane } = useMap();
   const p1 = planets.find(p => p.id === lane.planetIds[0]);
   const p2 = planets.find(p => p.id === lane.planetIds[1]);
+  const isLoop = lane.planetIds.length >= 2 && lane.planetIds[0] === lane.planetIds[1];
+  const uniquePlanetIds = [...new Set(lane.planetIds)];
+  const routePlanets = uniquePlanetIds.map(id => planets.find(p => p.id === id)).filter(Boolean) as Planet[];
 
   if (editMode) {
     return (
@@ -404,15 +407,40 @@ const LaneDetails = ({ lane, editMode, planets }: { lane: HyperspaceLane, editMo
       </div>
       <div className="flex items-center justify-between p-4 bg-white/5 rounded border border-white/5">
         <div className="text-center">
-          <div className="text-[9px] text-muted-foreground uppercase mb-1">Terminal A</div>
+          <div className="text-[9px] text-muted-foreground uppercase mb-1">{isLoop ? 'Origin' : 'Terminal A'}</div>
           <div className="text-xs font-bold text-primary">{p1?.name}</div>
         </div>
         <div className="text-primary/30 flex-1 flex justify-center"><Route className="w-4 h-4" /></div>
         <div className="text-center">
-          <div className="text-[9px] text-muted-foreground uppercase mb-1">Terminal B</div>
-          <div className="text-xs font-bold text-primary">{p2?.name || 'Open Space'}</div>
+          <div className="text-[9px] text-muted-foreground uppercase mb-1">{isLoop ? 'Loop' : 'Terminal B'}</div>
+          <div className="text-xs font-bold text-primary">{isLoop ? p1?.name : (p2?.name || 'Open Space')}</div>
         </div>
       </div>
+
+      {routePlanets.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="font-display text-[10px] text-primary/60 uppercase tracking-[0.2em]">Planets Along Route ({routePlanets.length})</h3>
+          <div className="grid grid-cols-1 gap-1">
+            {routePlanets.map(planet => (
+              <div
+                key={planet.id}
+                className="flex items-center justify-between p-2 bg-white/5 rounded border border-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+                onClick={() => { setSelectedLane(null); setSelectedPlanet(planet); }}
+                data-testid={`lane-planet-${planet.id}`}
+              >
+                <div className="flex items-center gap-2">
+                  <div className={cn(
+                    "w-2 h-2 rounded-full",
+                    planet.faction === 'Empire' ? "bg-destructive" : "bg-primary"
+                  )} />
+                  <span className="text-xs font-display uppercase tracking-wider">{planet.name}</span>
+                </div>
+                <span className="text-[9px] text-muted-foreground uppercase">{planet.faction}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
