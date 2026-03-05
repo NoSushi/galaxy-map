@@ -163,7 +163,19 @@ export const GalaxyMap = () => {
     }
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (e: React.MouseEvent) => {
+    if (isLaneDrawing && laneDrawStartPlanet) {
+      const { x, y } = getMapCoords(e);
+      const hitRadius = 30;
+      const endPlanet = planets.find(p => {
+        if (p.id === laneDrawStartPlanet) return false;
+        const dx = p.x - x;
+        const dy = p.y - y;
+        return Math.sqrt(dx * dx + dy * dy) < hitRadius;
+      });
+      finalizeLane(endPlanet?.id);
+      return;
+    }
     if (isDrawing && drawingMode) {
       if (drawingPoints.length > 2) {
         if (drawingMode === 'sector' && selectedSector) {
@@ -206,38 +218,43 @@ export const GalaxyMap = () => {
     }
   }, [laneDrawMode]);
 
-  const handlePlanetClickForLane = (e: React.MouseEvent, planet: Planet) => {
+  const handlePlanetMouseDownForLane = (e: React.MouseEvent, planet: Planet) => {
     e.stopPropagation();
+    e.preventDefault();
     
     if (!laneDrawStartPlanet) {
       setLaneDrawStartPlanet(planet.id);
-      const startPlanet = planets.find(p => p.id === planet.id);
-      if (startPlanet) {
-        setLaneDrawPoints([[startPlanet.x, startPlanet.y]]);
-        setIsLaneDrawing(true);
-      }
-    } else if (planet.id !== laneDrawStartPlanet) {
-      const pathPoints = laneDrawPoints.slice(1);
+      setLaneDrawPoints([[planet.x, planet.y]]);
+      setIsLaneDrawing(true);
+    }
+  };
+
+  const finalizeLane = (endPlanetId?: string) => {
+    if (!laneDrawStartPlanet) return;
+    const pathPoints = laneDrawPoints.slice(1);
+    const planetIds = endPlanetId 
+      ? [laneDrawStartPlanet, endPlanetId]
+      : [laneDrawStartPlanet];
+    
+    if (pathPoints.length > 0 || endPlanetId) {
       addLane({
         id: `l${Date.now()}`,
         name: 'New Hyperlane',
-        planetIds: [laneDrawStartPlanet, planet.id],
+        planetIds,
         type: 'Minor',
         pathPoints: pathPoints.length > 0 ? pathPoints : undefined,
       });
-      setLaneDrawMode(false);
-      setLaneDrawStartPlanet(null);
-      setLaneDrawPoints([]);
-      setIsLaneDrawing(false);
     }
+    setLaneDrawMode(false);
+    setLaneDrawStartPlanet(null);
+    setLaneDrawPoints([]);
+    setIsLaneDrawing(false);
   };
 
   const handlePlanetClick = (e: React.MouseEvent, planet: Planet) => {
     e.stopPropagation();
-    if (isInLaneCreation) {
-      handlePlanetClickForLane(e, planet);
-      return;
-    }
+    if (isInLaneCreation && !isLaneDrawing) return;
+    if (isInLaneCreation) return;
     setSelectedPlanet(planet);
     setSelectedSector(null);
     setSelectedLane(null);
@@ -292,14 +309,16 @@ export const GalaxyMap = () => {
 
   const getLanePath = (lane: HyperspaceLane) => {
     const p1 = getPlanetPoint(lane.planetIds[0]);
-    const p2 = getPlanetPoint(lane.planetIds[1]);
-    if (!p1 || !p2) return null;
+    if (!p1) return null;
+    const p2 = lane.planetIds[1] ? getPlanetPoint(lane.planetIds[1]) : null;
 
     if (lane.pathPoints && lane.pathPoints.length > 0) {
-      const allPoints = [[p1.x, p1.y], ...lane.pathPoints, [p2.x, p2.y]];
+      const allPoints: number[][] = [[p1.x, p1.y], ...lane.pathPoints];
+      if (p2) allPoints.push([p2.x, p2.y]);
       return `M ${allPoints.map(p => `${p[0]},${p[1]}`).join(' L ')}`;
     }
-    return `M ${p1.x},${p1.y} L ${p2.x},${p2.y}`;
+    if (p2) return `M ${p1.x},${p1.y} L ${p2.x},${p2.y}`;
+    return null;
   };
 
   const getDrawingLanePath = () => {
@@ -311,10 +330,10 @@ export const GalaxyMap = () => {
 
   const getLaneDrawStatus = () => {
     if (!laneDrawMode && !laneDrawStartPlanet) return null;
-    if (laneDrawMode && !laneDrawStartPlanet) return "CLICK A PLANET TO START";
+    if (laneDrawMode && !laneDrawStartPlanet) return "HOLD CLICK ON A PLANET TO START DRAWING";
     if (laneDrawStartPlanet && isLaneDrawing) {
       const startName = planets.find(p => p.id === laneDrawStartPlanet)?.name || 'Unknown';
-      return `DRAWING FROM ${startName} — CLICK TARGET PLANET (SHIFT: STRAIGHT LINE, ESC: CANCEL)`;
+      return `DRAWING FROM ${startName} — RELEASE ON PLANET TO CONNECT, OR IN SPACE TO END (SHIFT: STRAIGHT, ESC: CANCEL)`;
     }
     return null;
   };
@@ -507,8 +526,7 @@ export const GalaxyMap = () => {
 
                   {showLanes && lanes.map(lane => {
                     const p1 = getPlanetPoint(lane.planetIds[0]);
-                    const p2 = getPlanetPoint(lane.planetIds[1]);
-                    if (!p1 || !p2) return null;
+                    if (!p1) return null;
                     const isSelected = selectedLane?.id === lane.id;
                     let strokeColor = "hsl(var(--primary))";
                     if (lane.type === 'Dangerous') strokeColor = "hsl(var(--destructive))";
@@ -596,6 +614,10 @@ export const GalaxyMap = () => {
                       style={{ left: planet.x + pad, top: planet.y + pad, zIndex: isLaneStart ? 20 : undefined }}
                       onClick={(e) => handlePlanetClick(e, planet)}
                       onMouseDown={(e) => {
+                        if (planetLocked && laneDrawMode && !laneDrawStartPlanet) {
+                          handlePlanetMouseDownForLane(e, planet);
+                          return;
+                        }
                         if (planetLocked) return;
                         if (editMode) setDraggingPlanet(planet.id);
                       }}

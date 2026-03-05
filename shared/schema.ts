@@ -34,7 +34,7 @@ export const sectors = pgTable("sectors", {
 export const hyperspaceLanes = pgTable("hyperspace_lanes", {
   id: varchar("id", { length: 64 }).primaryKey(),
   name: text("name").notNull(),
-  planetIds: jsonb("planet_ids").notNull().$type<[string, string]>(),
+  planetIds: jsonb("planet_ids").notNull().$type<string[]>(),
   type: text("type").notNull().default("Minor"),
   pathPoints: jsonb("path_points").$type<[number, number][]>(),
 });

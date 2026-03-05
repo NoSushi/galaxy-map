@@ -323,7 +323,7 @@ const LaneDetails = ({ lane, editMode, planets }: { lane: HyperspaceLane, editMo
         <div className="text-primary/30 flex-1 flex justify-center"><Route className="w-4 h-4" /></div>
         <div className="text-center">
           <div className="text-[9px] text-muted-foreground uppercase mb-1">Terminal B</div>
-          <div className="text-xs font-bold text-primary">{p2?.name}</div>
+          <div className="text-xs font-bold text-primary">{p2?.name || 'Open Space'}</div>
         </div>
       </div>
     </div>

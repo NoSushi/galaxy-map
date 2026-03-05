@@ -35,7 +35,7 @@ export interface Sector {
 export interface HyperspaceLane {
   id: string;
   name: string;
-  planetIds: [string, string];
+  planetIds: string[];
   type: string;
   pathPoints?: [number, number][] | null;
 }
