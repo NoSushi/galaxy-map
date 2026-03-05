@@ -45,6 +45,7 @@ export const GalaxyMap = () => {
 
   const [sectorDrawPoints, setSectorDrawPoints] = useState<[number, number][]>([]);
   const [isSectorDrawing, setIsSectorDrawing] = useState(false);
+  const [hoveredItem, setHoveredItem] = useState<{ type: 'planet' | 'fleet' | 'lane'; id: string } | null>(null);
 
   const transformRef = useRef<ReactZoomPanPinchRef | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -640,7 +641,10 @@ export const GalaxyMap = () => {
                     if (!pathD) return null;
 
                     return (
-                      <g key={lane.id} className="pointer-events-auto cursor-pointer" onClick={(e) => handleLaneClick(e, lane)}>
+                      <g key={lane.id} className="pointer-events-auto cursor-pointer" onClick={(e) => handleLaneClick(e, lane)}
+                        onMouseEnter={() => setHoveredItem({ type: 'lane', id: lane.id })}
+                        onMouseLeave={() => setHoveredItem(null)}
+                      >
                         <path d={pathD} fill="none" stroke="transparent" strokeWidth={20} />
                         <path
                           d={pathD}
@@ -735,12 +739,17 @@ export const GalaxyMap = () => {
                     <div
                       key={planet.id}
                       className={cn(
-                        "absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center",
+                        "absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center transition-opacity duration-200",
                         planetLocked ? "cursor-pointer" : (editMode ? "cursor-move" : "cursor-pointer"),
                         isLaneStart && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-full"
                       )}
-                      style={{ left: planet.x + pad, top: planet.y + pad, zIndex: isLaneStart ? 20 : undefined }}
+                      style={{ 
+                        left: planet.x + pad, top: planet.y + pad, 
+                        zIndex: isLaneStart ? 20 : (hoveredItem?.type === 'planet' && hoveredItem.id === planet.id ? 20 : undefined),
+                      }}
                       onClick={(e) => handlePlanetClick(e, planet)}
+                      onMouseEnter={() => setHoveredItem({ type: 'planet', id: planet.id })}
+                      onMouseLeave={() => setHoveredItem(null)}
                       onMouseDown={(e) => {
                         if (planetLocked && laneDrawMode && !laneDrawStartPlanet) {
                           handlePlanetMouseDownForLane(e, planet);
@@ -774,8 +783,9 @@ export const GalaxyMap = () => {
                       )}
                       {showLabels && (
                         <div className={cn(
-                          "mt-2 px-2 py-0.5 rounded text-[10px] font-display tracking-widest whitespace-nowrap bg-background/90 backdrop-blur-md border transition-all uppercase",
-                          isSelected ? "border-primary text-primary shadow-[0_0_15px_hsl(var(--primary)/0.4)]" : "border-border/60 text-foreground/90"
+                          "mt-2 px-2 py-0.5 rounded text-[10px] font-display tracking-widest whitespace-nowrap bg-background/90 backdrop-blur-md border transition-all duration-200 uppercase",
+                          isSelected ? "border-primary text-primary shadow-[0_0_15px_hsl(var(--primary)/0.4)]" : "border-border/60 text-foreground/90",
+                          hoveredItem && hoveredItem.id !== planet.id && !isSelected ? "opacity-0" : "opacity-100"
                         )}>
                           {planet.name}
                         </div>
@@ -789,9 +799,11 @@ export const GalaxyMap = () => {
                   return (
                     <div
                       key={fleet.id}
-                      className={cn("absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-10", editMode && !isInAnyDrawCreation ? "cursor-move" : "cursor-pointer")}
+                      className={cn("absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-10 transition-opacity duration-200", editMode && !isInAnyDrawCreation ? "cursor-move" : "cursor-pointer")}
                       style={{ left: fleet.x + pad, top: fleet.y + pad }}
                       onClick={(e) => handleFleetClick(e, fleet)}
+                      onMouseEnter={() => setHoveredItem({ type: 'fleet', id: fleet.id })}
+                      onMouseLeave={() => setHoveredItem(null)}
                       onMouseDown={(e) => {
                         if (isInAnyDrawCreation) return;
                         if (editMode) setDraggingFleet(fleet.id);
@@ -813,7 +825,10 @@ export const GalaxyMap = () => {
                           <Ship className={cn("w-5 h-5", isSelected ? "text-primary" : "text-muted-foreground")} />
                         )}
                       </div>
-                      <div className="mt-1 px-2 py-0.5 rounded text-[9px] font-display tracking-widest bg-background/95 border border-primary/30 text-primary uppercase">
+                      <div className={cn(
+                        "mt-1 px-2 py-0.5 rounded text-[9px] font-display tracking-widest bg-background/95 border border-primary/30 text-primary uppercase transition-opacity duration-200",
+                        hoveredItem && hoveredItem.id !== fleet.id && !isSelected ? "opacity-0" : "opacity-100"
+                      )}>
                         {fleet.name}
                       </div>
                     </div>
