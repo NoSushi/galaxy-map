@@ -19,6 +19,7 @@ export interface Planet {
   markerImage?: string | null;
   isCapital?: boolean | null;
   capitalOf?: string | null;
+  isMinor?: boolean | null;
 }
 
 export interface Sector {

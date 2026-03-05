@@ -162,6 +162,14 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
           <Switch checked={planet.habitable} onCheckedChange={c => updatePlanet({...planet, habitable: c})} id="is-habitable" />
         </div>
 
+        <div className="flex items-center justify-between p-2 bg-white/5 rounded border border-white/10">
+          <div className="flex items-center gap-2">
+            <Globe className={cn("w-3 h-3", planet.isMinor ? "text-muted-foreground" : "text-primary")} />
+            <Label htmlFor="is-minor" className="text-xs">Minor Planet</Label>
+          </div>
+          <Switch checked={planet.isMinor || false} onCheckedChange={c => updatePlanet({...planet, isMinor: c})} id="is-minor" />
+        </div>
+
         <div className="space-y-1">
           <Label className="text-[10px] uppercase text-primary/70">Marker URL (PNG/WebP)</Label>
           <Input value={planet.markerImage || ''} onChange={e => updatePlanet({...planet, markerImage: e.target.value})} className="bg-black/60 border-primary/20 h-8 text-xs" />

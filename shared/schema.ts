@@ -18,6 +18,7 @@ export const planets = pgTable("planets", {
   markerImage: text("marker_image"),
   isCapital: boolean("is_capital").default(false),
   capitalOf: text("capital_of"),
+  isMinor: boolean("is_minor").default(false),
 });
 
 export const sectors = pgTable("sectors", {
