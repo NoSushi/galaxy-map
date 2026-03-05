@@ -6,8 +6,95 @@ import { Switch } from './ui/switch';
 import { Label } from './ui/label';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
+
+const PlanetAutocomplete = ({ planets, value, onSelect, placeholder }: { planets: Planet[], value: string, onSelect: (id: string) => void, placeholder: string }) => {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const [highlightIndex, setHighlightIndex] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const selectedName = planets.find(p => p.id === value)?.name || '';
+
+  const filtered = useMemo(() => {
+    if (!query) return planets;
+    return planets.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
+  }, [query, planets]);
+
+  const handleFocus = () => {
+    setQuery('');
+    setOpen(true);
+    setHighlightIndex(0);
+  };
+
+  const handleBlur = () => {
+    setTimeout(() => setOpen(false), 150);
+  };
+
+  const selectPlanet = (p: Planet) => {
+    onSelect(p.id);
+    setQuery('');
+    setOpen(false);
+    inputRef.current?.blur();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!open || filtered.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightIndex(i => Math.min(i + 1, filtered.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightIndex(i => Math.max(i - 1, 0));
+    } else if (e.key === 'Tab' || e.key === 'Enter') {
+      e.preventDefault();
+      selectPlanet(filtered[highlightIndex]);
+    } else if (e.key === 'Escape') {
+      setOpen(false);
+      inputRef.current?.blur();
+    }
+  };
+
+  return (
+    <div className="relative">
+      <Input
+        ref={inputRef}
+        value={open ? query : selectedName}
+        onChange={(e) => { setQuery(e.target.value); setHighlightIndex(0); }}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        placeholder={placeholder}
+        className="bg-black/60 border-primary/20 h-9 text-[11px] uppercase"
+        data-testid={`input-planet-${placeholder.toLowerCase().replace(/\s+/g, '-')}`}
+      />
+      {open && filtered.length > 0 && (
+        <div ref={listRef} className="absolute z-50 w-full mt-1 max-h-48 overflow-y-auto bg-[#0a0e18]/98 border border-primary/30 rounded-md shadow-2xl backdrop-blur-xl">
+          {filtered.map((p, i) => (
+            <div
+              key={p.id}
+              className={cn(
+                "px-3 py-2 text-[11px] uppercase cursor-pointer transition-colors",
+                i === highlightIndex ? "bg-primary/20 text-primary" : "text-foreground/80 hover:bg-primary/10 hover:text-primary"
+              )}
+              onMouseDown={(e) => { e.preventDefault(); selectPlanet(p); }}
+              onMouseEnter={() => setHighlightIndex(i)}
+            >
+              {p.name}
+            </div>
+          ))}
+        </div>
+      )}
+      {open && filtered.length === 0 && query && (
+        <div className="absolute z-50 w-full mt-1 bg-[#0a0e18]/98 border border-primary/30 rounded-md shadow-2xl p-3 text-[10px] text-primary/40 uppercase text-center">
+          No matching systems
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const TopBar = () => {
   const { 
@@ -333,21 +420,21 @@ export const TopBar = () => {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <Label className="text-[10px] uppercase tracking-widest text-primary/70">Origin Point</Label>
-                <Select value={travelCalc.start} onValueChange={(v) => setTravelCalc(prev => ({...prev, start: v}))}>
-                  <SelectTrigger className="bg-black/60 border-primary/20 text-[10px] uppercase"><SelectValue placeholder="Select Origin" /></SelectTrigger>
-                  <SelectContent>
-                    {planets.map(p => <SelectItem key={`start-${p.id}`} value={p.id}>{p.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <PlanetAutocomplete
+                  planets={planets}
+                  value={travelCalc.start}
+                  onSelect={(v) => setTravelCalc(prev => ({...prev, start: v}))}
+                  placeholder="Type origin system..."
+                />
               </div>
               <div className="space-y-1">
                 <Label className="text-[10px] uppercase tracking-widest text-primary/70">Destination</Label>
-                <Select value={travelCalc.end} onValueChange={(v) => setTravelCalc(prev => ({...prev, end: v}))}>
-                  <SelectTrigger className="bg-black/60 border-primary/20 text-[10px] uppercase"><SelectValue placeholder="Select Dest" /></SelectTrigger>
-                  <SelectContent>
-                    {planets.map(p => <SelectItem key={`end-${p.id}`} value={p.id}>{p.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <PlanetAutocomplete
+                  planets={planets}
+                  value={travelCalc.end}
+                  onSelect={(v) => setTravelCalc(prev => ({...prev, end: v}))}
+                  placeholder="Type destination..."
+                />
               </div>
             </div>
             <div className="space-y-1">
