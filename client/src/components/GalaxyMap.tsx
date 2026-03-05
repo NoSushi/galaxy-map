@@ -211,8 +211,8 @@ export const GalaxyMap = () => {
                     backgroundSize: '100% 100%',
                     backgroundRepeat: 'no-repeat',
                     backgroundPosition: 'center',
-                    mask: 'radial-gradient(ellipse at center, black 60%, transparent 100%)',
-                    WebkitMask: 'radial-gradient(ellipse at center, black 60%, transparent 100%)',
+                    mask: 'radial-gradient(ellipse at center, black 40%, transparent 85%)',
+                    WebkitMask: 'radial-gradient(ellipse at center, black 40%, transparent 85%)',
                   }}
                 />
                 
