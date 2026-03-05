@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
+import React, { useState, useEffect, useRef } from 'react';
+import { TransformWrapper, TransformComponent, ReactZoomPanPinchRef } from 'react-zoom-pan-pinch';
 import { useMap, Planet, Fleet, HyperspaceLane } from '@/lib/data';
 import { cn } from '@/lib/utils';
 import { Circle, Hexagon, Triangle, Move, Crown, Ship, Plus } from 'lucide-react';
@@ -23,6 +23,16 @@ export const GalaxyMap = () => {
   const [draggingSectorPoint, setDraggingSectorPoint] = useState<{sectorId: string, pointIndex: number} | null>(null);
   const [draggingFleet, setDraggingFleet] = useState<string | null>(null);
   const [laneStartPlanet, setLaneStartPlanet] = useState<string | null>(null);
+  const transformRef = useRef<ReactZoomPanPinchRef | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (transformRef.current) {
+        transformRef.current.centerView(0.2, 0);
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   const filteredPlanets = planets.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -132,14 +142,16 @@ export const GalaxyMap = () => {
            style={{ backgroundImage: 'radial-gradient(circle at center, #ffffff 1px, transparent 1px)', backgroundSize: '150px 100px' }} />
       
       <TransformWrapper
+        ref={transformRef}
         initialScale={0.2}
         minScale={0.15}
         maxScale={10}
         centerOnInit
         limitToBounds={true}
+        alignmentAnimation={{ sizeX: 0, sizeY: 0 }}
         disabled={draggingPlanet !== null || draggingSectorPoint !== null || draggingFleet !== null}
       >
-        {({ zoomIn, zoomOut, resetTransform }) => (
+        {({ zoomIn, zoomOut, resetTransform, centerView }) => (
           <>
             <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
               <div className="glass-panel rounded-md p-1 flex gap-1">
@@ -160,7 +172,7 @@ export const GalaxyMap = () => {
               )}
             </div>
 
-            <TransformComponent wrapperClass="w-full h-full" contentClass="w-full h-full">
+            <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }}>
               <div 
                 className="relative cursor-grab active:cursor-grabbing origin-top-left"
                 style={{ 
