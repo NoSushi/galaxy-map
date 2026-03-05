@@ -779,6 +779,11 @@ export const GalaxyMap = () => {
                           <Crown className="w-5 h-5 fill-yellow-400/20" />
                         </div>
                       )}
+                      {!planet.isCapital && planet.isPowerbaseCapital && (
+                        <div className="mb-0.5 text-amber-500 drop-shadow-[0_0_4px_currentColor]">
+                          <Crown className="w-3.5 h-3.5 fill-amber-500/20" />
+                        </div>
+                      )}
                       {planet.markerImage ? (
                         <div className={cn("relative transition-all duration-300", isSelected ? "scale-125 drop-shadow-[0_0_15px_rgba(255,255,255,0.6)]" : "hover:scale-110")}>
                           <img src={planet.markerImage} alt={planet.name} className="w-10 h-10 object-contain pointer-events-none drop-shadow-lg" />

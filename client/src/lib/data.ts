@@ -20,6 +20,9 @@ export interface Planet {
   isCapital?: boolean | null;
   capitalOf?: string | null;
   isMinor?: boolean | null;
+  isPowerbaseCapital?: boolean | null;
+  powerbaseOf?: string | null;
+  oversector?: string | null;
 }
 
 export interface Sector {

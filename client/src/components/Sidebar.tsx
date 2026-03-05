@@ -170,6 +170,26 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
           <Switch checked={planet.isMinor || false} onCheckedChange={c => updatePlanet({...planet, isMinor: c})} id="is-minor" />
         </div>
 
+        <div className="flex items-center justify-between p-2 bg-white/5 rounded border border-white/10">
+          <div className="flex items-center gap-2">
+            <Crown className={cn("w-3.5 h-3.5", planet.isPowerbaseCapital ? "text-amber-500" : "text-muted-foreground")} />
+            <Label htmlFor="is-powerbase" className="text-xs">Powerbase Capital</Label>
+          </div>
+          <Switch checked={planet.isPowerbaseCapital || false} onCheckedChange={c => updatePlanet({...planet, isPowerbaseCapital: c})} id="is-powerbase" />
+        </div>
+
+        {planet.isPowerbaseCapital && (
+          <div className="space-y-1">
+            <Label className="text-[10px] uppercase text-primary/70">Powerbase Of</Label>
+            <Input value={planet.powerbaseOf || ''} onChange={e => updatePlanet({...planet, powerbaseOf: e.target.value})} className="bg-black/60 border-primary/20 h-8 text-xs" placeholder="e.g. Darth Malgus" />
+          </div>
+        )}
+
+        <div className="space-y-1">
+          <Label className="text-[10px] uppercase text-primary/70">Oversector</Label>
+          <Input value={planet.oversector || ''} onChange={e => updatePlanet({...planet, oversector: e.target.value})} className="bg-black/60 border-primary/20 h-8 text-xs" placeholder="e.g. Oversector Outer" />
+        </div>
+
         <div className="space-y-1">
           <Label className="text-[10px] uppercase text-primary/70">Marker URL (PNG/WebP)</Label>
           <Input value={planet.markerImage || ''} onChange={e => updatePlanet({...planet, markerImage: e.target.value})} className="bg-black/60 border-primary/20 h-8 text-xs" />
@@ -202,6 +222,7 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
           <div className="absolute bottom-3 left-3">
             <h1 className="text-2xl font-display font-black text-white glow-text uppercase leading-none tracking-tighter">{planet.name}</h1>
             {planet.isCapital && <div className="text-[10px] text-yellow-400 font-display flex items-center gap-1 mt-1 uppercase tracking-widest"><Crown className="w-3 h-3" /> Capital of {planet.capitalOf}</div>}
+            {planet.isPowerbaseCapital && <div className="text-[10px] text-amber-500 font-display flex items-center gap-1 mt-0.5 uppercase tracking-widest"><Crown className="w-2.5 h-2.5" /> Powerbase of {planet.powerbaseOf}</div>}
           </div>
         </div>
       </div>
@@ -211,6 +232,7 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
         <DataRow label="Political Affiliation" value={planet.faction} valueClass={planet.faction === 'Empire' ? 'text-destructive' : 'text-primary'} />
         <DataRow label="Primary Biome" value={planet.environment} />
         <DataRow label="Habitable" value={planet.habitable ? 'Yes' : 'No'} valueClass={planet.habitable ? 'text-green-400' : 'text-red-400'} />
+        {planet.oversector && <DataRow label="Oversector" value={planet.oversector} />}
         {planet.population && <DataRow label="Citizenry" value={planet.population} />}
       </div>
 
