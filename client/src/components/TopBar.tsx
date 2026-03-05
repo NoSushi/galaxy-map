@@ -33,36 +33,78 @@ export const TopBar = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  // Dijkstra's algorithm for shortest path between planets along lanes
   const travelResult = useMemo(() => {
     if (!travelCalc.start || !travelCalc.end || travelCalc.start === travelCalc.end) return null;
     
-    const adj: Record<string, {node: string, dist: number}[]> = {};
+    const PASS_THROUGH_RADIUS = 50;
+    
+    const distBetween = (ax: number, ay: number, bx: number, by: number) =>
+      Math.sqrt((ax - bx) ** 2 + (ay - by) ** 2);
+
+    const adj: Record<string, {node: string, dist: number, laneName: string}[]> = {};
     planets.forEach(p => adj[p.id] = []);
+
     lanes.forEach(l => {
-      const p1 = planets.find(p => p.id === l.planetIds[0]);
-      const p2 = planets.find(p => p.id === l.planetIds[1]);
-      if (p1 && p2) {
-        let dist = 0;
-        if (l.pathPoints && l.pathPoints.length > 0) {
-          const allPts: [number, number][] = [[p1.x, p1.y], ...l.pathPoints, [p2.x, p2.y]];
-          for (let i = 1; i < allPts.length; i++) {
-            const dx = allPts[i][0] - allPts[i-1][0];
-            const dy = allPts[i][1] - allPts[i-1][1];
-            dist += Math.sqrt(dx*dx + dy*dy);
+      const startP = planets.find(p => p.id === l.planetIds[0]);
+      if (!startP) return;
+      const endP = l.planetIds[1] ? planets.find(p => p.id === l.planetIds[1]) : null;
+
+      const fullPts: [number, number][] = [[startP.x, startP.y]];
+      if (l.pathPoints && l.pathPoints.length > 0) fullPts.push(...l.pathPoints);
+      if (endP) fullPts.push([endP.x, endP.y]);
+
+      const passThroughPlanets: {planetId: string, segIndex: number}[] = [];
+      for (let seg = 0; seg < fullPts.length - 1; seg++) {
+        const [ax, ay] = fullPts[seg];
+        const [bx, by] = fullPts[seg + 1];
+        planets.forEach(planet => {
+          if (planet.id === l.planetIds[0]) return;
+          if (endP && planet.id === l.planetIds[1]) return;
+          const segLen = distBetween(ax, ay, bx, by);
+          if (segLen === 0) return;
+          const t = Math.max(0, Math.min(1, ((planet.x - ax) * (bx - ax) + (planet.y - ay) * (by - ay)) / (segLen * segLen)));
+          const projX = ax + t * (bx - ax);
+          const projY = ay + t * (by - ay);
+          const d = distBetween(planet.x, planet.y, projX, projY);
+          if (d < PASS_THROUGH_RADIUS) {
+            if (!passThroughPlanets.find(pp => pp.planetId === planet.id)) {
+              passThroughPlanets.push({ planetId: planet.id, segIndex: seg });
+            }
           }
-        } else {
-          const dx = p1.x - p2.x;
-          const dy = p1.y - p2.y;
-          dist = Math.sqrt(dx*dx + dy*dy);
-        }
-        adj[p1.id].push({node: p2.id, dist});
-        adj[p2.id].push({node: p1.id, dist});
+        });
+      }
+
+      passThroughPlanets.sort((a, b) => {
+        if (a.segIndex !== b.segIndex) return a.segIndex - b.segIndex;
+        const pa = planets.find(p => p.id === a.planetId)!;
+        const pb = planets.find(p => p.id === b.planetId)!;
+        const startPt = fullPts[a.segIndex];
+        return distBetween(startPt[0], startPt[1], pa.x, pa.y) - distBetween(startPt[0], startPt[1], pb.x, pb.y);
+      });
+
+      const nodeSequence = [l.planetIds[0]];
+      passThroughPlanets.forEach(pp => nodeSequence.push(pp.planetId));
+      if (endP) nodeSequence.push(l.planetIds[1]);
+
+      const nodeCoords: Record<string, [number, number]> = {};
+      planets.forEach(p => nodeCoords[p.id] = [p.x, p.y]);
+
+      for (let i = 0; i < nodeSequence.length - 1; i++) {
+        const fromId = nodeSequence[i];
+        const toId = nodeSequence[i + 1];
+        const [fx, fy] = nodeCoords[fromId];
+        const [tx, ty] = nodeCoords[toId];
+        const segDist = distBetween(fx, fy, tx, ty);
+        
+        if (!adj[fromId]) adj[fromId] = [];
+        if (!adj[toId]) adj[toId] = [];
+        adj[fromId].push({ node: toId, dist: segDist, laneName: l.name });
+        adj[toId].push({ node: fromId, dist: segDist, laneName: l.name });
       }
     });
 
     const distances: Record<string, number> = {};
-    const prev: Record<string, string | null> = {};
+    const prev: Record<string, { node: string, laneName: string } | null> = {};
     const pq = new Set(planets.map(p => p.id));
     
     planets.forEach(p => {
@@ -82,25 +124,46 @@ export const TopBar = () => {
         const alt = distances[u] + edge.dist;
         if (alt < distances[edge.node]) {
           distances[edge.node] = alt;
-          prev[edge.node] = u;
+          prev[edge.node] = { node: u, laneName: edge.laneName };
         }
       });
     }
 
     if (distances[travelCalc.end] === Infinity) return { error: "No hyperspace route found between these systems." };
 
-    // 5000x5000 map = 120,000 light years
+    const route: { planetId: string, planetName: string, laneName: string }[] = [];
+    let current: string | null = travelCalc.end;
+    while (current) {
+      const prevEntry = prev[current];
+      const planet = planets.find(p => p.id === current);
+      route.unshift({
+        planetId: current,
+        planetName: planet?.name || 'Unknown',
+        laneName: prevEntry?.laneName || ''
+      });
+      current = prevEntry?.node || null;
+    }
+
+    const legs: { from: string, to: string, laneName: string }[] = [];
+    for (let i = 0; i < route.length - 1; i++) {
+      const currentLane = route[i + 1].laneName;
+      const lastLeg = legs[legs.length - 1];
+      if (lastLeg && lastLeg.laneName === currentLane) {
+        lastLeg.to = route[i + 1].planetName;
+      } else {
+        legs.push({
+          from: route[i].planetName,
+          to: route[i + 1].planetName,
+          laneName: currentLane
+        });
+      }
+    }
+
     const mapToLy = 120000 / 5000;
     const totalLy = distances[travelCalc.end] * mapToLy;
-    const baseSpeed = 111; // LY per hour for Class 1
+    const baseSpeed = 111;
     const hdClass = parseFloat(travelCalc.hyperdrive) || 1.0;
-    
-    // Time = Distance / (Speed / Class)
-    // Class 1 = 111 LY/h
-    // Class 0.5 = 222 LY/h (twice as fast)
-    // Class 2 = 55.5 LY/h (twice as slow)
     const hours = totalLy / (baseSpeed / hdClass);
-    
     const days = Math.floor(hours / 24);
     const remainingHours = Math.round(hours % 24);
 
@@ -108,7 +171,9 @@ export const TopBar = () => {
       distance: Math.round(totalLy), 
       days, 
       hours: remainingHours,
-      totalHours: Math.round(hours)
+      totalHours: Math.round(hours),
+      route,
+      legs
     };
   }, [travelCalc, planets, lanes]);
 
@@ -310,7 +375,7 @@ export const TopBar = () => {
                       <span className="text-[10px] uppercase text-primary/60 font-bold">Total Distance</span>
                       <span className="text-primary font-display font-bold">{travelResult.distance.toLocaleString()} LY</span>
                     </div>
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center border-b border-primary/20 pb-2">
                       <span className="text-[10px] uppercase text-primary/60 font-bold">Estimated Time</span>
                       <div className="text-right">
                         <div className="text-primary font-display font-black text-2xl leading-none">
@@ -320,6 +385,21 @@ export const TopBar = () => {
                         <div className="text-[9px] text-primary/40 uppercase mt-1">Total {travelResult.totalHours} Hours</div>
                       </div>
                     </div>
+                    {travelResult.legs && travelResult.legs.length > 0 && (
+                      <div className="space-y-1.5">
+                        <div className="text-[10px] uppercase text-primary/60 font-bold">Route</div>
+                        <div className="space-y-1">
+                          {travelResult.legs.map((leg, i) => (
+                            <div key={i} className="flex items-center gap-2 text-[10px] p-1.5 bg-black/30 rounded border border-primary/10">
+                              <span className="text-primary font-bold uppercase">{leg.from}</span>
+                              <span className="text-primary/40">→</span>
+                              <span className="text-primary font-bold uppercase">{leg.to}</span>
+                              <span className="ml-auto text-primary/50 italic text-[9px]">via {leg.laneName}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
