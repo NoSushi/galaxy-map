@@ -132,11 +132,11 @@ export const GalaxyMap = () => {
            style={{ backgroundImage: 'radial-gradient(circle at center, #ffffff 1px, transparent 1px)', backgroundSize: '150px 100px' }} />
       
       <TransformWrapper
-        initialScale={0.5}
-        minScale={0.05}
+        initialScale={0.2}
+        minScale={0.15}
         maxScale={10}
         centerOnInit
-        limitToBounds={false}
+        limitToBounds={true}
         disabled={draggingPlanet !== null || draggingSectorPoint !== null || draggingFleet !== null}
       >
         {({ zoomIn, zoomOut, resetTransform }) => (
