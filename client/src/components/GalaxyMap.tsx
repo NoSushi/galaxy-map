@@ -774,38 +774,43 @@ export const GalaxyMap = () => {
                         if (editMode) setDraggingPlanet(planet.id);
                       }}
                     >
-                      {planet.isCapital && (
-                        <div className="mb-1 text-yellow-400 drop-shadow-[0_0_5px_currentColor] animate-bounce">
-                          <Crown className="w-5 h-5 fill-yellow-400/20" />
-                        </div>
-                      )}
-                      {!planet.isCapital && planet.isPowerbaseCapital && (
-                        <div className="mb-0.5 text-amber-500 drop-shadow-[0_0_4px_currentColor]">
-                          <Crown className="w-3.5 h-3.5 fill-amber-500/20" />
-                        </div>
-                      )}
-                      {planet.markerImage ? (
-                        <div className={cn("relative transition-all duration-300", isSelected ? "scale-125 drop-shadow-[0_0_15px_rgba(255,255,255,0.6)]" : "hover:scale-110")}>
-                          <img src={planet.markerImage} alt={planet.name} className="w-10 h-10 object-contain pointer-events-none drop-shadow-lg" />
-                          {isSelected && <div className="absolute inset-[-6px] border-2 border-primary rounded-full animate-ping opacity-75"></div>}
-                        </div>
-                      ) : (
-                        <div className={cn(
-                          "w-5 h-5 rounded-full bg-primary relative transition-all",
-                          isSelected ? "shadow-[0_0_20px_hsl(var(--primary))] scale-125" : "shadow-[0_0_8px_hsl(var(--primary)/0.5)]",
-                          planet.faction === 'Empire' && "bg-destructive shadow-[0_0_12px_hsl(var(--destructive))]",
-                          planet.faction === 'Hutt Cartel' && "bg-green-500 shadow-[0_0_12px_#22c55e]",
-                          planet.faction === 'Chiss Ascendancy' && "bg-indigo-500 shadow-[0_0_12px_#6366f1]",
-                          isLaneStart && "bg-primary shadow-[0_0_20px_hsl(var(--primary))] scale-150"
-                        )}>
-                          {isSelected && <div className="absolute inset-[-6px] border-2 border-primary rounded-full animate-ping opacity-75"></div>}
-                        </div>
-                      )}
+                      <div className="relative">
+                        {planet.isCapital && (
+                          <div className="absolute left-1/2 -translate-x-1/2 -top-5 text-yellow-400 drop-shadow-[0_0_5px_currentColor] animate-bounce">
+                            <Crown className="w-5 h-5 fill-yellow-400/20" />
+                          </div>
+                        )}
+                        {!planet.isCapital && planet.isPowerbaseCapital && (
+                          <div className="absolute left-1/2 -translate-x-1/2 -top-4 text-amber-500 drop-shadow-[0_0_4px_currentColor]">
+                            <Crown className="w-3.5 h-3.5 fill-amber-500/20" />
+                          </div>
+                        )}
+                        {planet.markerImage ? (
+                          <div className={cn("relative transition-all duration-300", isSelected ? "scale-125 drop-shadow-[0_0_15px_rgba(255,255,255,0.6)]" : "hover:scale-110")}>
+                            <img src={planet.markerImage} alt={planet.name} className={cn("object-contain pointer-events-none drop-shadow-lg", planet.isMinor ? "w-5 h-5" : "w-10 h-10")} />
+                            {isSelected && <div className="absolute inset-[-6px] border-2 border-primary rounded-full animate-ping opacity-75"></div>}
+                          </div>
+                        ) : (
+                          <div className={cn(
+                            "rounded-full bg-primary relative transition-all",
+                            planet.isMinor ? "w-2.5 h-2.5" : "w-5 h-5",
+                            isSelected ? "shadow-[0_0_20px_hsl(var(--primary))] scale-125" : "shadow-[0_0_8px_hsl(var(--primary)/0.5)]",
+                            planet.faction === 'Empire' && "bg-destructive shadow-[0_0_12px_hsl(var(--destructive))]",
+                            planet.faction === 'Hutt Cartel' && "bg-green-500 shadow-[0_0_12px_#22c55e]",
+                            planet.faction === 'Chiss Ascendancy' && "bg-indigo-500 shadow-[0_0_12px_#6366f1]",
+                            isLaneStart && "bg-primary shadow-[0_0_20px_hsl(var(--primary))] scale-150"
+                          )}>
+                            {isSelected && <div className="absolute inset-[-6px] border-2 border-primary rounded-full animate-ping opacity-75"></div>}
+                          </div>
+                        )}
+                      </div>
                       {showLabels && (
                         <div className={cn(
                           "mt-2 px-2 py-0.5 rounded text-[10px] font-display tracking-widest whitespace-nowrap bg-background/90 backdrop-blur-md border transition-all duration-200 uppercase",
                           isSelected ? "border-primary text-primary shadow-[0_0_15px_hsl(var(--primary)/0.4)]" : "border-border/60 text-foreground/90",
-                          hoveredItem && hoveredItem.id !== planet.id && !isSelected ? "opacity-0" : "opacity-100"
+                          planet.isMinor && !(hoveredItem?.type === 'planet' && hoveredItem.id === planet.id) && !isSelected ? "opacity-0" : (
+                            hoveredItem && hoveredItem.id !== planet.id && !isSelected ? "opacity-0" : "opacity-100"
+                          )
                         )}>
                           {planet.name}
                         </div>
