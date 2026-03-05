@@ -120,6 +120,24 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
     laneApi.create(newLane).catch(err => console.error('Failed to create lane:', err));
   };
 
+  const updateLanePathPoints = (laneId: string, points: [number, number][]) => {
+    let fullLane: HyperspaceLane | null = null;
+    setLanes(prev => prev.map(l => {
+      if (l.id === laneId) {
+        fullLane = { ...l, pathPoints: points };
+        return fullLane;
+      }
+      return l;
+    }));
+    if (selectedLane?.id === laneId) {
+      setSelectedLane(prev => prev ? { ...prev, pathPoints: points } : null);
+    }
+    if (fullLane) {
+      const laneToUpdate = fullLane;
+      debouncedApiCall(`lane-path-${laneId}`, () => laneApi.update(laneToUpdate));
+    }
+  };
+
   const updateFleet = (updatedFleet: Fleet) => {
     setFleets(prev => prev.map(f => f.id === updatedFleet.id ? updatedFleet : f));
     if (selectedFleet?.id === updatedFleet.id) setSelectedFleet(updatedFleet);
@@ -200,6 +218,7 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
       updateSectorPoints,
       updateLane,
       addLane,
+      updateLanePathPoints,
       updateFleet,
       addFleet,
       deletePlanet,

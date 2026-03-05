@@ -189,8 +189,10 @@ export const TopBar = () => {
               <SelectContent>
                 <SelectItem value="All">All Factions</SelectItem>
                 <SelectItem value="Galactic Republic">The Republic</SelectItem>
-                <SelectItem value="Sith Empire">Sith Empire</SelectItem>
+                <SelectItem value="Empire">Empire</SelectItem>
                 <SelectItem value="Hutt Cartel">Hutt Cartel</SelectItem>
+                <SelectItem value="Chiss Ascendancy">Chiss</SelectItem>
+                <SelectItem value="Independent">Independent</SelectItem>
               </SelectContent>
             </Select>
           </div>

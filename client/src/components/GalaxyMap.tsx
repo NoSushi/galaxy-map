@@ -1,8 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { TransformWrapper, TransformComponent, ReactZoomPanPinchRef } from 'react-zoom-pan-pinch';
-import { useMap, Planet, Fleet, HyperspaceLane } from '@/lib/data';
+import { useMap, Planet, Fleet, HyperspaceLane, Sector } from '@/lib/data';
 import { cn } from '@/lib/utils';
-import { Circle, Hexagon, Triangle, Move, Crown, Ship, Plus } from 'lucide-react';
+import { Circle, Hexagon, Triangle, Move, Crown, Ship, Plus, Pencil } from 'lucide-react';
+
+const FACTION_COLORS: Record<string, string> = {
+  'Galactic Republic': '210 80% 55%',
+  'Empire': '0 75% 50%',
+  'Hutt Cartel': '45 80% 50%',
+  'Chiss Ascendancy': '240 70% 55%',
+  'Independent': '160 40% 50%',
+};
 
 export const GalaxyMap = () => {
   const { 
@@ -12,7 +20,7 @@ export const GalaxyMap = () => {
     selectedSector, setSelectedSector,
     selectedLane, setSelectedLane,
     selectedFleet, setSelectedFleet,
-    editMode, updatePlanet, updateSectorPoints, updateFleet, addLane,
+    editMode, updatePlanet, updateSectorPoints, updateFleet, addLane, updateLanePathPoints,
     searchQuery, filters
   } = useMap();
 
@@ -22,8 +30,13 @@ export const GalaxyMap = () => {
   const [draggingPlanet, setDraggingPlanet] = useState<string | null>(null);
   const [draggingSectorPoint, setDraggingSectorPoint] = useState<{sectorId: string, pointIndex: number} | null>(null);
   const [draggingFleet, setDraggingFleet] = useState<string | null>(null);
+  const [draggingLanePoint, setDraggingLanePoint] = useState<{laneId: string, pointIndex: number} | null>(null);
   const [laneStartPlanet, setLaneStartPlanet] = useState<string | null>(null);
+  const [drawingMode, setDrawingMode] = useState<'sector' | 'lane' | null>(null);
+  const [drawingPoints, setDrawingPoints] = useState<[number, number][]>([]);
+  const [isDrawing, setIsDrawing] = useState(false);
   const transformRef = useRef<ReactZoomPanPinchRef | null>(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -57,9 +70,30 @@ export const GalaxyMap = () => {
     return { x, y };
   };
 
+  const getSvgCoords = (e: React.MouseEvent) => {
+    const svg = svgRef.current;
+    if (!svg) return { x: 0, y: 0 };
+    const rect = svg.getBoundingClientRect();
+    const x = Math.round(((e.clientX - rect.left) / rect.width) * mapWidth);
+    const y = Math.round(((e.clientY - rect.top) / rect.height) * mapHeight);
+    return { x, y };
+  };
+
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!editMode) return;
     const { x, y } = getMapCoords(e);
+
+    if (isDrawing && drawingMode) {
+      const last = drawingPoints[drawingPoints.length - 1];
+      if (last) {
+        const dx = x - last[0];
+        const dy = y - last[1];
+        if (Math.sqrt(dx*dx + dy*dy) > 15) {
+          setDrawingPoints(prev => [...prev, [x, y]]);
+        }
+      }
+      return;
+    }
 
     if (draggingPlanet) {
       const planet = planets.find(p => p.id === draggingPlanet);
@@ -74,13 +108,41 @@ export const GalaxyMap = () => {
     } else if (draggingFleet) {
       const fleet = fleets.find(f => f.id === draggingFleet);
       if (fleet) updateFleet({ ...fleet, x, y });
+    } else if (draggingLanePoint) {
+      const lane = lanes.find(l => l.id === draggingLanePoint.laneId);
+      if (lane && lane.pathPoints) {
+        const newPoints = [...lane.pathPoints] as [number, number][];
+        newPoints[draggingLanePoint.pointIndex] = [x, y];
+        updateLanePathPoints(lane.id, newPoints);
+      }
     }
   };
 
   const handleMouseUp = () => {
+    if (isDrawing && drawingMode) {
+      if (drawingPoints.length > 2) {
+        if (drawingMode === 'sector' && selectedSector) {
+          updateSectorPoints(selectedSector.id, drawingPoints);
+        } else if (drawingMode === 'lane' && selectedLane) {
+          updateLanePathPoints(selectedLane.id, drawingPoints);
+        }
+      }
+      setIsDrawing(false);
+      setDrawingPoints([]);
+      setDrawingMode(null);
+      return;
+    }
     setDraggingPlanet(null);
     setDraggingSectorPoint(null);
     setDraggingFleet(null);
+    setDraggingLanePoint(null);
+  };
+
+  const startDrawing = (mode: 'sector' | 'lane', e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDrawingMode(mode);
+    setIsDrawing(true);
+    setDrawingPoints([]);
   };
 
   const handlePlanetClick = (e: React.MouseEvent, planet: Planet) => {
@@ -126,8 +188,8 @@ export const GalaxyMap = () => {
   };
 
   const handleMapClick = (e: React.MouseEvent) => {
+    if (isDrawing) return;
     if (editMode && selectedSector) {
-      // Logic for clicking map to add point is now handled by sector edges
     } else {
       setSelectedPlanet(null);
       setSelectedSector(null);
@@ -142,6 +204,20 @@ export const GalaxyMap = () => {
     return p ? { x: p.x, y: p.y } : null;
   };
 
+  const getLanePath = (lane: HyperspaceLane) => {
+    const p1 = getPlanetPoint(lane.planetIds[0]);
+    const p2 = getPlanetPoint(lane.planetIds[1]);
+    if (!p1 || !p2) return null;
+
+    if (lane.pathPoints && lane.pathPoints.length > 0) {
+      const allPoints = [[p1.x, p1.y], ...lane.pathPoints, [p2.x, p2.y]];
+      return `M ${allPoints.map(p => `${p[0]},${p[1]}`).join(' L ')}`;
+    }
+    return `M ${p1.x},${p1.y} L ${p2.x},${p2.y}`;
+  };
+
+  const isDragging = draggingPlanet !== null || draggingSectorPoint !== null || draggingFleet !== null || draggingLanePoint !== null || isDrawing;
+
   return (
     <div className="w-full h-full overflow-hidden relative" onClick={handleMapClick}
          style={{ background: '#020408', backgroundImage: `url('/starfield-bg.png')`, backgroundSize: '512px 512px', backgroundRepeat: 'repeat' }}>
@@ -154,7 +230,7 @@ export const GalaxyMap = () => {
         maxScale={10}
         centerOnInit
         limitToBounds={true}
-        disabled={draggingPlanet !== null || draggingSectorPoint !== null || draggingFleet !== null}
+        disabled={isDragging}
       >
         {({ zoomIn, zoomOut, resetTransform, centerView }) => (
           <>
@@ -175,11 +251,29 @@ export const GalaxyMap = () => {
                   <Plus className="w-3 h-3" /> {laneStartPlanet ? "CLICK TARGET PLANET" : "START HYPERLANE"}
                 </button>
               )}
+              {editMode && selectedSector && (
+                <button
+                  onMouseDown={(e) => startDrawing('sector', e)}
+                  className="glass-panel rounded-md p-2 text-[10px] font-display flex items-center gap-2 text-foreground hover:text-primary"
+                  data-testid="button-draw-sector"
+                >
+                  <Pencil className="w-3 h-3" /> DRAW SECTOR BORDER
+                </button>
+              )}
+              {editMode && selectedLane && (
+                <button
+                  onMouseDown={(e) => startDrawing('lane', e)}
+                  className="glass-panel rounded-md p-2 text-[10px] font-display flex items-center gap-2 text-foreground hover:text-primary"
+                  data-testid="button-draw-lane"
+                >
+                  <Pencil className="w-3 h-3" /> DRAW LANE PATH
+                </button>
+              )}
             </div>
 
             <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }}>
               <div 
-                className="relative cursor-grab active:cursor-grabbing origin-top-left"
+                className={cn("relative origin-top-left", isDrawing ? "cursor-crosshair" : "cursor-grab active:cursor-grabbing")}
                 style={{ 
                   width: `${totalWidth}px`, 
                   height: `${totalHeight}px`,
@@ -188,7 +282,6 @@ export const GalaxyMap = () => {
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
               >
-                {/* Outer glow / fade layer */}
                 <div 
                   className="absolute"
                   style={{
@@ -199,7 +292,6 @@ export const GalaxyMap = () => {
                     boxShadow: '0 0 400px 200px rgba(30, 60, 100, 0.15), 0 0 800px 400px rgba(10, 20, 50, 0.1)',
                   }}
                 />
-                {/* Main galaxy image */}
                 <div
                   className="absolute"
                   style={{
@@ -233,7 +325,12 @@ export const GalaxyMap = () => {
                   />
                 )}
                 
-                <svg className="absolute pointer-events-none" style={{ left: `${pad}px`, top: `${pad}px`, width: `${mapWidth}px`, height: `${mapHeight}px` }} viewBox={`0 0 ${mapWidth} ${mapHeight}`}>
+                <svg 
+                  ref={svgRef}
+                  className="absolute pointer-events-none" 
+                  style={{ left: `${pad}px`, top: `${pad}px`, width: `${mapWidth}px`, height: `${mapHeight}px` }} 
+                  viewBox={`0 0 ${mapWidth} ${mapHeight}`}
+                >
                   <defs>
                     <filter id="glow">
                       <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
@@ -241,6 +338,16 @@ export const GalaxyMap = () => {
                         <feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/>
                       </feMerge>
                     </filter>
+                    {sectors.filter(s => s.isContested).map(sector => {
+                      const c1 = FACTION_COLORS[sector.contestedFaction1 || ''] || '0 0% 50%';
+                      const c2 = FACTION_COLORS[sector.contestedFaction2 || ''] || '0 0% 70%';
+                      return (
+                        <pattern key={`pattern-${sector.id}`} id={`stripe-${sector.id}`} width="20" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                          <rect width="10" height="20" fill={`hsl(${c1} / 0.3)`} />
+                          <rect x="10" width="10" height="20" fill={`hsl(${c2} / 0.3)`} />
+                        </pattern>
+                      );
+                    })}
                   </defs>
 
                   {showSectors && sectors.map(sector => {
@@ -251,14 +358,13 @@ export const GalaxyMap = () => {
                       <g key={sector.id}>
                         <path
                           d={pathD}
-                          fill={`hsl(${sector.color} / ${isSelected ? '0.25' : '0.12'})`}
+                          fill={sector.isContested ? `url(#stripe-${sector.id})` : `hsl(${sector.color} / ${isSelected ? '0.25' : '0.12'})`}
                           stroke={`hsl(${sector.color} / ${isSelected ? '0.9' : '0.35'})`}
                           strokeWidth={isSelected ? 4 : 1.5}
                           className="pointer-events-auto transition-all duration-300 cursor-pointer"
                           onClick={(e) => handleSectorClick(e, sector)}
                           filter={isSelected ? "url(#glow)" : undefined}
                         />
-                        {/* Edge click zones for adding points */}
                         {editMode && isSelected && sector.points.map((p1, i) => {
                           const p2 = sector.points[(i + 1) % sector.points.length];
                           return (
@@ -272,18 +378,10 @@ export const GalaxyMap = () => {
                                 e.stopPropagation();
                                 const rect = e.currentTarget.ownerSVGElement?.getBoundingClientRect();
                                 if (!rect) return;
-                                
-                                // Calculate position relative to map scale
                                 const clientX = e.clientX;
                                 const clientY = e.clientY;
-                                const rectLeft = rect.left;
-                                const rectTop = rect.top;
-                                const rectWidth = rect.width;
-                                const rectHeight = rect.height;
-                                
-                                const x = Math.round(((clientX - rectLeft) / rectWidth) * mapWidth);
-                                const y = Math.round(((clientY - rectTop) / rectHeight) * mapHeight);
-                                
+                                const x = Math.round(((clientX - rect.left) / rect.width) * mapWidth);
+                                const y = Math.round(((clientY - rect.top) / rect.height) * mapHeight);
                                 const newPoints = [...sector.points] as [number, number][];
                                 newPoints.splice(i + 1, 0, [x, y]);
                                 updateSectorPoints(sector.id, newPoints);
@@ -321,20 +419,58 @@ export const GalaxyMap = () => {
                     if (lane.type === 'Dangerous') strokeColor = "hsl(var(--destructive))";
                     else if (lane.type === 'Minor') strokeColor = "hsl(var(--muted-foreground))";
 
+                    const pathD = getLanePath(lane);
+                    if (!pathD) return null;
+
                     return (
                       <g key={lane.id} className="pointer-events-auto cursor-pointer" onClick={(e) => handleLaneClick(e, lane)}>
-                        <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="transparent" strokeWidth={20} />
-                        <line
-                          x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y}
+                        <path d={pathD} fill="none" stroke="transparent" strokeWidth={20} />
+                        <path
+                          d={pathD}
+                          fill="none"
                           stroke={strokeColor}
                           strokeWidth={isSelected ? 5 : (lane.type === 'Major' ? 3.5 : 2.5)}
                           strokeDasharray={lane.type === 'Minor' ? "6 6" : (lane.type === 'Dangerous' ? "3 8" : "none")}
+                          strokeLinejoin="round"
+                          strokeLinecap="round"
                           className="transition-all duration-300"
                           filter={isSelected ? "url(#glow)" : undefined}
                         />
+                        {editMode && isSelected && lane.pathPoints && lane.pathPoints.map((point, idx) => (
+                          <circle
+                            key={`${lane.id}-lp-${idx}`}
+                            cx={point[0]} cy={point[1]} r={8}
+                            fill={strokeColor} stroke="white" strokeWidth={2}
+                            className="pointer-events-auto cursor-move"
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              setDraggingLanePoint({ laneId: lane.id, pointIndex: idx });
+                            }}
+                            onContextMenu={(e) => {
+                              e.preventDefault();
+                              if (lane.pathPoints) {
+                                const newPoints = lane.pathPoints.filter((_, i) => i !== idx);
+                                updateLanePathPoints(lane.id, newPoints as [number, number][]);
+                              }
+                            }}
+                          />
+                        ))}
                       </g>
                     );
                   })}
+
+                  {isDrawing && drawingPoints.length > 1 && (
+                    <path
+                      d={`M ${drawingPoints.map(p => `${p[0]},${p[1]}`).join(' L ')}${drawingMode === 'sector' ? ' Z' : ''}`}
+                      fill={drawingMode === 'sector' ? 'hsl(var(--primary) / 0.15)' : 'none'}
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={3}
+                      strokeDasharray="8 4"
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                      className="pointer-events-none"
+                    />
+                  )}
                 </svg>
 
                 {filteredPlanets.map(planet => {
@@ -361,8 +497,9 @@ export const GalaxyMap = () => {
                         <div className={cn(
                           "w-5 h-5 rounded-full bg-primary relative transition-all",
                           isSelected ? "shadow-[0_0_20px_hsl(var(--primary))] scale-125" : "shadow-[0_0_8px_hsl(var(--primary)/0.5)]",
-                          planet.faction === 'Sith Empire' && "bg-destructive shadow-[0_0_12px_hsl(var(--destructive))]",
-                          planet.faction === 'Hutt Cartel' && "bg-green-500 shadow-[0_0_12px_#22c55e]"
+                          planet.faction === 'Empire' && "bg-destructive shadow-[0_0_12px_hsl(var(--destructive))]",
+                          planet.faction === 'Hutt Cartel' && "bg-green-500 shadow-[0_0_12px_#22c55e]",
+                          planet.faction === 'Chiss Ascendancy' && "bg-indigo-500 shadow-[0_0_12px_#6366f1]"
                         )}>
                           {isSelected && <div className="absolute inset-[-6px] border-2 border-primary rounded-full animate-ping opacity-75"></div>}
                         </div>
@@ -397,7 +534,7 @@ export const GalaxyMap = () => {
                       <div className={cn(
                         "p-2 rounded-full bg-background/95 border-2 transition-all duration-300 shadow-xl overflow-hidden flex items-center justify-center",
                         isSelected ? "border-primary scale-125 shadow-[0_0_20px_hsl(var(--primary))]" : "border-muted-foreground/50",
-                        fleet.faction === 'Sith Empire' && isSelected && "border-destructive shadow-[0_0_20px_hsl(var(--destructive))]"
+                        fleet.faction === 'Empire' && isSelected && "border-destructive shadow-[0_0_20px_hsl(var(--destructive))]"
                       )}>
                         {fleet.markerImage ? (
                           <img src={fleet.markerImage} alt={fleet.name} className="w-6 h-6 object-contain" />

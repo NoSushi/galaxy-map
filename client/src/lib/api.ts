@@ -58,6 +58,9 @@ function mapSectorFromApi(s: any): Sector {
     color: s.color,
     points: s.points,
     faction: s.faction,
+    isContested: s.isContested ?? s.is_contested ?? false,
+    contestedFaction1: s.contestedFaction1 ?? s.contested_faction_1 ?? null,
+    contestedFaction2: s.contestedFaction2 ?? s.contested_faction_2 ?? null,
   };
 }
 
@@ -67,6 +70,7 @@ function mapLaneFromApi(l: any): HyperspaceLane {
     name: l.name,
     planetIds: l.planetIds ?? l.planet_ids,
     type: l.type,
+    pathPoints: l.pathPoints ?? l.path_points ?? null,
   };
 }
 
@@ -76,6 +80,7 @@ function mapLaneToApi(l: HyperspaceLane): any {
     name: l.name,
     planetIds: l.planetIds,
     type: l.type,
+    pathPoints: l.pathPoints || null,
   };
 }
 

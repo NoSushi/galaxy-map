@@ -36,11 +36,22 @@ All prefixed with `/api`:
 - Admin password: `admin123`
 
 ## Features
-- Zoomable/pannable galaxy map (min 0.05x, max 10x)
+- Zoomable/pannable galaxy map (min 0.15x, max 10x), 6000x6000 total canvas with 500px padding
+- Galaxy image fades at edges via radial gradient mask, starfield background tiles behind
 - Planet markers (circle or custom PNG/WebP), capital planets with crown icon
 - Sector polygon overlays (color-coded, draggable vertices in admin)
-- Hyperspace lanes (Major/Minor/Dangerous with visual styles)
+- Pencil drawing tool for sector borders and hyperlane paths (freehand curves)
+- Contested sector support with striped fill pattern between two faction colors
+- Hyperspace lanes (Major/Minor/Dangerous) with freehand path waypoints
 - Fleet markers (custom ship images, capital ship designation)
+- Reference map overlay (toggleable in Admin Mode) for accurate planet positioning
 - Admin Mode: full CRUD for all entities, drag positioning, hyperlane creation tool
 - Hyperspace Travel Calculator using Dijkstra's algorithm along lane network
 - All changes persist to PostgreSQL database with debounced writes
+
+## Factions
+- Galactic Republic, Empire, Hutt Cartel, Chiss Ascendancy, Independent
+
+## Database
+- Uses CUSTOM_DATABASE_URL env var (falls back to DATABASE_URL)
+- Currently connected to external Neon PostgreSQL instance

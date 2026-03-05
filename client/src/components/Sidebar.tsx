@@ -80,9 +80,10 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
               <SelectTrigger className="bg-black/60 border-primary/20 h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="Galactic Republic">Republic</SelectItem>
-                <SelectItem value="Sith Empire">Sith</SelectItem>
+                <SelectItem value="Empire">Empire</SelectItem>
                 <SelectItem value="Independent">Indie</SelectItem>
                 <SelectItem value="Hutt Cartel">Hutts</SelectItem>
+                <SelectItem value="Chiss Ascendancy">Chiss</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -144,7 +145,7 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
 
       <div className="space-y-2 bg-black/40 p-3 rounded border border-white/5 shadow-2xl">
         <DataRow label="Sector" value={sector?.name || 'Unknown'} />
-        <DataRow label="Political Affiliation" value={planet.faction} valueClass={planet.faction === 'Sith Empire' ? 'text-destructive' : 'text-primary'} />
+        <DataRow label="Political Affiliation" value={planet.faction} valueClass={planet.faction === 'Empire' ? 'text-destructive' : 'text-primary'} />
         <DataRow label="Primary Biome" value={planet.environment} />
         <DataRow label="Habitability" value={planet.habitable ? 'Class M' : 'Inhabitable'} />
         {planet.population && <DataRow label="Citizenry" value={planet.population} />}
@@ -204,11 +205,52 @@ const SectorDetails = ({ sector, editMode, planets }: { sector: Sector, editMode
             <SelectTrigger className="bg-black/60 border-primary/20 h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="Galactic Republic">Republic</SelectItem>
-              <SelectItem value="Sith Empire">Sith</SelectItem>
+              <SelectItem value="Empire">Empire</SelectItem>
               <SelectItem value="Independent">Independent</SelectItem>
+              <SelectItem value="Hutt Cartel">Hutt</SelectItem>
+              <SelectItem value="Chiss Ascendancy">Chiss</SelectItem>
             </SelectContent>
           </Select>
         </div>
+
+        <div className="flex items-center justify-between p-2 bg-white/5 rounded border border-white/10">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded" style={{ background: 'repeating-linear-gradient(45deg, hsl(0 75% 50% / 0.4), hsl(0 75% 50% / 0.4) 3px, hsl(210 80% 55% / 0.4) 3px, hsl(210 80% 55% / 0.4) 6px)' }} />
+            <Label htmlFor="is-contested" className="text-xs">Contested Zone</Label>
+          </div>
+          <Switch checked={sector.isContested || false} onCheckedChange={c => updateSector({...sector, isContested: c})} id="is-contested" />
+        </div>
+
+        {sector.isContested && (
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label className="text-[10px] uppercase text-primary/70">Faction 1</Label>
+              <Select value={sector.contestedFaction1 || ''} onValueChange={(val: any) => updateSector({...sector, contestedFaction1: val})}>
+                <SelectTrigger className="bg-black/60 border-primary/20 h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Galactic Republic">Republic</SelectItem>
+                  <SelectItem value="Empire">Empire</SelectItem>
+                  <SelectItem value="Independent">Independent</SelectItem>
+                  <SelectItem value="Hutt Cartel">Hutt</SelectItem>
+                  <SelectItem value="Chiss Ascendancy">Chiss</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] uppercase text-primary/70">Faction 2</Label>
+              <Select value={sector.contestedFaction2 || ''} onValueChange={(val: any) => updateSector({...sector, contestedFaction2: val})}>
+                <SelectTrigger className="bg-black/60 border-primary/20 h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Galactic Republic">Republic</SelectItem>
+                  <SelectItem value="Empire">Empire</SelectItem>
+                  <SelectItem value="Independent">Independent</SelectItem>
+                  <SelectItem value="Hutt Cartel">Hutt</SelectItem>
+                  <SelectItem value="Chiss Ascendancy">Chiss</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -321,8 +363,10 @@ const FleetDetails = ({ fleet, editMode }: { fleet: Fleet, editMode: boolean }) 
             <SelectTrigger className="bg-black/60 border-primary/20 h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="Galactic Republic">Republic</SelectItem>
-              <SelectItem value="Sith Empire">Sith</SelectItem>
+              <SelectItem value="Empire">Empire</SelectItem>
               <SelectItem value="Hutt Cartel">Hutt Cartel</SelectItem>
+              <SelectItem value="Chiss Ascendancy">Chiss</SelectItem>
+              <SelectItem value="Independent">Independent</SelectItem>
             </SelectContent>
           </Select>
         </div>

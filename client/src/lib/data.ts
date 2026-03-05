@@ -27,6 +27,9 @@ export interface Sector {
   color: string;
   points: [number, number][];
   faction: string;
+  isContested?: boolean | null;
+  contestedFaction1?: string | null;
+  contestedFaction2?: string | null;
 }
 
 export interface HyperspaceLane {
@@ -34,6 +37,7 @@ export interface HyperspaceLane {
   name: string;
   planetIds: [string, string];
   type: string;
+  pathPoints?: [number, number][] | null;
 }
 
 export interface Fleet {
@@ -91,6 +95,7 @@ export interface MapContextType {
   updateSectorPoints: (sectorId: string, points: [number, number][]) => void;
   updateLane: (lane: HyperspaceLane) => void;
   addLane: (lane: HyperspaceLane) => void;
+  updateLanePathPoints: (laneId: string, points: [number, number][]) => void;
   updateFleet: (fleet: Fleet) => void;
   addFleet: (fleet: Fleet) => void;
   deletePlanet: (id: string) => void;

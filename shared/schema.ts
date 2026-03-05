@@ -26,6 +26,9 @@ export const sectors = pgTable("sectors", {
   color: text("color").notNull(),
   points: jsonb("points").notNull().$type<[number, number][]>(),
   faction: text("faction").notNull().default("Independent"),
+  isContested: boolean("is_contested").default(false),
+  contestedFaction1: text("contested_faction_1"),
+  contestedFaction2: text("contested_faction_2"),
 });
 
 export const hyperspaceLanes = pgTable("hyperspace_lanes", {
@@ -33,6 +36,7 @@ export const hyperspaceLanes = pgTable("hyperspace_lanes", {
   name: text("name").notNull(),
   planetIds: jsonb("planet_ids").notNull().$type<[string, string]>(),
   type: text("type").notNull().default("Minor"),
+  pathPoints: jsonb("path_points").$type<[number, number][]>(),
 });
 
 export const fleets = pgTable("fleets", {
