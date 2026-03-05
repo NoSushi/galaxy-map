@@ -28,7 +28,7 @@ export const GalaxyMap = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       if (transformRef.current) {
-        transformRef.current.centerView(0.2, 0);
+        transformRef.current.centerView(1, 0);
       }
     }, 100);
     return () => clearTimeout(timer);
@@ -143,12 +143,11 @@ export const GalaxyMap = () => {
       
       <TransformWrapper
         ref={transformRef}
-        initialScale={0.2}
-        minScale={0.15}
+        initialScale={1}
+        minScale={1}
         maxScale={10}
         centerOnInit
         limitToBounds={true}
-        alignmentAnimation={{ sizeX: 0, sizeY: 0 }}
         disabled={draggingPlanet !== null || draggingSectorPoint !== null || draggingFleet !== null}
       >
         {({ zoomIn, zoomOut, resetTransform, centerView }) => (
