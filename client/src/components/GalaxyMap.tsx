@@ -143,9 +143,9 @@ export const GalaxyMap = () => {
   };
 
   return (
-    <div className="w-full h-full bg-[#020408] overflow-hidden relative" onClick={handleMapClick}>
-      <div className="absolute inset-0 pointer-events-none opacity-40" 
-           style={{ backgroundImage: 'radial-gradient(circle at center, #ffffff 1px, transparent 1px)', backgroundSize: '150px 100px' }} />
+    <div className="w-full h-full overflow-hidden relative" onClick={handleMapClick}
+         style={{ background: '#020408', backgroundImage: `url('/starfield-bg.png')`, backgroundSize: '512px 512px', backgroundRepeat: 'repeat' }}>
+
       
       <TransformWrapper
         ref={transformRef}
