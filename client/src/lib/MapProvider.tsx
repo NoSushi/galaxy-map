@@ -27,6 +27,7 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
   
   const [editMode, setEditMode] = useState(false);
   const [laneDrawMode, setLaneDrawMode] = useState(false);
+  const [sectorDrawMode, setSectorDrawMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
   const [filters, setFilters] = useState({
@@ -195,6 +196,7 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
       showOverlay,
       editMode,
       laneDrawMode,
+      sectorDrawMode,
       searchQuery,
       filters,
       isLoading,
@@ -212,6 +214,7 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
       setShowOverlay,
       setEditMode,
       setLaneDrawMode,
+      setSectorDrawMode,
       setSearchQuery,
       setFilters,
       updatePlanet,

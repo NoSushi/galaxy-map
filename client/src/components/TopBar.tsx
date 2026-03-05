@@ -107,7 +107,8 @@ export const TopBar = () => {
     filters, setFilters,
     planets, lanes,
     addPlanet, setSelectedPlanet, addSector, addFleet,
-    laneDrawMode, setLaneDrawMode
+    laneDrawMode, setLaneDrawMode,
+    sectorDrawMode, setSectorDrawMode
   } = useMap();
 
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
@@ -365,7 +366,7 @@ export const TopBar = () => {
           {editMode && (
             <div className="flex gap-1 bg-primary/5 p-1 rounded-md border border-primary/10">
               <Button variant="ghost" size="sm" onClick={handleCreatePlanet} className="h-8 text-[9px] font-display text-primary hover:bg-primary/20 gap-1.5"><Plus className="w-3 h-3" /> PLANET</Button>
-              <Button variant="ghost" size="sm" onClick={handleCreateSector} className="h-8 text-[9px] font-display text-primary hover:bg-primary/20 gap-1.5"><MapIcon className="w-3 h-3" /> SECTOR</Button>
+              <Button variant="ghost" size="sm" onClick={() => setSectorDrawMode(!sectorDrawMode)} className={cn("h-8 text-[9px] font-display hover:bg-primary/20 gap-1.5", sectorDrawMode ? "text-primary bg-primary/20 animate-pulse" : "text-primary")} data-testid="button-add-sector"><MapIcon className="w-3 h-3" /> SECTOR</Button>
               <Button variant="ghost" size="sm" onClick={handleCreateFleet} className="h-8 text-[9px] font-display text-primary hover:bg-primary/20 gap-1.5"><Ship className="w-3 h-3" /> FLEET</Button>
               <Button variant="ghost" size="sm" onClick={() => setLaneDrawMode(!laneDrawMode)} className={cn("h-8 text-[9px] font-display hover:bg-primary/20 gap-1.5", laneDrawMode ? "text-primary bg-primary/20 animate-pulse" : "text-primary")} data-testid="button-add-hyperlane"><Route className="w-3 h-3" /> HYPERLANE</Button>
             </div>

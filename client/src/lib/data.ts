@@ -67,6 +67,7 @@ export interface MapContextType {
   showOverlay: boolean;
   editMode: boolean;
   laneDrawMode: boolean;
+  sectorDrawMode: boolean;
   searchQuery: string;
   filters: {
     faction: string;
@@ -88,6 +89,7 @@ export interface MapContextType {
   setShowOverlay: (show: boolean) => void;
   setEditMode: (edit: boolean) => void;
   setLaneDrawMode: (mode: boolean) => void;
+  setSectorDrawMode: (mode: boolean) => void;
   setSearchQuery: (query: string) => void;
   setFilters: (filters: any) => void;
   updatePlanet: (planet: Planet) => void;

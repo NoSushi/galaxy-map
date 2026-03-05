@@ -7,6 +7,16 @@ import { Button } from './ui/button';
 import { Switch } from './ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
+const ENV_IMAGES: Record<string, string> = {
+  'Desert': '/planet-desert.png',
+  'Forest': '/planet-forest.png',
+  'City': '/planet-city.png',
+  'Volcanic': '/planet-desert.png',
+  'Unknown': '/planet-desert.png',
+};
+
+const getDefaultPlanetImage = (environment: string) => ENV_IMAGES[environment] || '/planet-desert.png';
+
 export const Sidebar = () => {
   const { 
     selectedPlanet, setSelectedPlanet,
@@ -123,6 +133,16 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
         </div>
 
         <div className="space-y-1">
+          <Label className="text-[10px] uppercase text-primary/70">Hub Display Image URL</Label>
+          <Input value={planet.image || ''} onChange={e => updatePlanet({...planet, image: e.target.value || null})} className="bg-black/60 border-primary/20 h-8 text-xs" placeholder="Leave blank for environment default" />
+          {planet.image && (
+            <div className="mt-1 aspect-video rounded overflow-hidden border border-primary/20">
+              <img src={planet.image} className="w-full h-full object-cover opacity-80" />
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-1">
           <Label className="text-[10px] uppercase text-primary/70">Description</Label>
           <textarea className="w-full min-h-[80px] p-2 rounded bg-black/60 border border-primary/20 text-xs text-foreground/80" value={planet.description} onChange={e => updatePlanet({...planet, description: e.target.value})} />
         </div>
@@ -134,7 +154,7 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
     <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
       <div className="relative group">
         <div className="aspect-square rounded border border-primary/30 glow-border bg-black/80 overflow-hidden">
-          <img src={planet.image || '/planet-desert.png'} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity mix-blend-screen" />
+          <img src={planet.image || getDefaultPlanetImage(planet.environment)} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity mix-blend-screen" />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
           <div className="absolute bottom-3 left-3">
             <h1 className="text-2xl font-display font-black text-white glow-text uppercase leading-none tracking-tighter">{planet.name}</h1>
