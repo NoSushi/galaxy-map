@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TransformWrapper, TransformComponent, ReactZoomPanPinchRef } from 'react-zoom-pan-pinch';
 import { useMap, Planet, Fleet, HyperspaceLane, Sector } from '@/lib/data';
 import { cn } from '@/lib/utils';
-import { Circle, Hexagon, Triangle, Move, Crown, Ship, Plus, Pencil } from 'lucide-react';
+import { Crown, Ship, Plus, Pencil } from 'lucide-react';
 
 const FACTION_COLORS: Record<string, string> = {
   'Galactic Republic': '210 80% 55%',
@@ -21,6 +21,7 @@ export const GalaxyMap = () => {
     selectedLane, setSelectedLane,
     selectedFleet, setSelectedFleet,
     editMode, updatePlanet, updateSectorPoints, updateFleet, addLane, updateLanePathPoints,
+    laneDrawMode, setLaneDrawMode,
     searchQuery, filters
   } = useMap();
 
@@ -31,10 +32,16 @@ export const GalaxyMap = () => {
   const [draggingSectorPoint, setDraggingSectorPoint] = useState<{sectorId: string, pointIndex: number} | null>(null);
   const [draggingFleet, setDraggingFleet] = useState<string | null>(null);
   const [draggingLanePoint, setDraggingLanePoint] = useState<{laneId: string, pointIndex: number} | null>(null);
-  const [laneStartPlanet, setLaneStartPlanet] = useState<string | null>(null);
+  
   const [drawingMode, setDrawingMode] = useState<'sector' | 'lane' | null>(null);
   const [drawingPoints, setDrawingPoints] = useState<[number, number][]>([]);
   const [isDrawing, setIsDrawing] = useState(false);
+  
+  const [laneDrawStartPlanet, setLaneDrawStartPlanet] = useState<string | null>(null);
+  const [laneDrawPoints, setLaneDrawPoints] = useState<[number, number][]>([]);
+  const [isLaneDrawing, setIsLaneDrawing] = useState(false);
+  const [shiftHeld, setShiftHeld] = useState(false);
+
   const transformRef = useRef<ReactZoomPanPinchRef | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
 
@@ -45,6 +52,30 @@ export const GalaxyMap = () => {
       }
     }, 100);
     return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') setShiftHeld(true);
+      if (e.key === 'Escape') {
+        setLaneDrawMode(false);
+        setLaneDrawStartPlanet(null);
+        setLaneDrawPoints([]);
+        setIsLaneDrawing(false);
+        setIsDrawing(false);
+        setDrawingMode(null);
+        setDrawingPoints([]);
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') setShiftHeld(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
   }, []);
 
   const filteredPlanets = planets.filter(p => {
@@ -70,25 +101,39 @@ export const GalaxyMap = () => {
     return { x, y };
   };
 
-  const getSvgCoords = (e: React.MouseEvent) => {
-    const svg = svgRef.current;
-    if (!svg) return { x: 0, y: 0 };
-    const rect = svg.getBoundingClientRect();
-    const x = Math.round(((e.clientX - rect.left) / rect.width) * mapWidth);
-    const y = Math.round(((e.clientY - rect.top) / rect.height) * mapHeight);
-    return { x, y };
-  };
+  const isInLaneCreation = laneDrawMode || laneDrawStartPlanet !== null || isLaneDrawing;
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!editMode) return;
     const { x, y } = getMapCoords(e);
+
+    if (isLaneDrawing) {
+      if (shiftHeld) {
+        const start = laneDrawPoints[0];
+        if (start) {
+          setLaneDrawPoints([start, [x, y]]);
+        }
+      } else {
+        const last = laneDrawPoints[laneDrawPoints.length - 1];
+        if (last) {
+          const dx = x - last[0];
+          const dy = y - last[1];
+          if (Math.sqrt(dx*dx + dy*dy) > 15) {
+            setLaneDrawPoints(prev => [...prev, [x, y]]);
+          }
+        }
+      }
+      return;
+    }
 
     if (isDrawing && drawingMode) {
       const last = drawingPoints[drawingPoints.length - 1];
       if (last) {
         const dx = x - last[0];
         const dy = y - last[1];
-        if (Math.sqrt(dx*dx + dy*dy) > 15) {
+        if (shiftHeld) {
+          setDrawingPoints([drawingPoints[0], [x, y]]);
+        } else if (Math.sqrt(dx*dx + dy*dy) > 15) {
           setDrawingPoints(prev => [...prev, [x, y]]);
         }
       }
@@ -145,16 +190,52 @@ export const GalaxyMap = () => {
     setDrawingPoints([]);
   };
 
-  const handlePlanetClick = (e: React.MouseEvent, planet: Planet) => {
+  useEffect(() => {
+    if (laneDrawMode) {
+      setLaneDrawStartPlanet(null);
+      setLaneDrawPoints([]);
+      setIsLaneDrawing(false);
+      setSelectedPlanet(null);
+      setSelectedSector(null);
+      setSelectedLane(null);
+      setSelectedFleet(null);
+    } else {
+      setLaneDrawStartPlanet(null);
+      setLaneDrawPoints([]);
+      setIsLaneDrawing(false);
+    }
+  }, [laneDrawMode]);
+
+  const handlePlanetClickForLane = (e: React.MouseEvent, planet: Planet) => {
     e.stopPropagation();
-    if (editMode && laneStartPlanet && laneStartPlanet !== planet.id) {
+    
+    if (!laneDrawStartPlanet) {
+      setLaneDrawStartPlanet(planet.id);
+      const startPlanet = planets.find(p => p.id === planet.id);
+      if (startPlanet) {
+        setLaneDrawPoints([[startPlanet.x, startPlanet.y]]);
+        setIsLaneDrawing(true);
+      }
+    } else if (planet.id !== laneDrawStartPlanet) {
+      const pathPoints = laneDrawPoints.slice(1);
       addLane({
         id: `l${Date.now()}`,
         name: 'New Hyperlane',
-        planetIds: [laneStartPlanet, planet.id],
-        type: 'Minor'
+        planetIds: [laneDrawStartPlanet, planet.id],
+        type: 'Minor',
+        pathPoints: pathPoints.length > 0 ? pathPoints : undefined,
       });
-      setLaneStartPlanet(null);
+      setLaneDrawMode(false);
+      setLaneDrawStartPlanet(null);
+      setLaneDrawPoints([]);
+      setIsLaneDrawing(false);
+    }
+  };
+
+  const handlePlanetClick = (e: React.MouseEvent, planet: Planet) => {
+    e.stopPropagation();
+    if (isInLaneCreation) {
+      handlePlanetClickForLane(e, planet);
       return;
     }
     setSelectedPlanet(planet);
@@ -165,6 +246,7 @@ export const GalaxyMap = () => {
 
   const handleSectorClick = (e: React.MouseEvent, sector: any) => {
     e.stopPropagation();
+    if (isInLaneCreation) return;
     setSelectedSector(sector);
     setSelectedPlanet(null);
     setSelectedLane(null);
@@ -173,6 +255,7 @@ export const GalaxyMap = () => {
 
   const handleLaneClick = (e: React.MouseEvent, lane: HyperspaceLane) => {
     e.stopPropagation();
+    if (isInLaneCreation) return;
     setSelectedLane(lane);
     setSelectedPlanet(null);
     setSelectedSector(null);
@@ -181,6 +264,7 @@ export const GalaxyMap = () => {
 
   const handleFleetClick = (e: React.MouseEvent, fleet: Fleet) => {
     e.stopPropagation();
+    if (isInLaneCreation) return;
     setSelectedFleet(fleet);
     setSelectedPlanet(null);
     setSelectedSector(null);
@@ -188,14 +272,16 @@ export const GalaxyMap = () => {
   };
 
   const handleMapClick = (e: React.MouseEvent) => {
-    if (isDrawing) return;
+    if (isDrawing || isLaneDrawing) return;
     if (editMode && selectedSector) {
     } else {
       setSelectedPlanet(null);
       setSelectedSector(null);
       setSelectedLane(null);
       setSelectedFleet(null);
-      setLaneStartPlanet(null);
+      if (laneDrawMode && !laneDrawStartPlanet) {
+        setLaneDrawMode(false);
+      }
     }
   };
 
@@ -216,12 +302,32 @@ export const GalaxyMap = () => {
     return `M ${p1.x},${p1.y} L ${p2.x},${p2.y}`;
   };
 
-  const isDragging = draggingPlanet !== null || draggingSectorPoint !== null || draggingFleet !== null || draggingLanePoint !== null || isDrawing;
+  const getDrawingLanePath = () => {
+    if (laneDrawPoints.length < 2) return null;
+    return `M ${laneDrawPoints.map(p => `${p[0]},${p[1]}`).join(' L ')}`;
+  };
+
+  const isDragging = draggingPlanet !== null || draggingSectorPoint !== null || draggingFleet !== null || draggingLanePoint !== null || isDrawing || isLaneDrawing;
+
+  const getLaneDrawStatus = () => {
+    if (!laneDrawMode && !laneDrawStartPlanet) return null;
+    if (laneDrawMode && !laneDrawStartPlanet) return "CLICK A PLANET TO START";
+    if (laneDrawStartPlanet && isLaneDrawing) {
+      const startName = planets.find(p => p.id === laneDrawStartPlanet)?.name || 'Unknown';
+      return `DRAWING FROM ${startName} — CLICK TARGET PLANET (SHIFT: STRAIGHT LINE, ESC: CANCEL)`;
+    }
+    return null;
+  };
 
   return (
     <div className="w-full h-full overflow-hidden relative" onClick={handleMapClick}
          style={{ background: '#020408', backgroundImage: `url('/starfield-bg.png')`, backgroundSize: '512px 512px', backgroundRepeat: 'repeat' }}>
 
+      {isInLaneCreation && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 glass-panel rounded-md px-4 py-2 text-[11px] font-display text-primary animate-pulse tracking-widest">
+          {getLaneDrawStatus()}
+        </div>
+      )}
       
       <TransformWrapper
         ref={transformRef}
@@ -240,18 +346,7 @@ export const GalaxyMap = () => {
                 <button onClick={() => zoomOut()} className="w-8 h-8 flex items-center justify-center text-foreground hover:text-primary transition-colors bg-white/5 rounded">-</button>
                 <button onClick={() => resetTransform()} className="w-8 h-8 flex items-center justify-center text-foreground hover:text-primary transition-colors bg-white/5 rounded">↺</button>
               </div>
-              {editMode && selectedPlanet && (
-                <button 
-                  onClick={(e) => { e.stopPropagation(); setLaneStartPlanet(selectedPlanet.id); }}
-                  className={cn(
-                    "glass-panel rounded-md p-2 text-[10px] font-display flex items-center gap-2",
-                    laneStartPlanet ? "text-primary border-primary animate-pulse" : "text-foreground hover:text-primary"
-                  )}
-                >
-                  <Plus className="w-3 h-3" /> {laneStartPlanet ? "CLICK TARGET PLANET" : "START HYPERLANE"}
-                </button>
-              )}
-              {editMode && selectedSector && (
+              {editMode && selectedSector && !isInLaneCreation && (
                 <button
                   onMouseDown={(e) => startDrawing('sector', e)}
                   className="glass-panel rounded-md p-2 text-[10px] font-display flex items-center gap-2 text-foreground hover:text-primary"
@@ -260,7 +355,7 @@ export const GalaxyMap = () => {
                   <Pencil className="w-3 h-3" /> DRAW SECTOR BORDER
                 </button>
               )}
-              {editMode && selectedLane && (
+              {editMode && selectedLane && !isInLaneCreation && (
                 <button
                   onMouseDown={(e) => startDrawing('lane', e)}
                   className="glass-panel rounded-md p-2 text-[10px] font-display flex items-center gap-2 text-foreground hover:text-primary"
@@ -273,7 +368,7 @@ export const GalaxyMap = () => {
 
             <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }}>
               <div 
-                className={cn("relative origin-top-left", isDrawing ? "cursor-crosshair" : "cursor-grab active:cursor-grabbing")}
+                className={cn("relative origin-top-left", (isDrawing || isLaneDrawing) ? "cursor-crosshair" : "cursor-grab active:cursor-grabbing")}
                 style={{ 
                   width: `${totalWidth}px`, 
                   height: `${totalHeight}px`,
@@ -365,7 +460,7 @@ export const GalaxyMap = () => {
                           onClick={(e) => handleSectorClick(e, sector)}
                           filter={isSelected ? "url(#glow)" : undefined}
                         />
-                        {editMode && isSelected && sector.points.map((p1, i) => {
+                        {editMode && isSelected && !isInLaneCreation && sector.points.map((p1, i) => {
                           const p2 = sector.points[(i + 1) % sector.points.length];
                           return (
                             <line
@@ -389,7 +484,7 @@ export const GalaxyMap = () => {
                             />
                           );
                         })}
-                        {editMode && isSelected && sector.points.map((point, idx) => (
+                        {editMode && isSelected && !isInLaneCreation && sector.points.map((point, idx) => (
                           <circle
                             key={`${sector.id}-p-${idx}`}
                             cx={point[0]} cy={point[1]} r={10}
@@ -436,7 +531,7 @@ export const GalaxyMap = () => {
                           className="transition-all duration-300"
                           filter={isSelected ? "url(#glow)" : undefined}
                         />
-                        {editMode && isSelected && lane.pathPoints && lane.pathPoints.map((point, idx) => (
+                        {editMode && isSelected && !isInLaneCreation && lane.pathPoints && lane.pathPoints.map((point, idx) => (
                           <circle
                             key={`${lane.id}-lp-${idx}`}
                             cx={point[0]} cy={point[1]} r={8}
@@ -471,17 +566,39 @@ export const GalaxyMap = () => {
                       className="pointer-events-none"
                     />
                   )}
+
+                  {isLaneDrawing && laneDrawPoints.length > 1 && (
+                    <path
+                      d={`M ${laneDrawPoints.map(p => `${p[0]},${p[1]}`).join(' L ')}`}
+                      fill="none"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={3}
+                      strokeDasharray="8 4"
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                      className="pointer-events-none animate-pulse"
+                    />
+                  )}
                 </svg>
 
                 {filteredPlanets.map(planet => {
                   const isSelected = selectedPlanet?.id === planet.id;
+                  const isLaneStart = laneDrawStartPlanet === planet.id;
+                  const planetLocked = isInLaneCreation;
                   return (
                     <div
                       key={planet.id}
-                      className={cn("absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center", editMode ? "cursor-move" : "cursor-pointer")}
-                      style={{ left: planet.x + pad, top: planet.y + pad }}
+                      className={cn(
+                        "absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center",
+                        planetLocked ? "cursor-pointer" : (editMode ? "cursor-move" : "cursor-pointer"),
+                        isLaneStart && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-full"
+                      )}
+                      style={{ left: planet.x + pad, top: planet.y + pad, zIndex: isLaneStart ? 20 : undefined }}
                       onClick={(e) => handlePlanetClick(e, planet)}
-                      onMouseDown={(e) => editMode && setDraggingPlanet(planet.id)}
+                      onMouseDown={(e) => {
+                        if (planetLocked) return;
+                        if (editMode) setDraggingPlanet(planet.id);
+                      }}
                     >
                       {planet.isCapital && (
                         <div className="mb-1 text-yellow-400 drop-shadow-[0_0_5px_currentColor] animate-bounce">
@@ -499,7 +616,8 @@ export const GalaxyMap = () => {
                           isSelected ? "shadow-[0_0_20px_hsl(var(--primary))] scale-125" : "shadow-[0_0_8px_hsl(var(--primary)/0.5)]",
                           planet.faction === 'Empire' && "bg-destructive shadow-[0_0_12px_hsl(var(--destructive))]",
                           planet.faction === 'Hutt Cartel' && "bg-green-500 shadow-[0_0_12px_#22c55e]",
-                          planet.faction === 'Chiss Ascendancy' && "bg-indigo-500 shadow-[0_0_12px_#6366f1]"
+                          planet.faction === 'Chiss Ascendancy' && "bg-indigo-500 shadow-[0_0_12px_#6366f1]",
+                          isLaneStart && "bg-primary shadow-[0_0_20px_hsl(var(--primary))] scale-150"
                         )}>
                           {isSelected && <div className="absolute inset-[-6px] border-2 border-primary rounded-full animate-ping opacity-75"></div>}
                         </div>
@@ -521,10 +639,13 @@ export const GalaxyMap = () => {
                   return (
                     <div
                       key={fleet.id}
-                      className={cn("absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-10", editMode ? "cursor-move" : "cursor-pointer")}
+                      className={cn("absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-10", editMode && !isInLaneCreation ? "cursor-move" : "cursor-pointer")}
                       style={{ left: fleet.x + pad, top: fleet.y + pad }}
                       onClick={(e) => handleFleetClick(e, fleet)}
-                      onMouseDown={(e) => editMode && setDraggingFleet(fleet.id)}
+                      onMouseDown={(e) => {
+                        if (isInLaneCreation) return;
+                        if (editMode) setDraggingFleet(fleet.id);
+                      }}
                     >
                       {fleet.isCapitalShip && (
                         <div className="mb-1 text-primary drop-shadow-[0_0_8px_currentColor] animate-pulse">
