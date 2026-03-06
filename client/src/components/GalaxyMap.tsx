@@ -840,17 +840,20 @@ export const GalaxyMap = () => {
                             <Crown className="w-5 h-5 fill-primary/20" />
                           </div>
                         )}
-                        <div className={cn(
-                          "p-2 rounded-full bg-background/95 border-2 transition-all duration-300 shadow-xl overflow-hidden flex items-center justify-center",
-                          isSelected ? "border-primary scale-125 shadow-[0_0_20px_hsl(var(--primary))]" : "border-muted-foreground/50",
-                          fleet.faction === 'Empire' && isSelected && "border-destructive shadow-[0_0_20px_hsl(var(--destructive))]"
-                        )}>
-                          {fleet.markerImage ? (
-                            <img src={fleet.markerImage} alt={fleet.name} className="w-6 h-6 object-contain" />
-                          ) : (
+                        {fleet.markerImage ? (
+                          <div className={cn("relative transition-all duration-300", isSelected ? "scale-125 drop-shadow-[0_0_15px_rgba(255,255,255,0.6)]" : "hover:scale-110")}>
+                            <img src={fleet.markerImage} alt={fleet.name} className="w-10 h-10 object-contain drop-shadow-lg" />
+                            {isSelected && <div className="absolute inset-[-6px] border-2 border-primary rounded-full animate-ping opacity-75"></div>}
+                          </div>
+                        ) : (
+                          <div className={cn(
+                            "p-2 rounded-full bg-background/95 border-2 transition-all duration-300 shadow-xl overflow-hidden flex items-center justify-center",
+                            isSelected ? "border-primary scale-125 shadow-[0_0_20px_hsl(var(--primary))]" : "border-muted-foreground/50",
+                            fleet.faction === 'Empire' && isSelected && "border-destructive shadow-[0_0_20px_hsl(var(--destructive))]"
+                          )}>
                             <Ship className={cn("w-5 h-5", isSelected ? "text-primary" : "text-muted-foreground")} />
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
                       <div className={cn(
                         "absolute left-1/2 -translate-x-1/2 top-full mt-1 px-2 py-0.5 rounded text-[9px] font-display tracking-widest bg-background/95 border border-primary/30 text-primary uppercase transition-opacity duration-200 pointer-events-none",
