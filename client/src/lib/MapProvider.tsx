@@ -68,6 +68,16 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
     }, delay);
   }, []);
 
+  const pointToSegmentDist = useCallback((px: number, py: number, ax: number, ay: number, bx: number, by: number) => {
+    const abx = bx - ax, aby = by - ay;
+    const apx = px - ax, apy = py - ay;
+    const ab2 = abx * abx + aby * aby;
+    if (ab2 === 0) return Math.sqrt(apx * apx + apy * apy);
+    const t = Math.max(0, Math.min(1, (apx * abx + apy * aby) / ab2));
+    const cx = ax + t * abx, cy = ay + t * aby;
+    return Math.sqrt((px - cx) ** 2 + (py - cy) ** 2);
+  }, []);
+
   const autoConnectPlanetToLanes = useCallback((planet: Planet) => {
     const threshold = 15;
     setLanes(prev => {
@@ -75,11 +85,20 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
       const updated = prev.map(lane => {
         if (lane.planetIds.includes(planet.id)) return lane;
         const pts = lane.pathPoints || [];
-        const isNear = pts.some(pt => {
-          const dx = planet.x - pt[0];
-          const dy = planet.y - pt[1];
-          return Math.sqrt(dx * dx + dy * dy) < threshold;
-        });
+        if (pts.length === 0) return lane;
+        const p1 = planets.find(p => p.id === lane.planetIds[0]);
+        const p2 = lane.planetIds[1] ? planets.find(p => p.id === lane.planetIds[1]) : null;
+        const allPts: [number, number][] = [];
+        if (p1) allPts.push([p1.x, p1.y]);
+        allPts.push(...(pts as [number, number][]));
+        if (p2) allPts.push([p2.x, p2.y]);
+        let isNear = false;
+        for (let i = 0; i < allPts.length - 1; i++) {
+          if (pointToSegmentDist(planet.x, planet.y, allPts[i][0], allPts[i][1], allPts[i+1][0], allPts[i+1][1]) < threshold) {
+            isNear = true;
+            break;
+          }
+        }
         if (isNear) {
           changed = true;
           const newPlanetIds = [...lane.planetIds, planet.id];
@@ -91,13 +110,16 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
       });
       return changed ? updated : prev;
     });
-  }, [debouncedApiCall]);
+  }, [debouncedApiCall, pointToSegmentDist, planets]);
 
   const updatePlanet = (updatedPlanet: Planet) => {
+    const oldPlanet = planets.find(p => p.id === updatedPlanet.id);
     setPlanets(prev => prev.map(p => p.id === updatedPlanet.id ? updatedPlanet : p));
     if (selectedPlanet?.id === updatedPlanet.id) setSelectedPlanet(updatedPlanet);
     debouncedApiCall(`planet-${updatedPlanet.id}`, () => planetApi.update(updatedPlanet));
-    autoConnectPlanetToLanes(updatedPlanet);
+    if (oldPlanet && (oldPlanet.x !== updatedPlanet.x || oldPlanet.y !== updatedPlanet.y)) {
+      autoConnectPlanetToLanes(updatedPlanet);
+    }
   };
 
   const addPlanet = (newPlanet: Planet) => {

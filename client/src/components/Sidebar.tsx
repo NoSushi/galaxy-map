@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useMap, Planet, Sector, HyperspaceLane, Fleet, Faction, Environment, RouteType } from '@/lib/data';
 import { X, Globe, Map, Route, Edit2, Plus, Settings2, Search, Ship, Crown, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -366,6 +367,7 @@ const SectorDetails = ({ sector, editMode, planets }: { sector: Sector, editMode
 };
 
 const LaneDetails = ({ lane, editMode, planets }: { lane: HyperspaceLane, editMode: boolean, planets: Planet[] }) => {
+  const [lanePlanetSearch, setLanePlanetSearch] = useState('');
   const { updateLane, deleteLane, setSelectedPlanet, setSelectedLane } = useMap();
   const p1 = planets.find(p => p.id === lane.planetIds[0]);
   const p2 = planets.find(p => p.id === lane.planetIds[1]);
@@ -432,16 +434,34 @@ const LaneDetails = ({ lane, editMode, planets }: { lane: HyperspaceLane, editMo
             })}
           </div>
           {availablePlanets.length > 0 && (
-            <Select onValueChange={addPlanetToLane}>
-              <SelectTrigger className="bg-black/60 border-primary/20 h-8 text-xs">
-                <SelectValue placeholder="Add planet to route..." />
-              </SelectTrigger>
-              <SelectContent>
-                {availablePlanets.map(p => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-1">
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                <Input
+                  value={lanePlanetSearch}
+                  onChange={e => setLanePlanetSearch(e.target.value)}
+                  placeholder="Search planets to add..."
+                  className="bg-black/60 border-primary/20 h-8 text-xs pl-7"
+                  data-testid="lane-planet-search"
+                />
+              </div>
+              <div className="max-h-32 overflow-y-auto rounded border border-white/10 bg-black/40">
+                {availablePlanets
+                  .filter(p => p.name.toLowerCase().includes(lanePlanetSearch.toLowerCase()))
+                  .map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => { addPlanetToLane(p.id); setLanePlanetSearch(''); }}
+                      className="w-full text-left px-2 py-1.5 text-[11px] font-display uppercase tracking-wider hover:bg-white/10 transition-colors flex items-center gap-2"
+                      data-testid={`add-lane-planet-${p.id}`}
+                    >
+                      <div className={cn("w-2 h-2 rounded-full", p.faction === 'Empire' ? "bg-destructive" : "bg-primary")} />
+                      {p.name}
+                    </button>
+                  ))
+                }
+              </div>
+            </div>
           )}
         </div>
       </div>

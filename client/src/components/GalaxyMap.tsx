@@ -213,7 +213,7 @@ export const GalaxyMap = () => {
     }
     if (isLaneDrawing && laneDrawStartPlanet) {
       const { x, y } = getMapCoords(e);
-      const hitRadius = 30;
+      const hitRadius = 20;
       const endPlanet = planets.find(p => {
         if (p.id === laneDrawStartPlanet && laneDrawPoints.length < 10) return false;
         const dx = p.x - x;
@@ -292,16 +292,32 @@ export const GalaxyMap = () => {
     }
   };
 
+  const pointToSegDist = (px: number, py: number, ax: number, ay: number, bx: number, by: number) => {
+    const abx = bx - ax, aby = by - ay;
+    const apx = px - ax, apy = py - ay;
+    const ab2 = abx * abx + aby * aby;
+    if (ab2 === 0) return Math.sqrt(apx * apx + apy * apy);
+    const t = Math.max(0, Math.min(1, (apx * abx + apy * aby) / ab2));
+    const cx = ax + t * abx, cy = ay + t * aby;
+    return Math.sqrt((px - cx) ** 2 + (py - cy) ** 2);
+  };
+
   const findPlanetsAlongPath = (pathPoints: [number, number][], excludeIds: string[], proximityThreshold = 15): string[] => {
     const foundIds: string[] = [];
+    if (pathPoints.length === 0) return foundIds;
     for (const planet of planets) {
       if (excludeIds.includes(planet.id)) continue;
-      for (const pt of pathPoints) {
-        const dx = planet.x - pt[0];
-        const dy = planet.y - pt[1];
-        if (Math.sqrt(dx * dx + dy * dy) < proximityThreshold) {
+      for (let i = 0; i < pathPoints.length - 1; i++) {
+        if (pointToSegDist(planet.x, planet.y, pathPoints[i][0], pathPoints[i][1], pathPoints[i+1][0], pathPoints[i+1][1]) < proximityThreshold) {
           foundIds.push(planet.id);
           break;
+        }
+      }
+      if (foundIds[foundIds.length - 1] !== planet.id && pathPoints.length === 1) {
+        const dx = planet.x - pathPoints[0][0];
+        const dy = planet.y - pathPoints[0][1];
+        if (Math.sqrt(dx * dx + dy * dy) < proximityThreshold) {
+          foundIds.push(planet.id);
         }
       }
     }
