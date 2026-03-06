@@ -29,6 +29,10 @@ function mapPlanetFromApi(p: any): Planet {
     markerImage: p.markerImage ?? p.marker_image,
     isCapital: p.isCapital ?? p.is_capital,
     capitalOf: p.capitalOf ?? p.capital_of,
+    isMinor: p.isMinor ?? p.is_minor ?? false,
+    isPowerbaseCapital: p.isPowerbaseCapital ?? p.is_powerbase_capital ?? false,
+    powerbaseOf: p.powerbaseOf ?? p.powerbase_of ?? null,
+    oversector: p.oversector ?? null,
   };
 }
 
@@ -48,6 +52,10 @@ function mapPlanetToApi(p: Planet): any {
     markerImage: p.markerImage || null,
     isCapital: p.isCapital || false,
     capitalOf: p.capitalOf || null,
+    isMinor: p.isMinor || false,
+    isPowerbaseCapital: p.isPowerbaseCapital || false,
+    powerbaseOf: p.powerbaseOf || null,
+    oversector: p.oversector || null,
   };
 }
 

@@ -292,7 +292,7 @@ export const GalaxyMap = () => {
     }
   };
 
-  const findPlanetsAlongPath = (pathPoints: [number, number][], excludeIds: string[], proximityThreshold = 40): string[] => {
+  const findPlanetsAlongPath = (pathPoints: [number, number][], excludeIds: string[], proximityThreshold = 15): string[] => {
     const foundIds: string[] = [];
     for (const planet of planets) {
       if (excludeIds.includes(planet.id)) continue;

@@ -69,7 +69,7 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const autoConnectPlanetToLanes = useCallback((planet: Planet) => {
-    const threshold = 40;
+    const threshold = 15;
     setLanes(prev => {
       let changed = false;
       const updated = prev.map(lane => {
