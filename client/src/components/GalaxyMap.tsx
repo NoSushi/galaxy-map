@@ -754,7 +754,7 @@ export const GalaxyMap = () => {
                     <div
                       key={planet.id}
                       className={cn(
-                        "absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center transition-opacity duration-200",
+                        "absolute transform -translate-x-1/2 -translate-y-1/2 transition-opacity duration-200",
                         planetLocked ? "cursor-pointer" : (editMode ? "cursor-move" : "cursor-pointer"),
                         isLaneStart && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-full"
                       )}
@@ -806,7 +806,7 @@ export const GalaxyMap = () => {
                       </div>
                       {showLabels && (
                         <div className={cn(
-                          "mt-2 px-2 py-0.5 rounded text-[10px] font-display tracking-widest whitespace-nowrap bg-background/90 backdrop-blur-md border transition-all duration-200 uppercase pointer-events-none",
+                          "absolute left-1/2 -translate-x-1/2 top-full mt-1 px-2 py-0.5 rounded text-[10px] font-display tracking-widest whitespace-nowrap bg-background/90 backdrop-blur-md border transition-all duration-200 uppercase pointer-events-none",
                           isSelected ? "border-primary text-primary shadow-[0_0_15px_hsl(var(--primary)/0.4)]" : "border-border/60 text-foreground/90",
                           planet.isMinor && !(hoveredItem?.type === 'planet' && hoveredItem.id === planet.id) && !isSelected ? "opacity-0" : (
                             hoveredItem && hoveredItem.id !== planet.id && !isSelected ? "opacity-0" : "opacity-100"
@@ -824,7 +824,7 @@ export const GalaxyMap = () => {
                   return (
                     <div
                       key={fleet.id}
-                      className={cn("absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-10 transition-opacity duration-200", editMode && !isInAnyDrawCreation ? "cursor-move" : "cursor-pointer")}
+                      className={cn("absolute transform -translate-x-1/2 -translate-y-1/2 z-10 transition-opacity duration-200", editMode && !isInAnyDrawCreation ? "cursor-move" : "cursor-pointer")}
                       style={{ left: fleet.x + pad, top: fleet.y + pad }}
                       onClick={(e) => handleFleetClick(e, fleet)}
                       onMouseEnter={() => setHoveredItem({ type: 'fleet', id: fleet.id })}
@@ -834,24 +834,26 @@ export const GalaxyMap = () => {
                         if (editMode) setDraggingFleet(fleet.id);
                       }}
                     >
-                      {fleet.isCapitalShip && (
-                        <div className="mb-1 text-primary drop-shadow-[0_0_8px_currentColor] animate-pulse pointer-events-none">
-                          <Crown className="w-5 h-5 fill-primary/20" />
-                        </div>
-                      )}
-                      <div className={cn(
-                        "p-2 rounded-full bg-background/95 border-2 transition-all duration-300 shadow-xl overflow-hidden flex items-center justify-center",
-                        isSelected ? "border-primary scale-125 shadow-[0_0_20px_hsl(var(--primary))]" : "border-muted-foreground/50",
-                        fleet.faction === 'Empire' && isSelected && "border-destructive shadow-[0_0_20px_hsl(var(--destructive))]"
-                      )}>
-                        {fleet.markerImage ? (
-                          <img src={fleet.markerImage} alt={fleet.name} className="w-6 h-6 object-contain" />
-                        ) : (
-                          <Ship className={cn("w-5 h-5", isSelected ? "text-primary" : "text-muted-foreground")} />
+                      <div className="relative">
+                        {fleet.isCapitalShip && (
+                          <div className="absolute left-1/2 -translate-x-1/2 -top-6 text-primary drop-shadow-[0_0_8px_currentColor] animate-pulse pointer-events-none">
+                            <Crown className="w-5 h-5 fill-primary/20" />
+                          </div>
                         )}
+                        <div className={cn(
+                          "p-2 rounded-full bg-background/95 border-2 transition-all duration-300 shadow-xl overflow-hidden flex items-center justify-center",
+                          isSelected ? "border-primary scale-125 shadow-[0_0_20px_hsl(var(--primary))]" : "border-muted-foreground/50",
+                          fleet.faction === 'Empire' && isSelected && "border-destructive shadow-[0_0_20px_hsl(var(--destructive))]"
+                        )}>
+                          {fleet.markerImage ? (
+                            <img src={fleet.markerImage} alt={fleet.name} className="w-6 h-6 object-contain" />
+                          ) : (
+                            <Ship className={cn("w-5 h-5", isSelected ? "text-primary" : "text-muted-foreground")} />
+                          )}
+                        </div>
                       </div>
                       <div className={cn(
-                        "mt-1 px-2 py-0.5 rounded text-[9px] font-display tracking-widest bg-background/95 border border-primary/30 text-primary uppercase transition-opacity duration-200 pointer-events-none",
+                        "absolute left-1/2 -translate-x-1/2 top-full mt-1 px-2 py-0.5 rounded text-[9px] font-display tracking-widest bg-background/95 border border-primary/30 text-primary uppercase transition-opacity duration-200 pointer-events-none",
                         hoveredItem && hoveredItem.id !== fleet.id && !isSelected ? "opacity-0" : "opacity-100"
                       )}>
                         {fleet.name}
