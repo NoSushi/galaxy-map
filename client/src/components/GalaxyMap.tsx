@@ -776,12 +776,12 @@ export const GalaxyMap = () => {
                     >
                       <div className="relative">
                         {planet.isCapital && (
-                          <div className="absolute left-1/2 -translate-x-1/2 -top-5 text-yellow-400 drop-shadow-[0_0_5px_currentColor] animate-bounce">
+                          <div className="absolute left-1/2 -translate-x-1/2 -top-5 text-yellow-400 drop-shadow-[0_0_5px_currentColor] animate-bounce pointer-events-none">
                             <Crown className="w-5 h-5 fill-yellow-400/20" />
                           </div>
                         )}
                         {!planet.isCapital && planet.isPowerbaseCapital && (
-                          <div className="absolute left-1/2 -translate-x-1/2 -top-4 text-amber-500 drop-shadow-[0_0_4px_currentColor]">
+                          <div className="absolute left-1/2 -translate-x-1/2 -top-4 text-amber-500 drop-shadow-[0_0_4px_currentColor] pointer-events-none">
                             <Crown className="w-3.5 h-3.5 fill-amber-500/20" />
                           </div>
                         )}
@@ -806,7 +806,7 @@ export const GalaxyMap = () => {
                       </div>
                       {showLabels && (
                         <div className={cn(
-                          "mt-2 px-2 py-0.5 rounded text-[10px] font-display tracking-widest whitespace-nowrap bg-background/90 backdrop-blur-md border transition-all duration-200 uppercase",
+                          "mt-2 px-2 py-0.5 rounded text-[10px] font-display tracking-widest whitespace-nowrap bg-background/90 backdrop-blur-md border transition-all duration-200 uppercase pointer-events-none",
                           isSelected ? "border-primary text-primary shadow-[0_0_15px_hsl(var(--primary)/0.4)]" : "border-border/60 text-foreground/90",
                           planet.isMinor && !(hoveredItem?.type === 'planet' && hoveredItem.id === planet.id) && !isSelected ? "opacity-0" : (
                             hoveredItem && hoveredItem.id !== planet.id && !isSelected ? "opacity-0" : "opacity-100"
@@ -835,7 +835,7 @@ export const GalaxyMap = () => {
                       }}
                     >
                       {fleet.isCapitalShip && (
-                        <div className="mb-1 text-primary drop-shadow-[0_0_8px_currentColor] animate-pulse">
+                        <div className="mb-1 text-primary drop-shadow-[0_0_8px_currentColor] animate-pulse pointer-events-none">
                           <Crown className="w-5 h-5 fill-primary/20" />
                         </div>
                       )}
@@ -851,7 +851,7 @@ export const GalaxyMap = () => {
                         )}
                       </div>
                       <div className={cn(
-                        "mt-1 px-2 py-0.5 rounded text-[9px] font-display tracking-widest bg-background/95 border border-primary/30 text-primary uppercase transition-opacity duration-200",
+                        "mt-1 px-2 py-0.5 rounded text-[9px] font-display tracking-widest bg-background/95 border border-primary/30 text-primary uppercase transition-opacity duration-200 pointer-events-none",
                         hoveredItem && hoveredItem.id !== fleet.id && !isSelected ? "opacity-0" : "opacity-100"
                       )}>
                         {fleet.name}
