@@ -9,7 +9,7 @@ const FACTION_COLORS: Record<string, string> = {
   'Empire': '0 75% 50%',
   'Hutt Cartel': '45 80% 50%',
   'Chiss Ascendancy': '240 70% 55%',
-  'Independent': '160 40% 50%',
+  'Independent': '137, 41%, 31%',
 };
 
 export const GalaxyMap = () => {
