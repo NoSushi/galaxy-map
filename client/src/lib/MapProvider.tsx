@@ -28,6 +28,14 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
   const [editMode, setEditMode] = useState(false);
   const [laneDrawMode, setLaneDrawMode] = useState(false);
   const [sectorDrawMode, setSectorDrawMode] = useState(false);
+  const viewportCenterFnRef = useRef<(() => { x: number; y: number }) | null>(null);
+  const getViewportCenter = useCallback(() => {
+    if (viewportCenterFnRef.current) return viewportCenterFnRef.current();
+    return { x: 3000, y: 3000 };
+  }, []);
+  const setGetViewportCenter = useCallback((fn: () => { x: number; y: number }) => {
+    viewportCenterFnRef.current = fn;
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   
   const [filters, setFilters] = useState({
@@ -279,7 +287,9 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
       deletePlanet,
       deleteFleet,
       deleteSector,
-      deleteLane
+      deleteLane,
+      getViewportCenter,
+      setGetViewportCenter
     }}>
       {children}
     </MapContext.Provider>

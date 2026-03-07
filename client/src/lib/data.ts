@@ -110,6 +110,8 @@ export interface MapContextType {
   deleteFleet: (id: string) => void;
   deleteSector: (id: string) => void;
   deleteLane: (id: string) => void;
+  getViewportCenter: () => { x: number; y: number };
+  setGetViewportCenter: (fn: () => { x: number; y: number }) => void;
 }
 
 export const MapContext = createContext<MapContextType | undefined>(undefined);

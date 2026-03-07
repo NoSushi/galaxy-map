@@ -108,7 +108,8 @@ export const TopBar = () => {
     planets, lanes,
     addPlanet, setSelectedPlanet, addSector, addFleet,
     laneDrawMode, setLaneDrawMode,
-    sectorDrawMode, setSectorDrawMode
+    sectorDrawMode, setSectorDrawMode,
+    getViewportCenter
   } = useMap();
 
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
@@ -285,11 +286,12 @@ export const TopBar = () => {
   };
 
   const handleCreatePlanet = () => {
+    const center = getViewportCenter();
     const newPlanet: Planet = {
       id: `p${Date.now()}`,
       name: 'Uncharted World',
-      x: 1500,
-      y: 1125,
+      x: center.x,
+      y: center.y,
       sectorId: 's1',
       faction: 'Independent',
       habitable: true,
@@ -312,11 +314,12 @@ export const TopBar = () => {
   };
 
   const handleCreateFleet = () => {
+    const center = getViewportCenter();
     const newFleet: Fleet = {
       id: `f${Date.now()}`,
       name: 'Strike Group A',
-      x: 1500,
-      y: 1125,
+      x: center.x,
+      y: center.y,
       icon: 'default',
       faction: 'Independent',
       description: 'Fleet awaiting orders.'

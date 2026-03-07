@@ -23,7 +23,8 @@ export const GalaxyMap = () => {
     editMode, updatePlanet, updateSectorPoints, updateFleet, addLane, addSector, updateLanePathPoints,
     laneDrawMode, setLaneDrawMode,
     sectorDrawMode, setSectorDrawMode,
-    searchQuery, filters
+    searchQuery, filters,
+    setGetViewportCenter
   } = useMap();
 
   const mapWidth = 5000;
@@ -60,6 +61,23 @@ export const GalaxyMap = () => {
     }, 100);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    setGetViewportCenter(() => {
+      const ref = transformRef.current;
+      if (!ref) return { x: mapWidth / 2, y: mapHeight / 2 };
+      const state = ref.instance.transformState;
+      const { scale, positionX, positionY } = state;
+      const container = ref.instance.wrapperComponent;
+      if (!container) return { x: mapWidth / 2, y: mapHeight / 2 };
+      const rect = container.getBoundingClientRect();
+      const centerScreenX = rect.width / 2;
+      const centerScreenY = rect.height / 2;
+      const mapX = (centerScreenX - positionX) / scale - pad;
+      const mapY = (centerScreenY - positionY) / scale - pad;
+      return { x: Math.round(mapX), y: Math.round(mapY) };
+    });
+  }, [setGetViewportCenter]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -808,14 +826,22 @@ export const GalaxyMap = () => {
                           </div>
                         ) : (
                           <div className={cn(
-                            "rounded-full bg-primary relative transition-all",
+                            "rounded-full relative transition-all",
                             planet.isMinor ? "w-2.5 h-2.5" : "w-5 h-5",
-                            isSelected ? "shadow-[0_0_20px_hsl(var(--primary))] scale-125" : "shadow-[0_0_8px_hsl(var(--primary)/0.5)]",
-                            planet.faction === 'Empire' && "bg-destructive shadow-[0_0_12px_hsl(var(--destructive))]",
-                            planet.faction === 'Hutt Cartel' && "bg-green-500 shadow-[0_0_12px_#22c55e]",
-                            planet.faction === 'Chiss Ascendancy' && "bg-indigo-500 shadow-[0_0_12px_#6366f1]",
+                            planet.faction === 'Empire' ? "bg-destructive shadow-[0_0_12px_hsl(var(--destructive))]"
+                              : planet.faction === 'Hutt Cartel' ? "bg-green-500 shadow-[0_0_12px_#22c55e]"
+                              : planet.faction === 'Chiss Ascendancy' ? "bg-indigo-500 shadow-[0_0_12px_#6366f1]"
+                              : planet.faction === 'Galactic Republic' ? "bg-primary shadow-[0_0_12px_hsl(var(--primary))]"
+                              : "",
+                            !['Empire', 'Hutt Cartel', 'Chiss Ascendancy', 'Galactic Republic'].includes(planet.faction || '') && "shadow-[0_0_12px_hsl(137_41%_31%)]",
+                            isSelected && "scale-125",
                             isLaneStart && "bg-primary shadow-[0_0_20px_hsl(var(--primary))] scale-150"
-                          )}>
+                          )}
+                          style={
+                            !['Empire', 'Hutt Cartel', 'Chiss Ascendancy', 'Galactic Republic'].includes(planet.faction || '') && !isLaneStart
+                              ? { backgroundColor: 'hsl(137, 41%, 31%)' }
+                              : undefined
+                          }>
                             {isSelected && <div className="absolute inset-[-6px] border-2 border-primary rounded-full animate-ping opacity-75"></div>}
                           </div>
                         )}
