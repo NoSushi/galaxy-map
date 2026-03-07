@@ -833,13 +833,13 @@ export const GalaxyMap = () => {
                               : planet.faction === 'Chiss Ascendancy' ? "bg-indigo-500 shadow-[0_0_12px_#6366f1]"
                               : planet.faction === 'Galactic Republic' ? "bg-primary shadow-[0_0_12px_hsl(var(--primary))]"
                               : "",
-                            !['Empire', 'Hutt Cartel', 'Chiss Ascendancy', 'Galactic Republic'].includes(planet.faction || '') && "shadow-[0_0_12px_hsl(137_41%_31%)]",
+                            !['Empire', 'Hutt Cartel', 'Chiss Ascendancy', 'Galactic Republic'].includes(planet.faction || '') && "shadow-[0_0_12px_hsl(140, 90%, 45%)]",
                             isSelected && "scale-125",
                             isLaneStart && "bg-primary shadow-[0_0_20px_hsl(var(--primary))] scale-150"
                           )}
                           style={
                             !['Empire', 'Hutt Cartel', 'Chiss Ascendancy', 'Galactic Republic'].includes(planet.faction || '') && !isLaneStart
-                              ? { backgroundColor: 'hsl(137, 41%, 31%)' }
+                              ? { backgroundColor: 'hsl(140, 52%, 55%)' }
                               : undefined
                           }>
                             {isSelected && <div className="absolute inset-[-6px] border-2 border-primary rounded-full animate-ping opacity-75"></div>}
