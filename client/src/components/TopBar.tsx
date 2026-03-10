@@ -137,42 +137,50 @@ export const TopBar = () => {
       const startP = planets.find(p => p.id === l.planetIds[0]);
       if (!startP) return;
       const endP = l.planetIds[1] ? planets.find(p => p.id === l.planetIds[1]) : null;
+      const isLoop = l.planetIds.length >= 2 && l.planetIds[0] === l.planetIds[1];
 
       const fullPts: [number, number][] = [[startP.x, startP.y]];
       if (l.pathPoints && l.pathPoints.length > 0) fullPts.push(...l.pathPoints);
-      if (endP) fullPts.push([endP.x, endP.y]);
+      if (endP && !isLoop) fullPts.push([endP.x, endP.y]);
+      if (isLoop) fullPts.push([startP.x, startP.y]);
 
-      const passThroughPlanets: {planetId: string, segIndex: number}[] = [];
-      for (let seg = 0; seg < fullPts.length - 1; seg++) {
-        const [ax, ay] = fullPts[seg];
-        const [bx, by] = fullPts[seg + 1];
-        planets.forEach(planet => {
-          if (planet.id === l.planetIds[0]) return;
-          if (endP && planet.id === l.planetIds[1]) return;
+      const allLanePlanetIds = [...new Set(l.planetIds)];
+      const endpointIds = new Set([l.planetIds[0], ...(l.planetIds[1] ? [l.planetIds[1]] : [])]);
+      const intermediatePlanetIds = allLanePlanetIds.filter(id => !endpointIds.has(id));
+
+      const getPositionAlongPath = (px: number, py: number): number => {
+        let cumDist = 0;
+        let bestDist = Infinity;
+        let bestPos = 0;
+        for (let i = 0; i < fullPts.length - 1; i++) {
+          const [ax, ay] = fullPts[i];
+          const [bx, by] = fullPts[i + 1];
           const segLen = distBetween(ax, ay, bx, by);
-          if (segLen === 0) return;
-          const t = Math.max(0, Math.min(1, ((planet.x - ax) * (bx - ax) + (planet.y - ay) * (by - ay)) / (segLen * segLen)));
+          if (segLen === 0) { cumDist += segLen; continue; }
+          const t = Math.max(0, Math.min(1, ((px - ax) * (bx - ax) + (py - ay) * (by - ay)) / (segLen * segLen)));
           const projX = ax + t * (bx - ax);
           const projY = ay + t * (by - ay);
-          const d = distBetween(planet.x, planet.y, projX, projY);
-          if (d < PASS_THROUGH_RADIUS) {
-            if (!passThroughPlanets.find(pp => pp.planetId === planet.id)) {
-              passThroughPlanets.push({ planetId: planet.id, segIndex: seg });
-            }
+          const d = distBetween(px, py, projX, projY);
+          if (d < bestDist) {
+            bestDist = d;
+            bestPos = cumDist + t * segLen;
           }
-        });
-      }
+          cumDist += segLen;
+        }
+        return bestPos;
+      };
 
-      passThroughPlanets.sort((a, b) => {
-        if (a.segIndex !== b.segIndex) return a.segIndex - b.segIndex;
-        const pa = planets.find(p => p.id === a.planetId)!;
-        const pb = planets.find(p => p.id === b.planetId)!;
-        const startPt = fullPts[a.segIndex];
-        return distBetween(startPt[0], startPt[1], pa.x, pa.y) - distBetween(startPt[0], startPt[1], pb.x, pb.y);
-      });
+      const sortedIntermediates = intermediatePlanetIds
+        .map(id => {
+          const p = planets.find(pl => pl.id === id);
+          return p ? { id, pos: getPositionAlongPath(p.x, p.y) } : null;
+        })
+        .filter(Boolean)
+        .sort((a, b) => a!.pos - b!.pos)
+        .map(item => item!.id);
 
       const nodeSequence = [l.planetIds[0]];
-      passThroughPlanets.forEach(pp => nodeSequence.push(pp.planetId));
+      nodeSequence.push(...sortedIntermediates);
       if (endP) nodeSequence.push(l.planetIds[1]);
 
       const nodeCoords: Record<string, [number, number]> = {};
@@ -181,6 +189,7 @@ export const TopBar = () => {
       for (let i = 0; i < nodeSequence.length - 1; i++) {
         const fromId = nodeSequence[i];
         const toId = nodeSequence[i + 1];
+        if (!nodeCoords[fromId] || !nodeCoords[toId]) continue;
         const [fx, fy] = nodeCoords[fromId];
         const [tx, ty] = nodeCoords[toId];
         const segDist = distBetween(fx, fy, tx, ty);
