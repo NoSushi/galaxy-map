@@ -454,6 +454,34 @@ export const GalaxyMap = () => {
     return `M ${laneDrawPoints.map(p => `${p[0]},${p[1]}`).join(' L ')}`;
   };
 
+  const laneJunctions = React.useMemo(() => {
+    if (!showLanes || lanes.length < 2) return [];
+    const junctions: { x: number; y: number; count: number }[] = [];
+    const planetLaneCount = new Map<string, number>();
+
+    for (const lane of lanes) {
+      const seen = new Set<string>();
+      for (const pid of lane.planetIds) {
+        if (!seen.has(pid)) {
+          seen.add(pid);
+          planetLaneCount.set(pid, (planetLaneCount.get(pid) || 0) + 1);
+        }
+      }
+    }
+
+    const added = new Set<string>();
+    for (const [pid, count] of planetLaneCount) {
+      if (count >= 2 && !added.has(pid)) {
+        added.add(pid);
+        const planet = planets.find(p => p.id === pid);
+        if (planet) {
+          junctions.push({ x: planet.x, y: planet.y, count });
+        }
+      }
+    }
+    return junctions;
+  }, [lanes, planets, showLanes]);
+
   const isDragging = draggingPlanet !== null || draggingSectorPoint !== null || draggingFleet !== null || draggingLanePoint !== null || isDrawing || isLaneDrawing || isSectorDrawing;
 
   const getLaneDrawStatus = () => {
@@ -487,7 +515,7 @@ export const GalaxyMap = () => {
       )}
 
       {(isInLaneCreation || isInSectorCreation) && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 glass-panel rounded-md px-4 py-2 text-[11px] font-display text-primary animate-pulse tracking-widest">
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 glass-panel rounded-md px-4 py-2 text-[11px] font-display text-primary animate-pulse tracking-widest pointer-events-none">
           {isInSectorCreation ? getSectorDrawStatus() : getLaneDrawStatus()}
         </div>
       )}
@@ -728,6 +756,19 @@ export const GalaxyMap = () => {
                       </g>
                     );
                   })}
+
+                  {showLanes && laneJunctions.map((junc, idx) => (
+                    <circle
+                      key={`junction-${idx}`}
+                      cx={junc.x} cy={junc.y}
+                      r={junc.count > 2 ? 6 : 4}
+                      fill="hsl(var(--primary))"
+                      stroke="hsl(var(--primary) / 0.4)"
+                      strokeWidth={2}
+                      className="pointer-events-none"
+                      filter="url(#glow)"
+                    />
+                  ))}
 
                   {isDrawing && drawingPoints.length > 1 && (
                     <path
