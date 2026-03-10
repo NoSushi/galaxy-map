@@ -372,11 +372,59 @@ const LaneDetails = ({ lane, editMode, planets }: { lane: HyperspaceLane, editMo
   const p1 = planets.find(p => p.id === lane.planetIds[0]);
   const p2 = planets.find(p => p.id === lane.planetIds[1]);
   const isLoop = lane.planetIds.length >= 2 && lane.planetIds[0] === lane.planetIds[1];
-  const uniquePlanetIds = [...new Set(lane.planetIds)];
-  const routePlanets = uniquePlanetIds.map(id => planets.find(p => p.id === id)).filter(Boolean) as Planet[];
 
   const endpointIds = lane.planetIds.slice(0, 2);
   const intermediatePlanetIds = lane.planetIds.slice(2);
+
+  const routePlanets = (() => {
+    const startPlanet = p1;
+    const endPlanet = p2 && !isLoop ? p2 : null;
+    const intermediates = [...new Set(intermediatePlanetIds)]
+      .map(id => planets.find(p => p.id === id))
+      .filter(Boolean) as Planet[];
+
+    if (!startPlanet) return intermediates;
+
+    const fullPath: [number, number][] = [[startPlanet.x, startPlanet.y]];
+    if (lane.pathPoints && lane.pathPoints.length > 0) {
+      fullPath.push(...(lane.pathPoints as [number, number][]));
+    }
+    if (endPlanet) fullPath.push([endPlanet.x, endPlanet.y]);
+    if (isLoop && startPlanet) fullPath.push([startPlanet.x, startPlanet.y]);
+
+    const getPositionAlongPath = (px: number, py: number): number => {
+      let cumDist = 0;
+      let bestDist = Infinity;
+      let bestPos = 0;
+      for (let i = 0; i < fullPath.length - 1; i++) {
+        const [ax, ay] = fullPath[i];
+        const [bx, by] = fullPath[i + 1];
+        const segLen = Math.sqrt((bx - ax) ** 2 + (by - ay) ** 2);
+        if (segLen === 0) continue;
+        const t = Math.max(0, Math.min(1, ((px - ax) * (bx - ax) + (py - ay) * (by - ay)) / (segLen * segLen)));
+        const projX = ax + t * (bx - ax);
+        const projY = ay + t * (by - ay);
+        const d = Math.sqrt((px - projX) ** 2 + (py - projY) ** 2);
+        if (d < bestDist) {
+          bestDist = d;
+          bestPos = cumDist + t * segLen;
+        }
+        cumDist += segLen;
+      }
+      return bestPos;
+    };
+
+    const sorted = intermediates
+      .map(p => ({ planet: p, pos: getPositionAlongPath(p.x, p.y) }))
+      .sort((a, b) => a.pos - b.pos)
+      .map(item => item.planet);
+
+    const result: Planet[] = [];
+    if (startPlanet) result.push(startPlanet);
+    result.push(...sorted);
+    if (endPlanet && endPlanet.id !== startPlanet?.id) result.push(endPlanet);
+    return result;
+  })();
   const availablePlanets = planets.filter(p => !lane.planetIds.includes(p.id));
 
   const removePlanetFromLane = (planetId: string) => {
@@ -488,25 +536,42 @@ const LaneDetails = ({ lane, editMode, planets }: { lane: HyperspaceLane, editMo
 
       {routePlanets.length > 0 && (
         <div className="space-y-3">
-          <h3 className="font-display text-[10px] text-primary/60 uppercase tracking-[0.2em]">Planets Along Route ({routePlanets.length})</h3>
-          <div className="grid grid-cols-1 gap-1">
-            {routePlanets.map(planet => (
-              <div
-                key={planet.id}
-                className="flex items-center justify-between p-2 bg-white/5 rounded border border-white/5 hover:bg-white/10 transition-colors cursor-pointer"
-                onClick={() => { setSelectedLane(null); setSelectedPlanet(planet); }}
-                data-testid={`lane-planet-${planet.id}`}
-              >
-                <div className="flex items-center gap-2">
-                  <div className={cn(
-                    "w-2 h-2 rounded-full",
-                    planet.faction === 'Empire' ? "bg-destructive" : "bg-primary"
-                  )} />
-                  <span className="text-xs font-display uppercase tracking-wider">{planet.name}</span>
+          <h3 className="font-display text-[10px] text-primary/60 uppercase tracking-[0.2em]">Route Order ({routePlanets.length} systems)</h3>
+          <div className="grid grid-cols-1 gap-0">
+            {routePlanets.map((planet, idx) => {
+              const isEndpoint = endpointIds.includes(planet.id);
+              const isFirst = idx === 0;
+              const isLast = idx === routePlanets.length - 1;
+              return (
+                <div key={planet.id} className="flex items-stretch">
+                  <div className="flex flex-col items-center w-6 shrink-0">
+                    <div className={cn(
+                      "w-0.5 flex-1",
+                      isFirst ? "bg-transparent" : "bg-primary/30"
+                    )} />
+                    <div className={cn(
+                      "w-3 h-3 rounded-full shrink-0 border-2",
+                      isEndpoint ? "bg-primary border-primary" : "bg-background border-primary/50"
+                    )} />
+                    <div className={cn(
+                      "w-0.5 flex-1",
+                      isLast ? "bg-transparent" : "bg-primary/30"
+                    )} />
+                  </div>
+                  <div
+                    className="flex items-center justify-between flex-1 py-1.5 pl-2 pr-2 hover:bg-white/5 transition-colors cursor-pointer rounded"
+                    onClick={() => { setSelectedLane(null); setSelectedPlanet(planet); }}
+                    data-testid={`lane-planet-${planet.id}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-display uppercase tracking-wider">{planet.name}</span>
+                      {isEndpoint && <span className="text-[8px] text-muted-foreground bg-white/10 px-1 rounded">TERMINAL</span>}
+                    </div>
+                    <span className="text-[9px] text-muted-foreground uppercase">{planet.faction}</span>
+                  </div>
                 </div>
-                <span className="text-[9px] text-muted-foreground uppercase">{planet.faction}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
