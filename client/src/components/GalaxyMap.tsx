@@ -870,7 +870,7 @@ export const GalaxyMap = () => {
                             "rounded-full relative transition-all",
                             planet.isMinor ? "w-2.5 h-2.5" : "w-5 h-5",
                             planet.faction === 'Empire' ? "bg-destructive shadow-[0_0_12px_hsl(var(--destructive))]"
-                              : planet.faction === 'Hutt Cartel' ? "bg-green-500 shadow-[0_0_12px_#22c55e]"
+                              : planet.faction === 'Hutt Cartel' ? "bg-yellow-500 shadow-[0_0_12px_#eab308]"
                               : planet.faction === 'Chiss Ascendancy' ? "bg-indigo-500 shadow-[0_0_12px_#6366f1]"
                               : planet.faction === 'Galactic Republic' ? "bg-primary shadow-[0_0_12px_hsl(var(--primary))]"
                               : "",
