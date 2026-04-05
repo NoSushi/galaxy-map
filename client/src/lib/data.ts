@@ -113,6 +113,8 @@ export interface MapContextType {
   deleteLane: (id: string) => void;
   getViewportCenter: () => { x: number; y: number };
   setGetViewportCenter: (fn: () => { x: number; y: number }) => void;
+  targetedPlanet: Planet | null;
+  setTargetedPlanet: (planet: Planet | null) => void;
 }
 
 export const MapContext = createContext<MapContextType | undefined>(undefined);

@@ -109,7 +109,8 @@ export const TopBar = () => {
     addPlanet, setSelectedPlanet, addSector, addFleet,
     laneDrawMode, setLaneDrawMode,
     sectorDrawMode, setSectorDrawMode,
-    getViewportCenter
+    getViewportCenter,
+    setTargetedPlanet,
   } = useMap();
 
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
@@ -121,8 +122,27 @@ export const TopBar = () => {
   });
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const travelablePlanets = useMemo(() => planets.filter(p => p.travelable !== false), [planets]);
+
+  const searchResults = useMemo(() => {
+    if (!searchInput.trim()) return [];
+    return planets
+      .filter(p => p.name.toLowerCase().includes(searchInput.toLowerCase()))
+      .slice(0, 12);
+  }, [searchInput, planets]);
+
+  const handleSearchSelect = (planet: Planet) => {
+    setSearchInput(planet.name);
+    setSearchQuery('');
+    setSearchOpen(false);
+    searchRef.current?.blur();
+    setSelectedPlanet(planet);
+    setTargetedPlanet(planet);
+  };
 
   const travelResult = useMemo(() => {
     if (!travelCalc.start || !travelCalc.end || travelCalc.start === travelCalc.end) return null;
@@ -369,13 +389,39 @@ export const TopBar = () => {
           </div>
 
           <div className="relative w-72">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-primary/40" />
-            <Input 
-              placeholder="Query Astrogation Database..." 
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-primary/40 z-10" />
+            <Input
+              ref={searchRef}
+              placeholder="Query Astrogation Database..."
               className="pl-9 bg-black/60 border-primary/20 h-9 font-sans focus-visible:ring-primary text-xs uppercase tracking-wider"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={searchInput}
+              onChange={(e) => {
+                setSearchInput(e.target.value);
+                setSearchQuery(e.target.value);
+                setSearchOpen(true);
+              }}
+              onFocus={() => setSearchOpen(true)}
+              onBlur={() => setTimeout(() => setSearchOpen(false), 160)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && searchResults.length > 0) handleSearchSelect(searchResults[0]);
+                if (e.key === 'Escape') { setSearchOpen(false); setSearchInput(''); setSearchQuery(''); }
+              }}
             />
+            {searchOpen && searchResults.length > 0 && (
+              <div className="absolute z-50 top-full mt-1 w-full bg-[#060c1a]/98 border border-primary/30 rounded-md shadow-2xl overflow-hidden backdrop-blur-xl">
+                {searchResults.map((p) => (
+                  <div
+                    key={p.id}
+                    className="px-3 py-2 text-[11px] uppercase cursor-pointer transition-colors hover:bg-primary/15 hover:text-primary text-foreground/75 flex items-center gap-2"
+                    onMouseDown={(e) => { e.preventDefault(); handleSearchSelect(p); }}
+                  >
+                    <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: p.faction === 'Empire' ? '#ef4444' : p.faction === 'Galactic Republic' ? 'hsl(var(--primary))' : p.faction === 'Hutt Cartel' ? '#eab308' : p.faction === 'Chiss Ascendancy' ? '#6366f1' : '#4ade80' }} />
+                    {p.name}
+                    {p.isMinor && <span className="ml-auto text-[9px] text-primary/30 uppercase">Minor</span>}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2 ml-2 border-l border-primary/10 pl-4">

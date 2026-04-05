@@ -37,6 +37,7 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
     viewportCenterFnRef.current = fn;
   }, []);
   const [searchQuery, setSearchQuery] = useState('');
+  const [targetedPlanet, setTargetedPlanet] = useState<Planet | null>(null);
   
   const [filters, setFilters] = useState({
     faction: 'All',
@@ -289,7 +290,9 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
       deleteSector,
       deleteLane,
       getViewportCenter,
-      setGetViewportCenter
+      setGetViewportCenter,
+      targetedPlanet,
+      setTargetedPlanet,
     }}>
       {children}
     </MapContext.Provider>

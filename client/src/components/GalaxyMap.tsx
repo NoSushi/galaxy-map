@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { TransformWrapper, TransformComponent, ReactZoomPanPinchRef } from 'react-zoom-pan-pinch';
 import { useMap, Planet, Fleet, HyperspaceLane, Sector } from '@/lib/data';
 import { cn } from '@/lib/utils';
 import { Crown, Ship, Plus, Pencil } from 'lucide-react';
+import { TargetingOverlay } from './TargetingOverlay';
 
 const FACTION_COLORS: Record<string, string> = {
   'Galactic Republic': '210 80% 55%',
@@ -25,7 +26,8 @@ export const GalaxyMap = () => {
     laneDrawMode, setLaneDrawMode,
     sectorDrawMode, setSectorDrawMode,
     searchQuery, filters,
-    setGetViewportCenter
+    setGetViewportCenter,
+    targetedPlanet, setTargetedPlanet,
   } = useMap();
 
   const mapWidth = 5000;
@@ -53,6 +55,48 @@ export const GalaxyMap = () => {
 
   const transformRef = useRef<ReactZoomPanPinchRef | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // Targeting overlay state
+  const [overlayPlanet, setOverlayPlanet] = useState<Planet | null>(null);
+  const [overlayScreenPos, setOverlayScreenPos] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+
+  useEffect(() => {
+    if (!targetedPlanet) return;
+
+    // Compute planet screen position from current transform
+    const computePos = () => {
+      const ref = transformRef.current;
+      const container = mapContainerRef.current;
+      if (!ref || !container) return null;
+      const { scale, positionX, positionY } = ref.instance.transformState;
+      const rect = container.getBoundingClientRect();
+      const screenX = (targetedPlanet.x + pad) * scale + positionX;
+      const screenY = (targetedPlanet.y + pad) * scale + positionY;
+      return { x: screenX, y: screenY, w: rect.width, h: rect.height };
+    };
+
+    const pos = computePos();
+    if (!pos) return;
+    setOverlayPlanet(targetedPlanet);
+    setOverlayScreenPos(pos);
+  }, [targetedPlanet]);
+
+  const handleOverlayZoom = useCallback(() => {
+    if (!targetedPlanet || !transformRef.current || !mapContainerRef.current) return;
+    const container = mapContainerRef.current;
+    const rect = container.getBoundingClientRect();
+    const targetScale = 1.2;
+    const newX = rect.width / 2 - (targetedPlanet.x + pad) * targetScale;
+    const newY = rect.height / 2 - (targetedPlanet.y + pad) * targetScale;
+    transformRef.current.setTransform(newX, newY, targetScale, 1200);
+  }, [targetedPlanet]);
+
+  const handleOverlayComplete = useCallback(() => {
+    setOverlayPlanet(null);
+    setOverlayScreenPos(null);
+    setTargetedPlanet(null);
+  }, [setTargetedPlanet]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -502,8 +546,22 @@ export const GalaxyMap = () => {
   };
 
   return (
-    <div className="w-full h-full overflow-hidden relative" onClick={handleMapClick}
+    <div ref={mapContainerRef} className="w-full h-full overflow-hidden relative" onClick={handleMapClick}
          style={{ background: '#020408', backgroundImage: `url('/starfield-bg.png')`, backgroundSize: '512px 512px', backgroundRepeat: 'repeat' }}>
+
+      {/* Targeting animation overlay */}
+      {overlayPlanet && overlayScreenPos && (
+        <TargetingOverlay
+          key={overlayPlanet.id}
+          planet={overlayPlanet}
+          screenX={overlayScreenPos.x}
+          screenY={overlayScreenPos.y}
+          containerWidth={overlayScreenPos.w}
+          containerHeight={overlayScreenPos.h}
+          onZoom={handleOverlayZoom}
+          onComplete={handleOverlayComplete}
+        />
+      )}
 
       {hoveredLane && laneTooltipPos && (
         <div
