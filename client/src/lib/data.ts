@@ -23,6 +23,7 @@ export interface Planet {
   isPowerbaseCapital?: boolean | null;
   powerbaseOf?: string | null;
   oversector?: string | null;
+  travelable?: boolean | null;
 }
 
 export interface Sector {

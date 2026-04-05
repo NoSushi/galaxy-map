@@ -13,6 +13,7 @@ const FACTION_COLORS: Record<string, string> = {
 };
 
 export const GalaxyMap = () => {
+  const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
   const { 
     planets, sectors, lanes, fleets,
     showLanes, showSectors, showLabels, showOverlay,
@@ -860,9 +861,14 @@ export const GalaxyMap = () => {
                             <Crown className="w-3.5 h-3.5 fill-amber-500/20" />
                           </div>
                         )}
-                        {planet.markerImage ? (
+                        {planet.markerImage && !brokenImages.has(planet.id) ? (
                           <div className={cn("relative transition-all duration-300", isSelected ? "scale-125 drop-shadow-[0_0_15px_rgba(255,255,255,0.6)]" : "hover:scale-110")}>
-                            <img src={planet.markerImage} alt={planet.name} className={cn("object-contain pointer-events-none drop-shadow-lg", planet.isMinor ? "w-5 h-5" : "w-10 h-10")} />
+                            <img
+                              src={planet.markerImage}
+                              alt={planet.name}
+                              className={cn("object-contain pointer-events-none drop-shadow-lg", planet.isMinor ? "w-5 h-5" : "w-10 h-10")}
+                              onError={() => setBrokenImages(prev => new Set(prev).add(planet.id))}
+                            />
                             {isSelected && <div className="absolute inset-[-6px] border-2 border-primary rounded-full animate-ping opacity-75"></div>}
                           </div>
                         ) : (

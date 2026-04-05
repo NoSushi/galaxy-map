@@ -22,6 +22,7 @@ export const planets = pgTable("planets", {
   isPowerbaseCapital: boolean("is_powerbase_capital").default(false),
   powerbaseOf: text("powerbase_of"),
   oversector: text("oversector"),
+  travelable: boolean("travelable").default(true),
 });
 
 export const sectors = pgTable("sectors", {

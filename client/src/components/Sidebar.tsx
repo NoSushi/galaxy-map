@@ -173,6 +173,17 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
 
         <div className="flex items-center justify-between p-2 bg-white/5 rounded border border-white/10">
           <div className="flex items-center gap-2">
+            <Route className={cn("w-3 h-3", planet.travelable !== false ? "text-primary" : "text-muted-foreground")} />
+            <div>
+              <Label htmlFor="is-travelable" className="text-xs">Travelable</Label>
+              <p className="text-[9px] text-muted-foreground">Allow in travel calculator</p>
+            </div>
+          </div>
+          <Switch checked={planet.travelable !== false} onCheckedChange={c => updatePlanet({...planet, travelable: c})} id="is-travelable" />
+        </div>
+
+        <div className="flex items-center justify-between p-2 bg-white/5 rounded border border-white/10">
+          <div className="flex items-center gap-2">
             <Crown className={cn("w-3.5 h-3.5", planet.isPowerbaseCapital ? "text-amber-500" : "text-muted-foreground")} />
             <Label htmlFor="is-powerbase" className="text-xs">Powerbase Capital</Label>
           </div>

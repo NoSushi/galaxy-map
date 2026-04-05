@@ -122,21 +122,25 @@ export const TopBar = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
+  const travelablePlanets = useMemo(() => planets.filter(p => p.travelable !== false), [planets]);
+
   const travelResult = useMemo(() => {
     if (!travelCalc.start || !travelCalc.end || travelCalc.start === travelCalc.end) return null;
-    
-    const PASS_THROUGH_RADIUS = 50;
     
     const distBetween = (ax: number, ay: number, bx: number, by: number) =>
       Math.sqrt((ax - bx) ** 2 + (ay - by) ** 2);
 
+    const travelP = travelablePlanets;
+
     const adj: Record<string, {node: string, dist: number, laneName: string}[]> = {};
-    planets.forEach(p => adj[p.id] = []);
+    travelP.forEach(p => adj[p.id] = []);
+
+    const onLanePlanetIds = new Set(lanes.flatMap(l => l.planetIds));
 
     lanes.forEach(l => {
-      const startP = planets.find(p => p.id === l.planetIds[0]);
+      const startP = travelP.find(p => p.id === l.planetIds[0]);
       if (!startP) return;
-      const endP = l.planetIds[1] ? planets.find(p => p.id === l.planetIds[1]) : null;
+      const endP = l.planetIds[1] ? travelP.find(p => p.id === l.planetIds[1]) : null;
       const isLoop = l.planetIds.length >= 2 && l.planetIds[0] === l.planetIds[1];
 
       const fullPts: [number, number][] = [[startP.x, startP.y]];
@@ -172,7 +176,7 @@ export const TopBar = () => {
 
       const sortedIntermediates = intermediatePlanetIds
         .map(id => {
-          const p = planets.find(pl => pl.id === id);
+          const p = travelP.find(pl => pl.id === id);
           return p ? { id, pos: getPositionAlongPath(p.x, p.y) } : null;
         })
         .filter(Boolean)
@@ -184,7 +188,7 @@ export const TopBar = () => {
       if (endP) nodeSequence.push(l.planetIds[1]);
 
       const nodeCoords: Record<string, [number, number]> = {};
-      planets.forEach(p => nodeCoords[p.id] = [p.x, p.y]);
+      travelP.forEach(p => nodeCoords[p.id] = [p.x, p.y]);
 
       for (let i = 0; i < nodeSequence.length - 1; i++) {
         const fromId = nodeSequence[i];
@@ -201,11 +205,26 @@ export const TopBar = () => {
       }
     });
 
+    // Off-lane planets: connect to nearest 3 on-lane planets at 2x cost
+    const onLanePlanets = travelP.filter(p => onLanePlanetIds.has(p.id));
+    travelP.filter(p => !onLanePlanetIds.has(p.id)).forEach(offPlanet => {
+      const sorted = onLanePlanets
+        .map(op => ({ id: op.id, dist: distBetween(offPlanet.x, offPlanet.y, op.x, op.y) }))
+        .sort((a, b) => a.dist - b.dist)
+        .slice(0, 3);
+      sorted.forEach(({ id: onId, dist }) => {
+        if (!adj[offPlanet.id]) adj[offPlanet.id] = [];
+        if (!adj[onId]) adj[onId] = [];
+        adj[offPlanet.id].push({ node: onId, dist: dist * 2, laneName: 'Off-Lane Travel' });
+        adj[onId].push({ node: offPlanet.id, dist: dist * 2, laneName: 'Off-Lane Travel' });
+      });
+    });
+
     const distances: Record<string, number> = {};
     const prev: Record<string, { node: string, laneName: string } | null> = {};
-    const pq = new Set(planets.map(p => p.id));
+    const pq = new Set(travelP.map(p => p.id));
     
-    planets.forEach(p => {
+    travelP.forEach(p => {
       distances[p.id] = Infinity;
       prev[p.id] = null;
     });
@@ -233,7 +252,7 @@ export const TopBar = () => {
     let current: string | null = travelCalc.end;
     while (current) {
       const prevEntry = prev[current];
-      const planet = planets.find(p => p.id === current);
+      const planet = travelP.find(p => p.id === current);
       route.unshift({
         planetId: current,
         planetName: planet?.name || 'Unknown',
@@ -273,7 +292,7 @@ export const TopBar = () => {
       route,
       legs
     };
-  }, [travelCalc, planets, lanes]);
+  }, [travelCalc, travelablePlanets, lanes]);
 
   const handleAdminToggle = () => {
     if (editMode) {
@@ -434,7 +453,7 @@ export const TopBar = () => {
               <div className="space-y-1">
                 <Label className="text-[10px] uppercase tracking-widest text-primary/70">Origin Point</Label>
                 <PlanetAutocomplete
-                  planets={planets}
+                  planets={travelablePlanets}
                   value={travelCalc.start}
                   onSelect={(v) => setTravelCalc(prev => ({...prev, start: v}))}
                   placeholder="Type origin system..."
@@ -443,7 +462,7 @@ export const TopBar = () => {
               <div className="space-y-1">
                 <Label className="text-[10px] uppercase tracking-widest text-primary/70">Destination</Label>
                 <PlanetAutocomplete
-                  planets={planets}
+                  planets={travelablePlanets}
                   value={travelCalc.end}
                   onSelect={(v) => setTravelCalc(prev => ({...prev, end: v}))}
                   placeholder="Type destination..."
