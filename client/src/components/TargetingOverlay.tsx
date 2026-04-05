@@ -12,49 +12,10 @@ interface Props {
 }
 
 const GAP = 22;
-const LINE_TRANSITION = 'top 0.75s linear, left 0.75s linear, box-shadow 0.35s ease';
-
-function playTone(type: 'sweep1' | 'sweep2' | 'lock' | 'zoom') {
-  try {
-    const ctx = new AudioContext();
-    const now = ctx.currentTime;
-
-    const beep = (freq1: number, freq2: number, vol: number, start: number, dur: number, wave: OscillatorType = 'sine') => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = wave;
-      osc.frequency.setValueAtTime(freq1, start);
-      osc.frequency.linearRampToValueAtTime(freq2, start + dur * 0.8);
-      gain.gain.setValueAtTime(0, start);
-      gain.gain.linearRampToValueAtTime(vol, start + 0.04);
-      gain.gain.setValueAtTime(vol, start + dur * 0.7);
-      gain.gain.linearRampToValueAtTime(0, start + dur);
-      osc.start(start);
-      osc.stop(start + dur + 0.05);
-    };
-
-    if (type === 'sweep1') {
-      beep(320, 680, 0.18, now, 0.65);
-      beep(320, 680, 0.06, now + 0.05, 0.55, 'square');
-    } else if (type === 'sweep2') {
-      beep(480, 960, 0.18, now, 0.65);
-      beep(480, 960, 0.06, now + 0.05, 0.55, 'square');
-    } else if (type === 'lock') {
-      beep(880, 880, 0.20, now, 0.10, 'square');
-      beep(1320, 1320, 0.18, now + 0.13, 0.12, 'square');
-      beep(1760, 1760, 0.15, now + 0.28, 0.15, 'sine');
-    } else if (type === 'zoom') {
-      beep(90, 280, 0.14, now, 1.1, 'sawtooth');
-      beep(160, 60, 0.08, now + 0.2, 0.9, 'sine');
-    }
-
-    setTimeout(() => ctx.close(), 3000);
-  } catch {
-    // Audio unavailable
-  }
-}
+// Phase 1 vertical lines: 1 second travel time (T=0 → T=1.0s)
+const H_LINE_TRANSITION = 'top 1.0s linear, box-shadow 0.35s ease';
+// Phase 2 horizontal lines: 0.9 second travel time (T=1.8s → T=2.7s)
+const V_LINE_TRANSITION = 'left 0.9s linear, box-shadow 0.35s ease';
 
 export const TargetingOverlay: React.FC<Props> = ({
   planet, screenX, screenY, containerWidth, containerHeight, onZoom, onComplete
@@ -73,37 +34,38 @@ export const TargetingOverlay: React.FC<Props> = ({
   const [showLabel, setShowLabel] = useState(false);
   const [tighten, setTighten] = useState(false);
   const running = useRef(true);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const safe = (fn: () => void) => { if (running.current) fn(); };
 
   useEffect(() => {
     running.current = true;
 
-    // T=0: Begin dimming
-    safe(() => setDimOpacity(0.45));
+    // Play the MP3 immediately at T=0
+    try {
+      const audio = new Audio('/planet-select.mp3');
+      audio.volume = 0.85;
+      audio.play().catch(() => {});
+      audioRef.current = audio;
+    } catch {
+      // Audio unavailable
+    }
 
-    // T=120: Vertical lines appear at edges, immediately start sliding in
-    const t1 = setTimeout(() => {
-      safe(() => {
-        playTone('sweep1');
-        setShowV(true);
-      });
+    // T=0: Begin dimming + show vertical lines → transition 1.0s → lands at T=1.0s
+    safe(() => setDimOpacity(0.45));
+    safe(() => setShowV(true));
+    requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          safe(() => {
-            setTopY(screenY - GAP);
-            setBotY(screenY + GAP);
-          });
+        safe(() => {
+          setTopY(screenY - GAP);
+          setBotY(screenY + GAP);
         });
       });
-    }, 120);
+    });
 
-    // T=120+850: Horizontal lines in
+    // T=1800ms: Horizontal lines in → transition 0.9s → lands at T=2.7s
     const t2 = setTimeout(() => {
-      safe(() => {
-        playTone('sweep2');
-        setShowH(true);
-      });
+      safe(() => setShowH(true));
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           safe(() => {
@@ -112,47 +74,43 @@ export const TargetingOverlay: React.FC<Props> = ({
           });
         });
       });
-    }, 970);
+    }, 1800);
 
-    // T=970+850: Lock
+    // T=2900ms: Lock phase — ring, corners, label
     const t3 = setTimeout(() => {
       safe(() => {
-        playTone('lock');
         setGlow(true);
         setShowRing(true);
         setShowCorners(true);
         setShowLabel(true);
         setDimOpacity(0.68);
       });
-    }, 1820);
+    }, 2900);
 
-    // T=1820+450: Zoom begins
+    // T=3500ms: Zoom + tighten + fade out
     const t4 = setTimeout(() => {
       safe(() => {
-        playTone('zoom');
         setTighten(true);
-        onZoom();
-      });
-    }, 2270);
-
-    // T=2270+250: Lines + overlay fade out
-    const t5 = setTimeout(() => {
-      safe(() => {
         setLinesOpacity(0);
         setDimOpacity(0);
         setShowLabel(false);
+        onZoom();
       });
-    }, 2520);
+    }, 3500);
 
-    // T=2520+800: Done
-    const t6 = setTimeout(() => {
+    // T=4000ms: Done
+    const t5 = setTimeout(() => {
       safe(() => onComplete());
-    }, 3320);
+    }, 4000);
 
     return () => {
       running.current = false;
-      clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
-      clearTimeout(t4); clearTimeout(t5); clearTimeout(t6);
+      clearTimeout(t2); clearTimeout(t3);
+      clearTimeout(t4); clearTimeout(t5);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
     };
   }, []);
 
@@ -170,7 +128,7 @@ export const TargetingOverlay: React.FC<Props> = ({
     background: `linear-gradient(90deg, transparent 0%, transparent 8%, ${lineColor} 25%, ${lineColor} 75%, transparent 92%, transparent 100%)`,
     boxShadow: shadowBase,
     top: `${tighten ? (top === topY ? screenY - tightGap : screenY + tightGap) : top}px`,
-    transition: LINE_TRANSITION,
+    transition: H_LINE_TRANSITION,
     pointerEvents: 'none',
   });
 
@@ -182,7 +140,7 @@ export const TargetingOverlay: React.FC<Props> = ({
     background: `linear-gradient(180deg, transparent 0%, transparent 8%, ${lineColor} 25%, ${lineColor} 75%, transparent 92%, transparent 100%)`,
     boxShadow: shadowBase,
     left: `${tighten ? (left === leftX ? screenX - tightGap : screenX + tightGap) : left}px`,
-    transition: LINE_TRANSITION,
+    transition: V_LINE_TRANSITION,
     pointerEvents: 'none',
   });
 
@@ -202,7 +160,7 @@ export const TargetingOverlay: React.FC<Props> = ({
       />
 
       {/* Lines wrapper — fades out during zoom */}
-      <div style={{ opacity: linesOpacity, transition: 'opacity 0.85s ease-out' }}>
+      <div style={{ opacity: linesOpacity, transition: 'opacity 0.5s ease-out' }}>
 
         {/* Vertical sweep lines (Phase 1) */}
         {showV && <>
@@ -258,7 +216,7 @@ export const TargetingOverlay: React.FC<Props> = ({
             whiteSpace: 'nowrap',
             lineHeight: 1.5,
             opacity: linesOpacity,
-            transition: 'opacity 0.85s ease-out',
+            transition: 'opacity 0.5s ease-out',
           }}>
             {planet.name}
             <br />

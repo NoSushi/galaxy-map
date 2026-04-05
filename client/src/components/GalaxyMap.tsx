@@ -89,7 +89,7 @@ export const GalaxyMap = () => {
     const targetScale = 1.2;
     const newX = rect.width / 2 - (targetedPlanet.x + pad) * targetScale;
     const newY = rect.height / 2 - (targetedPlanet.y + pad) * targetScale;
-    transformRef.current.setTransform(newX, newY, targetScale, 1200);
+    transformRef.current.setTransform(newX, newY, targetScale, 500);
   }, [targetedPlanet]);
 
   const handleOverlayComplete = useCallback(() => {
