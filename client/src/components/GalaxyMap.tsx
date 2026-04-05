@@ -864,10 +864,11 @@ export const GalaxyMap = () => {
                         {planet.markerImage && !brokenImages.has(planet.id) ? (
                           <div className={cn("relative transition-all duration-300", isSelected ? "scale-125 drop-shadow-[0_0_15px_rgba(255,255,255,0.6)]" : "hover:scale-110")}>
                             <img
-                              src={planet.markerImage}
-                              alt={planet.name}
+                              src={planet.markerImage!}
+                              alt=""
                               className={cn("object-contain pointer-events-none drop-shadow-lg", planet.isMinor ? "w-5 h-5" : "w-10 h-10")}
                               onError={() => setBrokenImages(prev => new Set(prev).add(planet.id))}
+                              style={{ color: 'transparent' }}
                             />
                             {isSelected && <div className="absolute inset-[-6px] border-2 border-primary rounded-full animate-ping opacity-75"></div>}
                           </div>
