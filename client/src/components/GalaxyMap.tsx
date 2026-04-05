@@ -830,7 +830,7 @@ export const GalaxyMap = () => {
                     <div
                       key={planet.id}
                       className={cn(
-                        "absolute transform -translate-x-1/2 -translate-y-1/2 transition-opacity duration-200",
+                        "absolute transform -translate-x-1/2 -translate-y-1/2 transition-opacity duration-200 outline-none focus:outline-none select-none",
                         planetLocked ? "cursor-pointer" : (editMode ? "cursor-move" : "cursor-pointer"),
                         isLaneStart && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-full"
                       )}
@@ -914,7 +914,7 @@ export const GalaxyMap = () => {
                   return (
                     <div
                       key={fleet.id}
-                      className={cn("absolute transform -translate-x-1/2 -translate-y-1/2 z-10 transition-opacity duration-200", editMode && !isInAnyDrawCreation ? "cursor-move" : "cursor-pointer")}
+                      className={cn("absolute transform -translate-x-1/2 -translate-y-1/2 z-10 transition-opacity duration-200 outline-none focus:outline-none select-none", editMode && !isInAnyDrawCreation ? "cursor-move" : "cursor-pointer")}
                       style={{ left: fleet.x + pad, top: fleet.y + pad }}
                       onClick={(e) => handleFleetClick(e, fleet)}
                       onMouseEnter={() => setHoveredItem({ type: 'fleet', id: fleet.id })}
