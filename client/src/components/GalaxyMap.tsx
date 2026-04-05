@@ -829,14 +829,17 @@ export const GalaxyMap = () => {
                   return (
                     <div
                       key={planet.id}
+                      tabIndex={-1}
                       className={cn(
-                        "absolute transform -translate-x-1/2 -translate-y-1/2 transition-opacity duration-200 outline-none focus:outline-none select-none",
+                        "absolute transform -translate-x-1/2 -translate-y-1/2 transition-opacity duration-200 outline-none focus:outline-none focus-visible:outline-none select-none",
                         planetLocked ? "cursor-pointer" : (editMode ? "cursor-move" : "cursor-pointer"),
                         isLaneStart && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-full"
                       )}
                       style={{ 
                         left: planet.x + pad, top: planet.y + pad, 
                         zIndex: isLaneStart ? 20 : (hoveredItem?.type === 'planet' && hoveredItem.id === planet.id ? 20 : undefined),
+                        outline: 'none',
+                        WebkitTapHighlightColor: 'transparent',
                       }}
                       onClick={(e) => handlePlanetClick(e, planet)}
                       onMouseEnter={() => setHoveredItem({ type: 'planet', id: planet.id })}
@@ -861,7 +864,7 @@ export const GalaxyMap = () => {
                             <Crown className="w-3.5 h-3.5 fill-amber-500/20" />
                           </div>
                         )}
-                        {planet.markerImage && !brokenImages.has(planet.id) ? (
+                        {planet.markerImage && planet.markerImage.trim() && !brokenImages.has(planet.id) ? (
                           <div className={cn("relative transition-all duration-300", isSelected ? "scale-125 drop-shadow-[0_0_15px_rgba(255,255,255,0.6)]" : "hover:scale-110")}>
                             <img
                               src={planet.markerImage!}
@@ -894,17 +897,19 @@ export const GalaxyMap = () => {
                           </div>
                         )}
                       </div>
-                      {showLabels && (
-                        <div className={cn(
-                          "absolute left-1/2 -translate-x-1/2 top-full mt-1 px-2 py-0.5 rounded text-[10px] font-display tracking-widest whitespace-nowrap bg-background/90 backdrop-blur-md border transition-all duration-200 uppercase pointer-events-none",
-                          isSelected ? "border-primary text-primary shadow-[0_0_15px_hsl(var(--primary)/0.4)]" : "border-border/60 text-foreground/90",
-                          planet.isMinor && !(hoveredItem?.type === 'planet' && hoveredItem.id === planet.id) && !isSelected ? "opacity-0" : (
-                            hoveredItem && hoveredItem.id !== planet.id && !isSelected ? "opacity-0" : "opacity-100"
-                          )
-                        )}>
-                          {planet.name}
-                        </div>
-                      )}
+                      {showLabels && (() => {
+                        const isHovered = hoveredItem?.type === 'planet' && hoveredItem.id === planet.id;
+                        const shouldHide = (planet.isMinor && !isHovered && !isSelected) || (hoveredItem && !isHovered && !isSelected);
+                        return (
+                          <div className={cn(
+                            "absolute left-1/2 -translate-x-1/2 top-full mt-1 px-2 py-0.5 rounded text-[10px] font-display tracking-widest whitespace-nowrap bg-background/80 border transition-opacity duration-200 uppercase pointer-events-none",
+                            isSelected ? "border-primary text-primary shadow-[0_0_15px_hsl(var(--primary)/0.4)]" : "border-border/60 text-foreground/90",
+                            shouldHide ? "opacity-0 invisible" : "opacity-100 visible"
+                          )}>
+                            {planet.name}
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })}
@@ -914,8 +919,9 @@ export const GalaxyMap = () => {
                   return (
                     <div
                       key={fleet.id}
-                      className={cn("absolute transform -translate-x-1/2 -translate-y-1/2 z-10 transition-opacity duration-200 outline-none focus:outline-none select-none", editMode && !isInAnyDrawCreation ? "cursor-move" : "cursor-pointer")}
-                      style={{ left: fleet.x + pad, top: fleet.y + pad }}
+                      tabIndex={-1}
+                      className={cn("absolute transform -translate-x-1/2 -translate-y-1/2 z-10 transition-opacity duration-200 outline-none focus:outline-none focus-visible:outline-none select-none", editMode && !isInAnyDrawCreation ? "cursor-move" : "cursor-pointer")}
+                      style={{ left: fleet.x + pad, top: fleet.y + pad, outline: 'none', WebkitTapHighlightColor: 'transparent' }}
                       onClick={(e) => handleFleetClick(e, fleet)}
                       onMouseEnter={() => setHoveredItem({ type: 'fleet', id: fleet.id })}
                       onMouseLeave={() => setHoveredItem(null)}

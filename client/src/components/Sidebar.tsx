@@ -204,7 +204,7 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
 
         <div className="space-y-1">
           <Label className="text-[10px] uppercase text-primary/70">Marker URL (PNG/WebP)</Label>
-          <Input value={planet.markerImage || ''} onChange={e => updatePlanet({...planet, markerImage: e.target.value})} className="bg-black/60 border-primary/20 h-8 text-xs" />
+          <Input value={planet.markerImage || ''} onChange={e => updatePlanet({...planet, markerImage: e.target.value.trim() || null})} className="bg-black/60 border-primary/20 h-8 text-xs" />
         </div>
 
         <div className="space-y-1">
@@ -614,7 +614,7 @@ const FleetDetails = ({ fleet, editMode }: { fleet: Fleet, editMode: boolean }) 
 
         <div className="space-y-1">
           <Label className="text-[10px] uppercase text-primary/70">Ship Image URL</Label>
-          <Input value={fleet.markerImage || ''} onChange={e => updateFleet({...fleet, markerImage: e.target.value})} className="bg-black/60 border-primary/20 h-8 text-xs" placeholder="e.g. /star-destroyer.png" />
+          <Input value={fleet.markerImage || ''} onChange={e => updateFleet({...fleet, markerImage: e.target.value.trim() || null})} className="bg-black/60 border-primary/20 h-8 text-xs" placeholder="e.g. /star-destroyer.png" />
         </div>
 
         <div className="space-y-1">
