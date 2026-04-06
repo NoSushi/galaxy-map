@@ -62,7 +62,7 @@ export const GalaxyMap = () => {
   const [overlayScreenPos, setOverlayScreenPos] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
 
   // Scale used for both the fly-to pan and the overlay animation
-  const FLY_SCALE = 0.75;
+  const FLY_SCALE = 0.4;
   const FLY_DURATION = 700; // ms camera takes to fly to planet
 
   useEffect(() => {

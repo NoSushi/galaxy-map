@@ -397,7 +397,6 @@ export const TopBar = () => {
               value={searchInput}
               onChange={(e) => {
                 setSearchInput(e.target.value);
-                setSearchQuery(e.target.value);
                 setSearchOpen(true);
               }}
               onFocus={() => setSearchOpen(true)}
