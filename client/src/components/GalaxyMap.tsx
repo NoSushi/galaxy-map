@@ -157,6 +157,10 @@ export const GalaxyMap = () => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
 
+  // Viewport culling: track transform at a throttled rate (CSS handles smooth motion)
+  const [viewTransform, setViewTransform] = useState({ scale: 0.2, positionX: 0, positionY: 0 });
+  const lastCullUpdate = useRef(0);
+
   // Targeting overlay state
   const [overlayPlanet, setOverlayPlanet] = useState<Planet | null>(null);
   const [overlayScreenPos, setOverlayScreenPos] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
@@ -316,6 +320,83 @@ export const GalaxyMap = () => {
   }, []);
 
   const pad = 500;
+
+  // Visible bounds in map-space coordinates (accounting for pad offset)
+  const visibleBounds = useMemo(() => {
+    const { scale, positionX, positionY } = viewTransform;
+    const cw = mapContainerRef.current?.clientWidth ?? window.innerWidth;
+    const ch = mapContainerRef.current?.clientHeight ?? window.innerHeight;
+    const BUFFER = Math.max(400, 200 / scale); // generous off-screen buffer
+    const left = -positionX / scale - pad - BUFFER;
+    const top  = -positionY / scale - pad - BUFFER;
+    const right  = left + cw / scale + BUFFER * 2;
+    const bottom = top  + ch / scale + BUFFER * 2;
+    return { left, top, right, bottom, scale };
+  }, [viewTransform]);
+
+  // IDs that must never be culled (selected / hovered / targeted)
+  const pinnedPlanetIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (selectedPlanet) ids.add(selectedPlanet.id);
+    if (targetedPlanet) ids.add(targetedPlanet.id);
+    if (overlayPlanet) ids.add(overlayPlanet.id);
+    if (hoveredItem?.type === 'planet') ids.add(hoveredItem.id);
+    return ids;
+  }, [selectedPlanet, targetedPlanet, overlayPlanet, hoveredItem]);
+
+  // Culled + LOD planet list
+  const visiblePlanets = useMemo(() => {
+    const { left, top, right, bottom, scale } = visibleBounds;
+    const hideMinor = scale < 0.13; // skip tiny dots when fully zoomed out
+    return filteredPlanets.filter(p => {
+      if (pinnedPlanetIds.has(p.id)) return true;
+      if (hideMinor && p.isMinor) return false;
+      return p.x >= left && p.x <= right && p.y >= top && p.y <= bottom;
+    });
+  }, [filteredPlanets, visibleBounds, pinnedPlanetIds]);
+
+  // Culled + LOD lane list
+  const visibleLanes = useMemo(() => {
+    const { left, top, right, bottom, scale } = visibleBounds;
+    const selectedLaneId = selectedLane?.id;
+    const hideMinorLanes = scale < 0.12;
+    return lanes.filter(lane => {
+      if (lane.id === selectedLaneId) return true;
+      if (hideMinorLanes && lane.type === 'Minor') return false;
+      // Keep if either endpoint is in view OR a path point is in view
+      const check = (x: number, y: number) =>
+        x >= left && x <= right && y >= top && y <= bottom;
+      const p1 = planetById.get(lane.planetIds[0]);
+      if (p1 && check(p1.x, p1.y)) return true;
+      const p2 = lane.planetIds[1] ? planetById.get(lane.planetIds[1]) : undefined;
+      if (p2 && check(p2.x, p2.y)) return true;
+      // Check a mid path-point if available
+      if (lane.pathPoints && lane.pathPoints.length > 0) {
+        const mid = lane.pathPoints[Math.floor(lane.pathPoints.length / 2)];
+        if (check(mid[0], mid[1])) return true;
+      }
+      return false;
+    });
+  }, [lanes, visibleBounds, selectedLane, planetById]);
+
+  // Culled fleet list
+  const visibleFleets = useMemo(() => {
+    const { left, top, right, bottom } = visibleBounds;
+    const selId = selectedFleet?.id;
+    return fleets.filter(f =>
+      f.id === selId ||
+      (f.x >= left && f.x <= right && f.y >= top && f.y <= bottom)
+    );
+  }, [fleets, visibleBounds, selectedFleet]);
+
+  // Pre-computed sector path strings
+  const sectorPaths = useMemo(() => {
+    const m = new Map<string, string>();
+    sectors.forEach(s => {
+      m.set(s.id, `M ${s.points.map(p => `${p[0]},${p[1]}`).join(' L ')} Z`);
+    });
+    return m;
+  }, [sectors]);
   const totalWidth = mapWidth + pad * 2;
   const totalHeight = mapHeight + pad * 2;
 
@@ -751,6 +832,18 @@ export const GalaxyMap = () => {
         centerOnInit
         limitToBounds={true}
         disabled={isDragging}
+        onTransform={(_ref, state) => {
+          const now = Date.now();
+          if (now - lastCullUpdate.current < 80) return; // max ~12fps culling updates
+          lastCullUpdate.current = now;
+          setViewTransform({ scale: state.scale, positionX: state.positionX, positionY: state.positionY });
+        }}
+        onZoomStop={(_ref, state) => {
+          setViewTransform({ scale: state.scale, positionX: state.positionX, positionY: state.positionY });
+        }}
+        onPanningStop={(_ref, state) => {
+          setViewTransform({ scale: state.scale, positionX: state.positionX, positionY: state.positionY });
+        }}
       >
         {({ zoomIn, zoomOut, resetTransform, centerView }) => (
           <>
@@ -786,6 +879,8 @@ export const GalaxyMap = () => {
                 style={{ 
                   width: `${totalWidth}px`, 
                   height: `${totalHeight}px`,
+                  willChange: 'transform',
+                  contain: 'layout style',
                 }}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
@@ -868,7 +963,7 @@ export const GalaxyMap = () => {
 
                   {showSectors && sectors.map(sector => {
                     const isSelected = selectedSector?.id === sector.id;
-                    const pathD = `M ${sector.points.map(p => `${p[0]},${p[1]}`).join(' L ')} Z`;
+                    const pathD = sectorPaths.get(sector.id) ?? '';
                     
                     return (
                       <g key={sector.id}>
@@ -926,7 +1021,7 @@ export const GalaxyMap = () => {
                     );
                   })}
 
-                  {showLanes && lanes.map(lane => {
+                  {showLanes && visibleLanes.map(lane => {
                     const pathD = lanePaths.get(lane.id);
                     if (!pathD) return null;
                     const isSelected = selectedLane?.id === lane.id;
@@ -1041,7 +1136,7 @@ export const GalaxyMap = () => {
                   )}
                 </svg>
 
-                {filteredPlanets.map(planet => (
+                {visiblePlanets.map(planet => (
                   <PlanetMarker
                     key={planet.id}
                     planet={planet}
@@ -1062,7 +1157,7 @@ export const GalaxyMap = () => {
                   />
                 ))}
 
-                {fleets.map(fleet => {
+                {visibleFleets.map(fleet => {
                   const isSelected = selectedFleet?.id === fleet.id;
                   return (
                     <div
