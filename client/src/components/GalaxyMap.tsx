@@ -61,25 +61,34 @@ export const GalaxyMap = () => {
   const [overlayPlanet, setOverlayPlanet] = useState<Planet | null>(null);
   const [overlayScreenPos, setOverlayScreenPos] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
 
+  // Scale used for both the fly-to pan and the overlay animation
+  const FLY_SCALE = 0.75;
+  const FLY_DURATION = 700; // ms camera takes to fly to planet
+
   useEffect(() => {
     if (!targetedPlanet) return;
 
-    // Compute planet screen position from current transform
-    const computePos = () => {
-      const ref = transformRef.current;
-      const container = mapContainerRef.current;
-      if (!ref || !container) return null;
+    const ref = transformRef.current;
+    const container = mapContainerRef.current;
+    if (!ref || !container) return;
+
+    const rect = container.getBoundingClientRect();
+
+    // Step 1: Fly camera to center the planet at FLY_SCALE so animation is always visible
+    const flyX = rect.width / 2 - (targetedPlanet.x + pad) * FLY_SCALE;
+    const flyY = rect.height / 2 - (targetedPlanet.y + pad) * FLY_SCALE;
+    ref.setTransform(flyX, flyY, FLY_SCALE, FLY_DURATION);
+
+    // Step 2: After camera settles, compute the (now-centered) screen position and mount overlay
+    const timer = setTimeout(() => {
       const { scale, positionX, positionY } = ref.instance.transformState;
-      const rect = container.getBoundingClientRect();
       const screenX = (targetedPlanet.x + pad) * scale + positionX;
       const screenY = (targetedPlanet.y + pad) * scale + positionY;
-      return { x: screenX, y: screenY, w: rect.width, h: rect.height };
-    };
+      setOverlayPlanet(targetedPlanet);
+      setOverlayScreenPos({ x: screenX, y: screenY, w: rect.width, h: rect.height });
+    }, FLY_DURATION + 60);
 
-    const pos = computePos();
-    if (!pos) return;
-    setOverlayPlanet(targetedPlanet);
-    setOverlayScreenPos(pos);
+    return () => clearTimeout(timer);
   }, [targetedPlanet]);
 
   const handleOverlayZoom = useCallback(() => {
