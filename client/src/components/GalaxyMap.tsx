@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { TransformWrapper, TransformComponent, ReactZoomPanPinchRef } from 'react-zoom-pan-pinch';
 import { useMap, Planet, Fleet, HyperspaceLane, Sector } from '@/lib/data';
 import { cn } from '@/lib/utils';
@@ -12,6 +12,107 @@ const FACTION_COLORS: Record<string, string> = {
   'Chiss Ascendancy': '240 70% 55%',
   'Independent': '137, 41%, 31%',
 };
+
+interface PlanetMarkerProps {
+  planet: Planet;
+  pad: number;
+  isSelected: boolean;
+  isHovered: boolean;
+  hasOtherHovered: boolean;
+  isLaneStart: boolean;
+  planetLocked: boolean;
+  showLabels: boolean;
+  editMode: boolean;
+  hasBrokenImage: boolean;
+  onImageError: (id: string) => void;
+  onClick: (e: React.MouseEvent, planet: Planet) => void;
+  onMouseEnter: (id: string) => void;
+  onMouseLeave: () => void;
+  onMouseDown: (e: React.MouseEvent, planet: Planet) => void;
+}
+
+const PlanetMarker = React.memo<PlanetMarkerProps>(({
+  planet, pad, isSelected, isHovered, hasOtherHovered, isLaneStart,
+  planetLocked, showLabels, editMode, hasBrokenImage,
+  onImageError, onClick, onMouseEnter, onMouseLeave, onMouseDown
+}) => {
+  const shouldHide = !isSelected && !isHovered && (planet.isMinor || hasOtherHovered);
+
+  return (
+    <div
+      tabIndex={-1}
+      className={cn(
+        "absolute transform -translate-x-1/2 -translate-y-1/2 transition-opacity duration-200 outline-none focus:outline-none focus-visible:outline-none select-none",
+        planetLocked ? "cursor-pointer" : (editMode ? "cursor-move" : "cursor-pointer"),
+        isLaneStart && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-full"
+      )}
+      style={{
+        left: planet.x + pad, top: planet.y + pad,
+        zIndex: isLaneStart ? 20 : (isHovered ? 20 : undefined),
+        outline: 'none',
+        WebkitTapHighlightColor: 'transparent',
+      }}
+      onClick={(e) => onClick(e, planet)}
+      onMouseEnter={() => onMouseEnter(planet.id)}
+      onMouseLeave={onMouseLeave}
+      onMouseDown={(e) => onMouseDown(e, planet)}
+    >
+      <div className="relative">
+        {planet.isCapital && (
+          <div className="absolute left-1/2 -translate-x-1/2 -top-5 text-yellow-400 drop-shadow-[0_0_5px_currentColor] animate-bounce pointer-events-none">
+            <Crown className="w-5 h-5 fill-yellow-400/20" />
+          </div>
+        )}
+        {!planet.isCapital && planet.isPowerbaseCapital && (
+          <div className="absolute left-1/2 -translate-x-1/2 -top-4 text-amber-500 drop-shadow-[0_0_4px_currentColor] pointer-events-none">
+            <Crown className="w-3.5 h-3.5 fill-amber-500/20" />
+          </div>
+        )}
+        {planet.markerImage && planet.markerImage.trim() && !hasBrokenImage ? (
+          <div className={cn("relative transition-all duration-300", isSelected ? "scale-125 drop-shadow-[0_0_15px_rgba(255,255,255,0.6)]" : "hover:scale-110")}>
+            <img
+              src={planet.markerImage}
+              alt=""
+              className={cn("object-contain pointer-events-none drop-shadow-lg", planet.isMinor ? "w-5 h-5" : "w-10 h-10")}
+              onError={() => onImageError(planet.id)}
+              style={{ color: 'transparent' }}
+            />
+            {isSelected && <div className="absolute inset-[-6px] border-2 border-primary rounded-full animate-ping opacity-75"></div>}
+          </div>
+        ) : (
+          <div className={cn(
+            "rounded-full relative transition-all",
+            planet.isMinor ? "w-2.5 h-2.5" : "w-5 h-5",
+            planet.faction === 'Empire' ? "bg-destructive shadow-[0_0_12px_hsl(var(--destructive))]"
+              : planet.faction === 'Hutt Cartel' ? "bg-yellow-500 shadow-[0_0_12px_#eab308]"
+              : planet.faction === 'Chiss Ascendancy' ? "bg-indigo-500 shadow-[0_0_12px_#6366f1]"
+              : planet.faction === 'Galactic Republic' ? "bg-primary shadow-[0_0_12px_hsl(var(--primary))]"
+              : "",
+            !['Empire', 'Hutt Cartel', 'Chiss Ascendancy', 'Galactic Republic'].includes(planet.faction || '') && "shadow-[0_0_12px_hsl(140, 90%, 45%)]",
+            isSelected && "scale-125",
+            isLaneStart && "bg-primary shadow-[0_0_20px_hsl(var(--primary))] scale-150"
+          )}
+          style={
+            !['Empire', 'Hutt Cartel', 'Chiss Ascendancy', 'Galactic Republic'].includes(planet.faction || '') && !isLaneStart
+              ? { backgroundColor: 'hsl(140, 52%, 55%)' }
+              : undefined
+          }>
+            {isSelected && <div className="absolute inset-[-6px] border-2 border-primary rounded-full animate-ping opacity-75"></div>}
+          </div>
+        )}
+      </div>
+      {showLabels && (
+        <div className={cn(
+          "absolute left-1/2 -translate-x-1/2 top-full mt-1 px-2 py-0.5 rounded text-[10px] font-display tracking-widest whitespace-nowrap bg-background/80 border transition-opacity duration-200 uppercase pointer-events-none",
+          isSelected ? "border-primary text-primary shadow-[0_0_15px_hsl(var(--primary)/0.4)]" : "border-border/60 text-foreground/90",
+          shouldHide ? "opacity-0 invisible" : "opacity-100 visible"
+        )}>
+          {planet.name}
+        </div>
+      )}
+    </div>
+  );
+});
 
 export const GalaxyMap = () => {
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
@@ -51,7 +152,6 @@ export const GalaxyMap = () => {
   const [isSectorDrawing, setIsSectorDrawing] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<{ type: 'planet' | 'fleet' | 'lane'; id: string } | null>(null);
   const [laneTooltipPos, setLaneTooltipPos] = useState<{ x: number; y: number } | null>(null);
-  const hoveredLane = hoveredItem?.type === 'lane' ? lanes.find(l => l.id === hoveredItem.id) : null;
 
   const transformRef = useRef<ReactZoomPanPinchRef | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -160,15 +260,60 @@ export const GalaxyMap = () => {
     };
   }, []);
 
-  const filteredPlanets = planets.filter(p => {
+  const filteredPlanets = useMemo(() => planets.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFaction = filters.faction === 'All' || p.faction === filters.faction;
-    const matchesHabitable = filters.habitable === 'All' || 
+    const matchesHabitable = filters.habitable === 'All' ||
                              (filters.habitable === 'Yes' ? p.habitable : !p.habitable);
     const matchesEnv = filters.environment === 'All' || p.environment === filters.environment;
-    
     return matchesSearch && matchesFaction && matchesHabitable && matchesEnv;
-  });
+  }), [planets, searchQuery, filters]);
+
+  // O(1) planet lookups
+  const planetById = useMemo(() => {
+    const m = new Map<string, Planet>();
+    planets.forEach(p => m.set(p.id, p));
+    return m;
+  }, [planets]);
+
+  // Pre-computed lane paths — avoid recalculating every render
+  const lanePaths = useMemo(() => {
+    const paths = new Map<string, string | null>();
+    for (const lane of lanes) {
+      const p1 = planetById.get(lane.planetIds[0]);
+      if (!p1) { paths.set(lane.id, null); continue; }
+      const isLoop = lane.planetIds[1] === lane.planetIds[0];
+      const p2 = lane.planetIds[1] && !isLoop ? planetById.get(lane.planetIds[1]) : null;
+      let path: string | null = null;
+      if (lane.pathPoints && lane.pathPoints.length > 0) {
+        const pts: number[][] = [[p1.x, p1.y], ...lane.pathPoints];
+        if (p2) pts.push([p2.x, p2.y]);
+        if (isLoop) pts.push([p1.x, p1.y]);
+        path = `M ${pts.map(p => `${p[0]},${p[1]}`).join(' L ')}`;
+      } else if (p2) {
+        path = `M ${p1.x},${p1.y} L ${p2.x},${p2.y}`;
+      }
+      paths.set(lane.id, path);
+    }
+    return paths;
+  }, [lanes, planetById]);
+
+  // Memoized hovered lane lookup
+  const hoveredLane = useMemo(
+    () => hoveredItem?.type === 'lane' ? lanes.find(l => l.id === hoveredItem.id) ?? null : null,
+    [hoveredItem, lanes]
+  );
+
+  // Stable planet-marker callbacks
+  const handleImageError = useCallback((id: string) => {
+    setBrokenImages(prev => new Set(prev).add(id));
+  }, []);
+  const handlePlanetMouseEnter = useCallback((id: string) => {
+    setHoveredItem({ type: 'planet', id });
+  }, []);
+  const handlePlanetMouseLeave = useCallback(() => {
+    setHoveredItem(null);
+  }, []);
 
   const pad = 500;
   const totalWidth = mapWidth + pad * 2;
@@ -363,6 +508,16 @@ export const GalaxyMap = () => {
       setIsLaneDrawing(true);
     }
   };
+
+  const handlePlanetMouseDownStable = useCallback((e: React.MouseEvent, planet: Planet) => {
+    if (isInAnyDrawCreation && laneDrawMode && !laneDrawStartPlanet) {
+      handlePlanetMouseDownForLane(e, planet);
+      return;
+    }
+    if (isInAnyDrawCreation) return;
+    if (editMode) setDraggingPlanet(planet.id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInAnyDrawCreation, laneDrawMode, laneDrawStartPlanet, editMode]);
 
   const pointToSegDist = (px: number, py: number, ax: number, ay: number, bx: number, by: number) => {
     const abx = bx - ax, aby = by - ay;
@@ -772,15 +927,12 @@ export const GalaxyMap = () => {
                   })}
 
                   {showLanes && lanes.map(lane => {
-                    const p1 = getPlanetPoint(lane.planetIds[0]);
-                    if (!p1) return null;
+                    const pathD = lanePaths.get(lane.id);
+                    if (!pathD) return null;
                     const isSelected = selectedLane?.id === lane.id;
                     let strokeColor = "hsl(var(--primary))";
                     if (lane.type === 'Dangerous') strokeColor = "hsl(var(--destructive))";
                     else if (lane.type === 'Minor') strokeColor = "hsl(var(--muted-foreground))";
-
-                    const pathD = getLanePath(lane);
-                    if (!pathD) return null;
 
                     return (
                       <g key={lane.id} className="pointer-events-auto cursor-pointer" onClick={(e) => handleLaneClick(e, lane)}
@@ -889,97 +1041,26 @@ export const GalaxyMap = () => {
                   )}
                 </svg>
 
-                {filteredPlanets.map(planet => {
-                  const isSelected = selectedPlanet?.id === planet.id;
-                  const isLaneStart = laneDrawStartPlanet === planet.id;
-                  const planetLocked = isInAnyDrawCreation;
-                  return (
-                    <div
-                      key={planet.id}
-                      tabIndex={-1}
-                      className={cn(
-                        "absolute transform -translate-x-1/2 -translate-y-1/2 transition-opacity duration-200 outline-none focus:outline-none focus-visible:outline-none select-none",
-                        planetLocked ? "cursor-pointer" : (editMode ? "cursor-move" : "cursor-pointer"),
-                        isLaneStart && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-full"
-                      )}
-                      style={{ 
-                        left: planet.x + pad, top: planet.y + pad, 
-                        zIndex: isLaneStart ? 20 : (hoveredItem?.type === 'planet' && hoveredItem.id === planet.id ? 20 : undefined),
-                        outline: 'none',
-                        WebkitTapHighlightColor: 'transparent',
-                      }}
-                      onClick={(e) => handlePlanetClick(e, planet)}
-                      onMouseEnter={() => setHoveredItem({ type: 'planet', id: planet.id })}
-                      onMouseLeave={() => setHoveredItem(null)}
-                      onMouseDown={(e) => {
-                        if (planetLocked && laneDrawMode && !laneDrawStartPlanet) {
-                          handlePlanetMouseDownForLane(e, planet);
-                          return;
-                        }
-                        if (planetLocked) return;
-                        if (editMode) setDraggingPlanet(planet.id);
-                      }}
-                    >
-                      <div className="relative">
-                        {planet.isCapital && (
-                          <div className="absolute left-1/2 -translate-x-1/2 -top-5 text-yellow-400 drop-shadow-[0_0_5px_currentColor] animate-bounce pointer-events-none">
-                            <Crown className="w-5 h-5 fill-yellow-400/20" />
-                          </div>
-                        )}
-                        {!planet.isCapital && planet.isPowerbaseCapital && (
-                          <div className="absolute left-1/2 -translate-x-1/2 -top-4 text-amber-500 drop-shadow-[0_0_4px_currentColor] pointer-events-none">
-                            <Crown className="w-3.5 h-3.5 fill-amber-500/20" />
-                          </div>
-                        )}
-                        {planet.markerImage && planet.markerImage.trim() && !brokenImages.has(planet.id) ? (
-                          <div className={cn("relative transition-all duration-300", isSelected ? "scale-125 drop-shadow-[0_0_15px_rgba(255,255,255,0.6)]" : "hover:scale-110")}>
-                            <img
-                              src={planet.markerImage!}
-                              alt=""
-                              className={cn("object-contain pointer-events-none drop-shadow-lg", planet.isMinor ? "w-5 h-5" : "w-10 h-10")}
-                              onError={() => setBrokenImages(prev => new Set(prev).add(planet.id))}
-                              style={{ color: 'transparent' }}
-                            />
-                            {isSelected && <div className="absolute inset-[-6px] border-2 border-primary rounded-full animate-ping opacity-75"></div>}
-                          </div>
-                        ) : (
-                          <div className={cn(
-                            "rounded-full relative transition-all",
-                            planet.isMinor ? "w-2.5 h-2.5" : "w-5 h-5",
-                            planet.faction === 'Empire' ? "bg-destructive shadow-[0_0_12px_hsl(var(--destructive))]"
-                              : planet.faction === 'Hutt Cartel' ? "bg-yellow-500 shadow-[0_0_12px_#eab308]"
-                              : planet.faction === 'Chiss Ascendancy' ? "bg-indigo-500 shadow-[0_0_12px_#6366f1]"
-                              : planet.faction === 'Galactic Republic' ? "bg-primary shadow-[0_0_12px_hsl(var(--primary))]"
-                              : "",
-                            !['Empire', 'Hutt Cartel', 'Chiss Ascendancy', 'Galactic Republic'].includes(planet.faction || '') && "shadow-[0_0_12px_hsl(140, 90%, 45%)]",
-                            isSelected && "scale-125",
-                            isLaneStart && "bg-primary shadow-[0_0_20px_hsl(var(--primary))] scale-150"
-                          )}
-                          style={
-                            !['Empire', 'Hutt Cartel', 'Chiss Ascendancy', 'Galactic Republic'].includes(planet.faction || '') && !isLaneStart
-                              ? { backgroundColor: 'hsl(140, 52%, 55%)' }
-                              : undefined
-                          }>
-                            {isSelected && <div className="absolute inset-[-6px] border-2 border-primary rounded-full animate-ping opacity-75"></div>}
-                          </div>
-                        )}
-                      </div>
-                      {showLabels && (() => {
-                        const isHovered = hoveredItem?.type === 'planet' && hoveredItem.id === planet.id;
-                        const shouldHide = (planet.isMinor && !isHovered && !isSelected) || (hoveredItem && !isHovered && !isSelected);
-                        return (
-                          <div className={cn(
-                            "absolute left-1/2 -translate-x-1/2 top-full mt-1 px-2 py-0.5 rounded text-[10px] font-display tracking-widest whitespace-nowrap bg-background/80 border transition-opacity duration-200 uppercase pointer-events-none",
-                            isSelected ? "border-primary text-primary shadow-[0_0_15px_hsl(var(--primary)/0.4)]" : "border-border/60 text-foreground/90",
-                            shouldHide ? "opacity-0 invisible" : "opacity-100 visible"
-                          )}>
-                            {planet.name}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  );
-                })}
+                {filteredPlanets.map(planet => (
+                  <PlanetMarker
+                    key={planet.id}
+                    planet={planet}
+                    pad={pad}
+                    isSelected={selectedPlanet?.id === planet.id}
+                    isHovered={hoveredItem?.type === 'planet' && hoveredItem.id === planet.id}
+                    hasOtherHovered={!!hoveredItem && !(hoveredItem.type === 'planet' && hoveredItem.id === planet.id)}
+                    isLaneStart={laneDrawStartPlanet === planet.id}
+                    planetLocked={isInAnyDrawCreation}
+                    showLabels={showLabels}
+                    editMode={editMode}
+                    hasBrokenImage={brokenImages.has(planet.id)}
+                    onImageError={handleImageError}
+                    onClick={handlePlanetClick}
+                    onMouseEnter={handlePlanetMouseEnter}
+                    onMouseLeave={handlePlanetMouseLeave}
+                    onMouseDown={handlePlanetMouseDownStable}
+                  />
+                ))}
 
                 {fleets.map(fleet => {
                   const isSelected = selectedFleet?.id === fleet.id;
