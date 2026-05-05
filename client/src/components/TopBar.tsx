@@ -74,6 +74,25 @@ const PlanetAutocomplete = ({ planets, value, onSelect, placeholder }: { planets
   );
 };
 
+const ToggleSwitch = ({ id, checked, onChange, label, icon }: { id: string, checked: boolean, onChange: (v: boolean) => void, label: string, icon: React.ReactNode }) => (
+  <div className="flex items-center space-x-2">
+    <Switch id={id} checked={checked} onCheckedChange={onChange} className="data-[state=checked]:bg-primary h-4 w-8" />
+    <Label htmlFor={id} className={cn("text-[9px] uppercase font-bold tracking-widest flex items-center gap-1 cursor-pointer transition-colors", checked ? "text-primary" : "text-primary/40")}>
+      {icon} {label}
+    </Label>
+  </div>
+);
+
+const CompactToggle = ({ id, checked, onChange, label, icon }: { id: string, checked: boolean, onChange: (v: boolean) => void, label: string, icon: React.ReactNode }) => (
+  <div className="flex items-center gap-1.5">
+    <Switch id={id} checked={checked} onCheckedChange={onChange} className="data-[state=checked]:bg-primary h-3.5 w-7" />
+    <Label htmlFor={id} className={cn("flex items-center gap-1 cursor-pointer transition-colors", checked ? "text-primary" : "text-primary/40")}>
+      <span className={cn("lg:hidden", checked ? "text-primary" : "text-primary/40")}>{icon}</span>
+      <span className={cn("hidden lg:inline text-[9px] uppercase font-bold tracking-widest", checked ? "text-primary" : "text-primary/40")}>{label}</span>
+    </Label>
+  </div>
+);
+
 export const TopBar = () => {
   const { 
     showLanes, setShowLanes,
@@ -396,26 +415,30 @@ export const TopBar = () => {
   };
 
   const BUILTIN_FACTION_IDS = ['f-republic', 'f-empire', 'f-hutt', 'f-chiss', 'f-independent'];
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <>
-      <div className="absolute top-0 left-0 w-full z-10 glass-panel-primary border-x-0 border-t-0 p-3 flex justify-between items-center px-6">
-        
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 mr-4 group cursor-pointer">
-            <Hexagon className="w-10 h-10 text-primary glow-text transition-transform group-hover:rotate-90 duration-500" />
-            <div className="flex flex-col">
-              <h1 className="font-display font-black text-xl leading-none tracking-tighter text-primary glow-text uppercase">GALACTIC</h1>
-              <span className="text-[9px] tracking-[0.3em] text-primary/60 uppercase font-bold">ASTROGATION DATABASE</span>
+      {/* ── Main bar ─────────────────────────────────────────────── */}
+      <div className="absolute top-0 left-0 w-full z-10 glass-panel-primary border-x-0 border-t-0">
+        <div className="flex items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4 sm:py-2.5">
+
+          {/* Logo */}
+          <div className="flex items-center gap-1.5 shrink-0 group cursor-pointer">
+            <Hexagon className="w-7 h-7 sm:w-8 sm:h-8 lg:w-9 lg:h-9 text-primary glow-text transition-transform group-hover:rotate-90 duration-500" />
+            <div className="hidden xs:flex flex-col leading-none">
+              <span className="font-display font-black text-sm sm:text-base lg:text-lg leading-none tracking-tighter text-primary glow-text uppercase">GALACTIC</span>
+              <span className="hidden sm:block text-[7px] lg:text-[8px] tracking-[0.25em] text-primary/60 uppercase font-bold">ASTROGATION DATABASE</span>
             </div>
           </div>
 
-          <div className="relative w-72">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-primary/40 z-10" />
+          {/* Search — grows to fill available space */}
+          <div className="relative flex-1 min-w-0 max-w-xs sm:max-w-sm lg:max-w-md">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-primary/40 z-10" />
             <Input
               ref={searchRef}
-              placeholder="Query Astrogation Database..."
-              className="pl-9 bg-black/60 border-primary/20 h-9 font-sans focus-visible:ring-primary text-xs uppercase tracking-wider"
+              placeholder="Search systems..."
+              className="pl-8 bg-black/60 border-primary/20 h-8 sm:h-9 font-sans focus-visible:ring-primary text-[10px] sm:text-xs uppercase tracking-wider w-full"
               value={searchInput}
               onChange={(e) => { setSearchInput(e.target.value); setSearchOpen(true); }}
               onFocus={() => setSearchOpen(true)}
@@ -438,9 +461,12 @@ export const TopBar = () => {
             )}
           </div>
 
-          <div className="flex items-center gap-2 ml-2 border-l border-primary/10 pl-4">
+          {/* Faction filter — hidden on mobile, shown md+ */}
+          <div className="hidden md:flex items-center shrink-0">
             <Select value={filters.faction} onValueChange={(val) => setFilters({...filters, faction: val})}>
-              <SelectTrigger className="w-[150px] h-9 bg-black/60 border-primary/20 text-[10px] uppercase font-bold tracking-widest"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-[130px] lg:w-[150px] h-8 sm:h-9 bg-black/60 border-primary/20 text-[9px] lg:text-[10px] uppercase font-bold tracking-widest">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="All">All Factions</SelectItem>
                 {factionList.map(f => (
@@ -449,61 +475,144 @@ export const TopBar = () => {
               </SelectContent>
             </Select>
           </div>
-        </div>
 
-        <div className="flex items-center gap-4">
+          {/* Edit toolbar — icons-only on sm, labels on lg+ */}
           {editMode && (
-            <div className="flex gap-1 bg-primary/5 p-1 rounded-md border border-primary/10">
-              <Button variant="ghost" size="sm" onClick={handleCreatePlanet} className="h-8 text-[9px] font-display text-primary hover:bg-primary/20 gap-1.5"><Plus className="w-3 h-3" /> PLANET</Button>
-              <Button variant="ghost" size="sm" onClick={() => setSectorDrawMode(!sectorDrawMode)} className={cn("h-8 text-[9px] font-display hover:bg-primary/20 gap-1.5", sectorDrawMode ? "text-primary bg-primary/20 animate-pulse" : "text-primary")} data-testid="button-add-sector"><MapIcon className="w-3 h-3" /> SECTOR</Button>
-              <Button variant="ghost" size="sm" onClick={handleCreateFleet} className="h-8 text-[9px] font-display text-primary hover:bg-primary/20 gap-1.5"><Ship className="w-3 h-3" /> FLEET</Button>
-              <Button variant="ghost" size="sm" onClick={() => setLaneDrawMode(!laneDrawMode)} className={cn("h-8 text-[9px] font-display hover:bg-primary/20 gap-1.5", laneDrawMode ? "text-primary bg-primary/20 animate-pulse" : "text-primary")} data-testid="button-add-hyperlane"><Route className="w-3 h-3" /> HYPERLANE</Button>
+            <div className="hidden sm:flex gap-0.5 bg-primary/5 p-0.5 rounded-md border border-primary/10 shrink-0">
+              <Button variant="ghost" size="sm" onClick={handleCreatePlanet} className="h-7 lg:h-8 text-[9px] font-display text-primary hover:bg-primary/20 px-2 gap-1">
+                <Plus className="w-3 h-3 shrink-0" /><span className="hidden lg:inline">PLANET</span>
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setSectorDrawMode(!sectorDrawMode)} className={cn("h-7 lg:h-8 text-[9px] font-display hover:bg-primary/20 px-2 gap-1", sectorDrawMode ? "text-primary bg-primary/20 animate-pulse" : "text-primary")} data-testid="button-add-sector">
+                <MapIcon className="w-3 h-3 shrink-0" /><span className="hidden lg:inline">SECTOR</span>
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleCreateFleet} className="h-7 lg:h-8 text-[9px] font-display text-primary hover:bg-primary/20 px-2 gap-1">
+                <Ship className="w-3 h-3 shrink-0" /><span className="hidden lg:inline">FLEET</span>
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setLaneDrawMode(!laneDrawMode)} className={cn("h-7 lg:h-8 text-[9px] font-display hover:bg-primary/20 px-2 gap-1", laneDrawMode ? "text-primary bg-primary/20 animate-pulse" : "text-primary")} data-testid="button-add-hyperlane">
+                <Route className="w-3 h-3 shrink-0" /><span className="hidden lg:inline">LANE</span>
+              </Button>
             </div>
           )}
 
-          <div className="flex items-center gap-4 bg-black/40 p-1.5 px-4 rounded-full border border-primary/10">
-            <ToggleSwitch id="lanes" checked={showLanes} onChange={setShowLanes} label="Routes" icon={<Route className="w-3 h-3" />} />
-            <div className="w-px h-4 bg-primary/10" />
-            <ToggleSwitch id="sectors" checked={showSectors} onChange={setShowSectors} label="Regions" icon={<MapIcon className="w-3 h-3" />} />
-            <div className="w-px h-4 bg-primary/10" />
-            <ToggleSwitch id="labels" checked={showLabels} onChange={setShowLabels} label="Tags" icon={<Orbit className="w-3 h-3" />} />
+          {/* View toggles — icons-only on sm/md, labels on xl+ */}
+          <div className="hidden sm:flex items-center gap-2 lg:gap-3 bg-black/40 py-1 px-2 lg:px-3 rounded-full border border-primary/10 shrink-0">
+            <CompactToggle id="lanes" checked={showLanes} onChange={setShowLanes} icon={<Route className="w-3 h-3" />} label="Routes" />
+            <div className="w-px h-3 bg-primary/15" />
+            <CompactToggle id="sectors" checked={showSectors} onChange={setShowSectors} icon={<MapIcon className="w-3 h-3" />} label="Sectors" />
+            <div className="w-px h-3 bg-primary/15" />
+            <CompactToggle id="labels" checked={showLabels} onChange={setShowLabels} icon={<Orbit className="w-3 h-3" />} label="Labels" />
             {editMode && (
               <>
-                <div className="w-px h-4 bg-primary/10" />
-                <ToggleSwitch id="overlay" checked={showOverlay} onChange={setShowOverlay} label="Overlay" icon={<Layers className="w-3 h-3" />} />
+                <div className="w-px h-3 bg-primary/15" />
+                <CompactToggle id="overlay" checked={showOverlay} onChange={setShowOverlay} icon={<Layers className="w-3 h-3" />} label="Overlay" />
               </>
             )}
           </div>
 
-          <Button variant="outline" size="sm" onClick={() => setIsTravelTimeOpen(true)} className="border-primary/30 text-primary hover:bg-primary/10 gap-2 font-display tracking-widest">
-            <Compass className="w-4 h-4" /> CALCULATE TRAVEL
+          {/* Travel calc — icon on sm/md, label on lg+ */}
+          <Button variant="outline" size="sm" onClick={() => setIsTravelTimeOpen(true)} className="hidden sm:flex border-primary/30 text-primary hover:bg-primary/10 gap-1.5 font-display tracking-widest h-8 lg:h-9 px-2 lg:px-3 shrink-0">
+            <Compass className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden lg:inline text-[9px]">TRAVEL</span>
           </Button>
 
+          {/* Admin utility buttons (passwd / admin panel) */}
           {editMode && currentUser && (
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setIsChangePasswordOpen(true)} className="border-primary/20 text-primary/70 hover:bg-primary/10 gap-1.5 font-display tracking-widest h-9 px-3">
-                <Key className="w-3.5 h-3.5" /> PASSWD
+            <div className="hidden sm:flex gap-1 shrink-0">
+              <Button variant="outline" size="sm" onClick={() => setIsChangePasswordOpen(true)} className="border-primary/20 text-primary/70 hover:bg-primary/10 h-8 lg:h-9 w-8 lg:w-9 p-0 flex items-center justify-center" title="Change password">
+                <Key className="w-3.5 h-3.5" />
               </Button>
               {currentUser.isAdmin && (
-                <Button variant="outline" size="sm" onClick={handleOpenAdminPanel} className="border-primary/20 text-primary/70 hover:bg-primary/10 gap-1.5 font-display tracking-widest h-9 px-3">
-                  <Shield className="w-3.5 h-3.5" /> ADMIN
+                <Button variant="outline" size="sm" onClick={handleOpenAdminPanel} className="border-primary/20 text-primary/70 hover:bg-primary/10 h-8 lg:h-9 w-8 lg:w-9 p-0 flex items-center justify-center" title="Admin panel">
+                  <Shield className="w-3.5 h-3.5" />
                 </Button>
               )}
             </div>
           )}
 
+          {/* Admin / Logout button */}
           <Button
             variant={editMode ? "default" : "outline"}
             size="sm"
             onClick={handleAdminToggle}
-            className={cn("font-display font-black tracking-widest h-9 px-4 gap-2 transition-all duration-500",
-              editMode ? "bg-primary text-background hover:scale-105 shadow-[0_0_20px_hsl(var(--primary)/0.6)]" : "border-primary/30 text-primary hover:bg-primary/10"
+            className={cn("shrink-0 font-display font-black tracking-widest h-8 lg:h-9 px-2 lg:px-3 gap-1.5 transition-all duration-500 text-[9px] lg:text-[10px]",
+              editMode ? "bg-primary text-background shadow-[0_0_15px_hsl(var(--primary)/0.5)]" : "border-primary/30 text-primary hover:bg-primary/10"
             )}
           >
-            {editMode ? <LogOut className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-            {editMode ? "LOGOUT" : "ADMIN"}
+            {editMode ? <LogOut className="w-3.5 h-3.5 shrink-0" /> : <Lock className="w-3.5 h-3.5 shrink-0" />}
+            <span className="hidden sm:inline">{editMode ? "EXIT" : "ADMIN"}</span>
+          </Button>
+
+          {/* Mobile hamburger */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setMobileMenuOpen(v => !v)}
+            className="sm:hidden h-8 w-8 p-0 text-primary hover:bg-primary/10 shrink-0"
+            aria-label="Menu"
+          >
+            <div className="flex flex-col gap-1 items-center justify-center">
+              <span className={cn("block w-4 h-0.5 bg-primary transition-all duration-200", mobileMenuOpen && "rotate-45 translate-y-1.5")} />
+              <span className={cn("block w-4 h-0.5 bg-primary transition-all duration-200", mobileMenuOpen && "opacity-0")} />
+              <span className={cn("block w-4 h-0.5 bg-primary transition-all duration-200", mobileMenuOpen && "-rotate-45 -translate-y-1.5")} />
+            </div>
           </Button>
         </div>
+
+        {/* ── Mobile dropdown menu ───────────────────────────────── */}
+        {mobileMenuOpen && (
+          <div className="sm:hidden border-t border-primary/15 bg-black/80 backdrop-blur-xl px-3 py-3 space-y-3">
+            {/* Faction filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] uppercase text-primary/50 font-bold tracking-widest w-14 shrink-0">Faction</span>
+              <Select value={filters.faction} onValueChange={(val) => setFilters({...filters, faction: val})}>
+                <SelectTrigger className="flex-1 h-8 bg-black/60 border-primary/20 text-[10px] uppercase font-bold tracking-widest"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">All Factions</SelectItem>
+                  {factionList.map(f => <SelectItem key={f.id} value={f.name}>{f.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* View toggles */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-[9px] uppercase text-primary/50 font-bold tracking-widest w-14 shrink-0">View</span>
+              <ToggleSwitch id="m-lanes" checked={showLanes} onChange={setShowLanes} label="Routes" icon={<Route className="w-3 h-3" />} />
+              <ToggleSwitch id="m-sectors" checked={showSectors} onChange={setShowSectors} label="Sectors" icon={<MapIcon className="w-3 h-3" />} />
+              <ToggleSwitch id="m-labels" checked={showLabels} onChange={setShowLabels} label="Labels" icon={<Orbit className="w-3 h-3" />} />
+              {editMode && <ToggleSwitch id="m-overlay" checked={showOverlay} onChange={setShowOverlay} label="Overlay" icon={<Layers className="w-3 h-3" />} />}
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button variant="outline" size="sm" onClick={() => { setIsTravelTimeOpen(true); setMobileMenuOpen(false); }} className="border-primary/30 text-primary hover:bg-primary/10 gap-1.5 h-8 text-[9px] font-display tracking-widest">
+                <Compass className="w-3.5 h-3.5" /> TRAVEL
+              </Button>
+              {editMode && currentUser && (
+                <>
+                  <Button variant="outline" size="sm" onClick={() => { setIsChangePasswordOpen(true); setMobileMenuOpen(false); }} className="border-primary/20 text-primary/70 hover:bg-primary/10 gap-1.5 h-8 text-[9px] font-display tracking-widest">
+                    <Key className="w-3.5 h-3.5" /> PASSWORD
+                  </Button>
+                  {currentUser.isAdmin && (
+                    <Button variant="outline" size="sm" onClick={() => { handleOpenAdminPanel(); setMobileMenuOpen(false); }} className="border-primary/20 text-primary/70 hover:bg-primary/10 gap-1.5 h-8 text-[9px] font-display tracking-widest">
+                      <Shield className="w-3.5 h-3.5" /> ADMIN
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Edit toolbar on mobile */}
+            {editMode && (
+              <div className="flex items-center gap-1 flex-wrap">
+                <span className="text-[9px] uppercase text-primary/50 font-bold tracking-widest w-14 shrink-0">Add</span>
+                <Button variant="ghost" size="sm" onClick={() => { handleCreatePlanet(); setMobileMenuOpen(false); }} className="h-8 text-[9px] font-display text-primary hover:bg-primary/20 gap-1 px-2"><Plus className="w-3 h-3" /> Planet</Button>
+                <Button variant="ghost" size="sm" onClick={() => { setSectorDrawMode(!sectorDrawMode); setMobileMenuOpen(false); }} className={cn("h-8 text-[9px] font-display hover:bg-primary/20 gap-1 px-2", sectorDrawMode ? "text-primary bg-primary/20 animate-pulse" : "text-primary")}><MapIcon className="w-3 h-3" /> Sector</Button>
+                <Button variant="ghost" size="sm" onClick={() => { handleCreateFleet(); setMobileMenuOpen(false); }} className="h-8 text-[9px] font-display text-primary hover:bg-primary/20 gap-1 px-2"><Ship className="w-3 h-3" /> Fleet</Button>
+                <Button variant="ghost" size="sm" onClick={() => { setLaneDrawMode(!laneDrawMode); setMobileMenuOpen(false); }} className={cn("h-8 text-[9px] font-display hover:bg-primary/20 gap-1 px-2", laneDrawMode ? "text-primary bg-primary/20 animate-pulse" : "text-primary")}><Route className="w-3 h-3" /> Lane</Button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Travel Calculator Dialog */}
@@ -760,11 +869,3 @@ export const TopBar = () => {
   );
 };
 
-const ToggleSwitch = ({ id, checked, onChange, label, icon }: { id: string, checked: boolean, onChange: (v: boolean) => void, label: string, icon: React.ReactNode }) => (
-  <div className="flex items-center space-x-2">
-    <Switch id={id} checked={checked} onCheckedChange={onChange} className="data-[state=checked]:bg-primary h-4 w-8" />
-    <Label htmlFor={id} className={cn("text-[9px] uppercase font-bold tracking-widest flex items-center gap-1 cursor-pointer transition-colors", checked ? "text-primary" : "text-primary/40")}>
-      {icon} {label}
-    </Label>
-  </div>
-);
