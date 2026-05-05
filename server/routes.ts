@@ -165,7 +165,16 @@ export async function registerRoutes(
     if (!user) return res.status(401).json({ error: "Invalid credentials" });
     const valid = await verifyPassword(password, user.passwordHash);
     if (!valid) return res.status(401).json({ error: "Invalid credentials" });
-    res.json({ id: user.id, username: user.username, isAdmin: user.isAdmin });
+    res.json({
+      id: user.id,
+      username: user.username,
+      isAdmin: user.isAdmin,
+      canEditPlanets: user.canEditPlanets,
+      canEditSectors: user.canEditSectors,
+      canEditLanes: user.canEditLanes,
+      canEditFleets: user.canEditFleets,
+      canManageFactions: user.canManageFactions,
+    });
   });
 
   app.post("/api/auth/change-password", async (req, res) => {
@@ -183,6 +192,19 @@ export async function registerRoutes(
   });
 
   // --- Admin: User management ---
+  function serializeUser(u: any) {
+    return {
+      id: u.id,
+      username: u.username,
+      isAdmin: u.isAdmin,
+      canEditPlanets: u.canEditPlanets,
+      canEditSectors: u.canEditSectors,
+      canEditLanes: u.canEditLanes,
+      canEditFleets: u.canEditFleets,
+      canManageFactions: u.canManageFactions,
+    };
+  }
+
   app.get("/api/admin/users", async (req, res) => {
     const { username, password } = req.query as { username: string, password: string };
     const admin = await storage.getUserByUsername(username);
@@ -190,11 +212,11 @@ export async function registerRoutes(
     const valid = await verifyPassword(password, admin.passwordHash);
     if (!valid) return res.status(403).json({ error: "Admin access required" });
     const allUsers = await storage.getAllUsers();
-    res.json(allUsers.map(u => ({ id: u.id, username: u.username, isAdmin: u.isAdmin })));
+    res.json(allUsers.map(serializeUser));
   });
 
   app.post("/api/admin/users", async (req, res) => {
-    const { adminUsername, adminPassword, username, password, isAdmin } = req.body;
+    const { adminUsername, adminPassword, username, password, isAdmin, canEditPlanets, canEditSectors, canEditLanes, canEditFleets, canManageFactions } = req.body;
     const admin = await storage.getUserByUsername(adminUsername);
     if (!admin || !admin.isAdmin) return res.status(403).json({ error: "Admin access required" });
     const valid = await verifyPassword(adminPassword, admin.passwordHash);
@@ -208,8 +230,24 @@ export async function registerRoutes(
       username,
       passwordHash: hash,
       isAdmin: isAdmin || false,
+      canEditPlanets: canEditPlanets || false,
+      canEditSectors: canEditSectors || false,
+      canEditLanes: canEditLanes || false,
+      canEditFleets: canEditFleets || false,
+      canManageFactions: canManageFactions || false,
     });
-    res.status(201).json({ id: user.id, username: user.username, isAdmin: user.isAdmin });
+    res.status(201).json(serializeUser(user));
+  });
+
+  app.patch("/api/admin/users/:id", async (req, res) => {
+    const { adminUsername, adminPassword, isAdmin, canEditPlanets, canEditSectors, canEditLanes, canEditFleets, canManageFactions } = req.body;
+    const admin = await storage.getUserByUsername(adminUsername);
+    if (!admin || !admin.isAdmin) return res.status(403).json({ error: "Admin access required" });
+    const valid = await verifyPassword(adminPassword, admin.passwordHash);
+    if (!valid) return res.status(403).json({ error: "Admin access required" });
+    const user = await storage.updateUser(req.params.id, { isAdmin, canEditPlanets, canEditSectors, canEditLanes, canEditFleets, canManageFactions });
+    if (!user) return res.status(404).json({ error: "User not found" });
+    res.json(serializeUser(user));
   });
 
   app.delete("/api/admin/users/:id", async (req, res) => {

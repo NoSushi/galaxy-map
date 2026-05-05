@@ -164,11 +164,22 @@ export const authApi = {
     api('/api/auth/change-password', { method: 'POST', body: JSON.stringify({ username, currentPassword, newPassword }) }),
 };
 
+export interface UserPermissions {
+  isAdmin: boolean;
+  canEditPlanets: boolean;
+  canEditSectors: boolean;
+  canEditLanes: boolean;
+  canEditFleets: boolean;
+  canManageFactions: boolean;
+}
+
 export const adminApi = {
   getUsers: async (username: string, password: string) =>
     api(`/api/admin/users?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`),
-  createUser: async (adminUsername: string, adminPassword: string, username: string, password: string, isAdmin: boolean) =>
-    api('/api/admin/users', { method: 'POST', body: JSON.stringify({ adminUsername, adminPassword, username, password, isAdmin }) }),
+  createUser: async (adminUsername: string, adminPassword: string, username: string, password: string, perms: UserPermissions) =>
+    api('/api/admin/users', { method: 'POST', body: JSON.stringify({ adminUsername, adminPassword, username, password, ...perms }) }),
+  updateUserPermissions: async (adminUsername: string, adminPassword: string, userId: string, perms: UserPermissions) =>
+    api(`/api/admin/users/${userId}`, { method: 'PATCH', body: JSON.stringify({ adminUsername, adminPassword, ...perms }) }),
   deleteUser: async (adminUsername: string, adminPassword: string, userId: string) =>
     api(`/api/admin/users/${userId}`, { method: 'DELETE', body: JSON.stringify({ adminUsername, adminPassword }) }),
 };

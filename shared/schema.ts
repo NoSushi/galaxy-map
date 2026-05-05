@@ -66,6 +66,11 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   isAdmin: boolean("is_admin").notNull().default(false),
+  canEditPlanets: boolean("can_edit_planets").notNull().default(false),
+  canEditSectors: boolean("can_edit_sectors").notNull().default(false),
+  canEditLanes: boolean("can_edit_lanes").notNull().default(false),
+  canEditFleets: boolean("can_edit_fleets").notNull().default(false),
+  canManageFactions: boolean("can_manage_factions").notNull().default(false),
 });
 
 export const insertPlanetSchema = createInsertSchema(planets);

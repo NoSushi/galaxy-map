@@ -128,11 +128,17 @@ export const TopBar = () => {
   const [searchOpen, setSearchOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
+  type AdminUser = { id: string; username: string; isAdmin: boolean; canEditPlanets: boolean; canEditSectors: boolean; canEditLanes: boolean; canEditFleets: boolean; canManageFactions: boolean; };
+  type Perms = { isAdmin: boolean; canEditPlanets: boolean; canEditSectors: boolean; canEditLanes: boolean; canEditFleets: boolean; canManageFactions: boolean; };
+  const emptyPerms: Perms = { isAdmin: false, canEditPlanets: false, canEditSectors: false, canEditLanes: false, canEditFleets: false, canManageFactions: false };
+
   // Admin panel state
-  const [adminUsers, setAdminUsers] = useState<{id: string, username: string, isAdmin: boolean}[]>([]);
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [newIsAdmin, setNewIsAdmin] = useState(false);
+  const [newPerms, setNewPerms] = useState<Perms>(emptyPerms);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editingUserPerms, setEditingUserPerms] = useState<Perms>(emptyPerms);
   const [adminError, setAdminError] = useState('');
 
   // Change password
@@ -314,7 +320,8 @@ export const TopBar = () => {
     setAdminError('');
     setNewUsername('');
     setNewPassword('');
-    setNewIsAdmin(false);
+    setNewPerms(emptyPerms);
+    setEditingUserId(null);
     setFactionError('');
     setNewFactionName('');
     setNewFactionColor('0 50% 50%');
@@ -323,11 +330,29 @@ export const TopBar = () => {
   const handleCreateUser = async () => {
     if (!currentUser || !newUsername || !newPassword) { setAdminError('Username and password required.'); return; }
     try {
-      await adminApi.createUser(currentUser.username, currentUser.password, newUsername, newPassword, newIsAdmin);
-      setNewUsername(''); setNewPassword(''); setNewIsAdmin(false); setAdminError('');
+      await adminApi.createUser(currentUser.username, currentUser.password, newUsername, newPassword, newPerms);
+      setNewUsername(''); setNewPassword(''); setNewPerms(emptyPerms); setAdminError('');
       loadAdminUsers();
     } catch (err: any) {
       setAdminError(err.message || 'Failed to create user.');
+    }
+  };
+
+  const startEditUser = (u: AdminUser) => {
+    setEditingUserId(u.id);
+    setEditingUserPerms({ isAdmin: u.isAdmin, canEditPlanets: u.canEditPlanets, canEditSectors: u.canEditSectors, canEditLanes: u.canEditLanes, canEditFleets: u.canEditFleets, canManageFactions: u.canManageFactions });
+    setAdminError('');
+  };
+
+  const handleUpdateUserPerms = async () => {
+    if (!currentUser || !editingUserId) return;
+    try {
+      await adminApi.updateUserPermissions(currentUser.username, currentUser.password, editingUserId, editingUserPerms);
+      setEditingUserId(null);
+      setAdminError('');
+      loadAdminUsers();
+    } catch (err: any) {
+      setAdminError(err.message || 'Failed to update permissions.');
     }
   };
 
@@ -502,20 +527,28 @@ export const TopBar = () => {
           </div>
 
           {/* Edit toolbar — icons-only on sm, labels on lg+ */}
-          {editMode && (
+          {editMode && (currentUser?.isAdmin || currentUser?.canEditPlanets || currentUser?.canEditSectors || currentUser?.canEditFleets || currentUser?.canEditLanes) && (
             <div className="hidden sm:flex gap-0.5 bg-primary/5 p-0.5 rounded-md border border-primary/10 shrink-0">
-              <Button variant="ghost" size="sm" onClick={handleCreatePlanet} className="h-7 lg:h-8 text-[9px] font-display text-primary hover:bg-primary/20 px-2 gap-1">
-                <Plus className="w-3 h-3 shrink-0" /><span className="hidden lg:inline">PLANET</span>
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => setSectorDrawMode(!sectorDrawMode)} className={cn("h-7 lg:h-8 text-[9px] font-display hover:bg-primary/20 px-2 gap-1", sectorDrawMode ? "text-primary bg-primary/20 animate-pulse" : "text-primary")} data-testid="button-add-sector">
-                <MapIcon className="w-3 h-3 shrink-0" /><span className="hidden lg:inline">SECTOR</span>
-              </Button>
-              <Button variant="ghost" size="sm" onClick={handleCreateFleet} className="h-7 lg:h-8 text-[9px] font-display text-primary hover:bg-primary/20 px-2 gap-1">
-                <Ship className="w-3 h-3 shrink-0" /><span className="hidden lg:inline">FLEET</span>
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => setLaneDrawMode(!laneDrawMode)} className={cn("h-7 lg:h-8 text-[9px] font-display hover:bg-primary/20 px-2 gap-1", laneDrawMode ? "text-primary bg-primary/20 animate-pulse" : "text-primary")} data-testid="button-add-hyperlane">
-                <Route className="w-3 h-3 shrink-0" /><span className="hidden lg:inline">LANE</span>
-              </Button>
+              {(currentUser?.isAdmin || currentUser?.canEditPlanets) && (
+                <Button variant="ghost" size="sm" onClick={handleCreatePlanet} className="h-7 lg:h-8 text-[9px] font-display text-primary hover:bg-primary/20 px-2 gap-1">
+                  <Plus className="w-3 h-3 shrink-0" /><span className="hidden lg:inline">PLANET</span>
+                </Button>
+              )}
+              {(currentUser?.isAdmin || currentUser?.canEditSectors) && (
+                <Button variant="ghost" size="sm" onClick={() => setSectorDrawMode(!sectorDrawMode)} className={cn("h-7 lg:h-8 text-[9px] font-display hover:bg-primary/20 px-2 gap-1", sectorDrawMode ? "text-primary bg-primary/20 animate-pulse" : "text-primary")} data-testid="button-add-sector">
+                  <MapIcon className="w-3 h-3 shrink-0" /><span className="hidden lg:inline">SECTOR</span>
+                </Button>
+              )}
+              {(currentUser?.isAdmin || currentUser?.canEditFleets) && (
+                <Button variant="ghost" size="sm" onClick={handleCreateFleet} className="h-7 lg:h-8 text-[9px] font-display text-primary hover:bg-primary/20 px-2 gap-1">
+                  <Ship className="w-3 h-3 shrink-0" /><span className="hidden lg:inline">FLEET</span>
+                </Button>
+              )}
+              {(currentUser?.isAdmin || currentUser?.canEditLanes) && (
+                <Button variant="ghost" size="sm" onClick={() => setLaneDrawMode(!laneDrawMode)} className={cn("h-7 lg:h-8 text-[9px] font-display hover:bg-primary/20 px-2 gap-1", laneDrawMode ? "text-primary bg-primary/20 animate-pulse" : "text-primary")} data-testid="button-add-hyperlane">
+                  <Route className="w-3 h-3 shrink-0" /><span className="hidden lg:inline">LANE</span>
+                </Button>
+              )}
             </div>
           )}
 
@@ -627,13 +660,13 @@ export const TopBar = () => {
             </div>
 
             {/* Edit toolbar on mobile */}
-            {editMode && (
+            {editMode && (currentUser?.isAdmin || currentUser?.canEditPlanets || currentUser?.canEditSectors || currentUser?.canEditFleets || currentUser?.canEditLanes) && (
               <div className="flex items-center gap-1 flex-wrap">
                 <span className="text-[9px] uppercase text-primary/50 font-bold tracking-widest w-14 shrink-0">Add</span>
-                <Button variant="ghost" size="sm" onClick={() => { handleCreatePlanet(); setMobileMenuOpen(false); }} className="h-8 text-[9px] font-display text-primary hover:bg-primary/20 gap-1 px-2"><Plus className="w-3 h-3" /> Planet</Button>
-                <Button variant="ghost" size="sm" onClick={() => { setSectorDrawMode(!sectorDrawMode); setMobileMenuOpen(false); }} className={cn("h-8 text-[9px] font-display hover:bg-primary/20 gap-1 px-2", sectorDrawMode ? "text-primary bg-primary/20 animate-pulse" : "text-primary")}><MapIcon className="w-3 h-3" /> Sector</Button>
-                <Button variant="ghost" size="sm" onClick={() => { handleCreateFleet(); setMobileMenuOpen(false); }} className="h-8 text-[9px] font-display text-primary hover:bg-primary/20 gap-1 px-2"><Ship className="w-3 h-3" /> Fleet</Button>
-                <Button variant="ghost" size="sm" onClick={() => { setLaneDrawMode(!laneDrawMode); setMobileMenuOpen(false); }} className={cn("h-8 text-[9px] font-display hover:bg-primary/20 gap-1 px-2", laneDrawMode ? "text-primary bg-primary/20 animate-pulse" : "text-primary")}><Route className="w-3 h-3" /> Lane</Button>
+                {(currentUser?.isAdmin || currentUser?.canEditPlanets) && <Button variant="ghost" size="sm" onClick={() => { handleCreatePlanet(); setMobileMenuOpen(false); }} className="h-8 text-[9px] font-display text-primary hover:bg-primary/20 gap-1 px-2"><Plus className="w-3 h-3" /> Planet</Button>}
+                {(currentUser?.isAdmin || currentUser?.canEditSectors) && <Button variant="ghost" size="sm" onClick={() => { setSectorDrawMode(!sectorDrawMode); setMobileMenuOpen(false); }} className={cn("h-8 text-[9px] font-display hover:bg-primary/20 gap-1 px-2", sectorDrawMode ? "text-primary bg-primary/20 animate-pulse" : "text-primary")}><MapIcon className="w-3 h-3" /> Sector</Button>}
+                {(currentUser?.isAdmin || currentUser?.canEditFleets) && <Button variant="ghost" size="sm" onClick={() => { handleCreateFleet(); setMobileMenuOpen(false); }} className="h-8 text-[9px] font-display text-primary hover:bg-primary/20 gap-1 px-2"><Ship className="w-3 h-3" /> Fleet</Button>}
+                {(currentUser?.isAdmin || currentUser?.canEditLanes) && <Button variant="ghost" size="sm" onClick={() => { setLaneDrawMode(!laneDrawMode); setMobileMenuOpen(false); }} className={cn("h-8 text-[9px] font-display hover:bg-primary/20 gap-1 px-2", laneDrawMode ? "text-primary bg-primary/20 animate-pulse" : "text-primary")}><Route className="w-3 h-3" /> Lane</Button>}
               </div>
             )}
           </div>
@@ -806,18 +839,64 @@ export const TopBar = () => {
                 <Users className="w-4 h-4 text-primary" />
                 <h3 className="text-[11px] uppercase font-bold tracking-widest text-primary">User Management</h3>
               </div>
-              <div className="space-y-2 max-h-40 overflow-y-auto">
+              <div className="space-y-1.5 max-h-60 overflow-y-auto pr-0.5">
                 {adminUsers.map(u => (
-                  <div key={u.id} className="flex items-center justify-between p-2 bg-white/5 rounded border border-white/10">
-                    <div className="flex items-center gap-2">
-                      <div className={cn("w-2 h-2 rounded-full", u.isAdmin ? "bg-primary" : "bg-muted-foreground")} />
-                      <span className="text-[11px] font-mono">{u.username}</span>
-                      {u.isAdmin && <span className="text-[8px] text-primary bg-primary/10 px-1.5 py-0.5 rounded uppercase font-bold">Admin</span>}
-                    </div>
-                    {u.id !== currentUser?.id && (
-                      <Button variant="ghost" size="sm" onClick={() => handleDeleteUser(u.id)} className="h-6 text-[9px] text-destructive hover:text-destructive hover:bg-destructive/10 gap-1">
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
+                  <div key={u.id} className="rounded border border-white/10 bg-white/5 overflow-hidden">
+                    {editingUserId === u.id ? (
+                      <div className="p-2.5 space-y-2">
+                        <div className="text-[10px] font-mono text-primary font-bold uppercase mb-1">{u.username} — Permissions</div>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                          {([
+                            ['isAdmin', 'Full Admin'],
+                            ['canEditPlanets', 'Edit Planets'],
+                            ['canEditSectors', 'Edit Sectors'],
+                            ['canEditLanes', 'Edit Lanes'],
+                            ['canEditFleets', 'Edit Fleets'],
+                            ['canManageFactions', 'Manage Factions'],
+                          ] as [keyof Perms, string][]).map(([key, label]) => (
+                            <div key={key} className="flex items-center gap-1.5">
+                              <Switch
+                                id={`ep-${u.id}-${key}`}
+                                checked={editingUserPerms[key]}
+                                onCheckedChange={v => setEditingUserPerms(p => ({ ...p, [key]: v }))}
+                                className="data-[state=checked]:bg-primary h-3.5 w-7"
+                              />
+                              <Label htmlFor={`ep-${u.id}-${key}`} className="text-[9px] uppercase text-primary/70 cursor-pointer">{label}</Label>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex gap-1 justify-end pt-1">
+                          <Button variant="ghost" size="sm" onClick={() => setEditingUserId(null)} className="h-6 text-[9px] px-2 text-muted-foreground hover:text-foreground">CANCEL</Button>
+                          <Button size="sm" onClick={handleUpdateUserPerms} className="h-6 text-[9px] px-2 bg-primary text-background">SAVE</Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between p-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <div className={cn("w-2 h-2 rounded-full shrink-0", u.isAdmin ? "bg-primary" : "bg-muted-foreground")} />
+                          <span className="text-[11px] font-mono truncate">{u.username}</span>
+                          {u.isAdmin && <span className="text-[8px] text-primary bg-primary/10 px-1 py-0.5 rounded uppercase font-bold shrink-0">Admin</span>}
+                          {!u.isAdmin && (
+                            <div className="flex gap-1 flex-wrap">
+                              {u.canEditPlanets && <span className="text-[7px] bg-blue-500/15 text-blue-400 px-1 py-0.5 rounded uppercase font-bold">Planets</span>}
+                              {u.canEditSectors && <span className="text-[7px] bg-emerald-500/15 text-emerald-400 px-1 py-0.5 rounded uppercase font-bold">Sectors</span>}
+                              {u.canEditLanes && <span className="text-[7px] bg-yellow-500/15 text-yellow-400 px-1 py-0.5 rounded uppercase font-bold">Lanes</span>}
+                              {u.canEditFleets && <span className="text-[7px] bg-orange-500/15 text-orange-400 px-1 py-0.5 rounded uppercase font-bold">Fleets</span>}
+                              {u.canManageFactions && <span className="text-[7px] bg-purple-500/15 text-purple-400 px-1 py-0.5 rounded uppercase font-bold">Factions</span>}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex gap-1 shrink-0 ml-1">
+                          <Button variant="ghost" size="sm" onClick={() => startEditUser(u)} className="h-6 w-6 p-0 text-primary/50 hover:text-primary hover:bg-primary/10" title="Edit permissions">
+                            <Edit2 className="w-3 h-3" />
+                          </Button>
+                          {u.id !== currentUser?.id && (
+                            <Button variant="ghost" size="sm" onClick={() => handleDeleteUser(u.id)} className="h-6 w-6 p-0 text-destructive/50 hover:text-destructive hover:bg-destructive/10" title="Delete user">
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
                 ))}
@@ -828,11 +907,27 @@ export const TopBar = () => {
                   <Input value={newUsername} onChange={e => setNewUsername(e.target.value)} placeholder="Username" className="bg-black/60 border-primary/20 h-8 text-xs" />
                   <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Password" className="bg-black/60 border-primary/20 h-8 text-xs" />
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Switch checked={newIsAdmin} onCheckedChange={setNewIsAdmin} id="new-is-admin" />
-                    <Label htmlFor="new-is-admin" className="text-[10px] text-primary/70">Admin privileges</Label>
-                  </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 py-1">
+                  {([
+                    ['isAdmin', 'Full Admin'],
+                    ['canEditPlanets', 'Edit Planets'],
+                    ['canEditSectors', 'Edit Sectors'],
+                    ['canEditLanes', 'Edit Lanes'],
+                    ['canEditFleets', 'Edit Fleets'],
+                    ['canManageFactions', 'Manage Factions'],
+                  ] as [keyof Perms, string][]).map(([key, label]) => (
+                    <div key={key} className="flex items-center gap-1.5">
+                      <Switch
+                        id={`np-${key}`}
+                        checked={newPerms[key]}
+                        onCheckedChange={v => setNewPerms(p => ({ ...p, [key]: v }))}
+                        className="data-[state=checked]:bg-primary h-3.5 w-7"
+                      />
+                      <Label htmlFor={`np-${key}`} className="text-[9px] uppercase text-primary/70 cursor-pointer">{label}</Label>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-end">
                   <Button onClick={handleCreateUser} size="sm" className="h-8 text-[10px] gap-1.5 font-display">
                     <UserPlus className="w-3 h-3" /> CREATE USER
                   </Button>

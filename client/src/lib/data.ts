@@ -68,6 +68,11 @@ export interface AuthUser {
   username: string;
   isAdmin: boolean;
   password: string;
+  canEditPlanets: boolean;
+  canEditSectors: boolean;
+  canEditLanes: boolean;
+  canEditFleets: boolean;
+  canManageFactions: boolean;
 }
 
 export interface MapContextType {
