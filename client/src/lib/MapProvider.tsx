@@ -431,6 +431,11 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
     setFactionList(prev => [...prev, created]);
   };
 
+  const updateFaction = async (id: string, data: Partial<FactionInfo>) => {
+    const updated = await factionApi.update(id, data);
+    setFactionList(prev => prev.map(f => f.id === id ? updated : f));
+  };
+
   const deleteFaction = async (id: string) => {
     await factionApi.delete(id);
     setFactionList(prev => prev.filter(f => f.id !== id));
@@ -493,6 +498,7 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
       deleteSector,
       deleteLane,
       addFaction,
+      updateFaction,
       deleteFaction,
       unlockPlanet,
       lockPlanet,

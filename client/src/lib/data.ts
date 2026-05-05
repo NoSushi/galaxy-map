@@ -130,6 +130,7 @@ export interface MapContextType {
   deleteSector: (id: string) => void;
   deleteLane: (id: string) => void;
   addFaction: (name: string, color: string) => Promise<void>;
+  updateFaction: (id: string, data: Partial<FactionInfo>) => Promise<void>;
   deleteFaction: (id: string) => Promise<void>;
   unlockPlanet: (id: string) => void;
   lockPlanet: (id: string) => void;

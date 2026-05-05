@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { useMap, Planet, Sector, Fleet, FactionInfo } from '@/lib/data';
-import { Search, Map as MapIcon, Route, Orbit, Edit3, Settings, LogOut, Hexagon, Plus, Lock, Ship, Compass, Layers, Users, Shield, Trash2, Key, UserPlus } from 'lucide-react';
+import { Search, Map as MapIcon, Route, Orbit, Edit2, Edit3, Settings, LogOut, Hexagon, Plus, Lock, Ship, Compass, Layers, Users, Shield, Trash2, Key, UserPlus } from 'lucide-react';
 import { Input } from './ui/input';
 import { Switch } from './ui/switch';
 import { Label } from './ui/label';
@@ -109,7 +109,7 @@ export const TopBar = () => {
     getViewportCenter,
     setTargetedPlanet,
     currentUser, setCurrentUser,
-    addFaction, deleteFaction,
+    addFaction, updateFaction, deleteFaction,
   } = useMap();
 
   const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false);
@@ -414,7 +414,32 @@ export const TopBar = () => {
     addFleet(newFleet);
   };
 
-  const BUILTIN_FACTION_IDS = ['f-republic', 'f-empire', 'f-hutt', 'f-chiss', 'f-independent'];
+  const [editingFactionId, setEditingFactionId] = useState<string | null>(null);
+  const [editingFactionName, setEditingFactionName] = useState('');
+  const [editingFactionColor, setEditingFactionColor] = useState('');
+
+  const startEditFaction = (f: FactionInfo) => {
+    setEditingFactionId(f.id);
+    setEditingFactionName(f.name);
+    setEditingFactionColor(f.color);
+  };
+
+  const cancelEditFaction = () => {
+    setEditingFactionId(null);
+    setEditingFactionName('');
+    setEditingFactionColor('');
+  };
+
+  const saveEditFaction = async () => {
+    if (!editingFactionId) return;
+    try {
+      await updateFaction(editingFactionId, { name: editingFactionName, color: editingFactionColor });
+      cancelEditFaction();
+      setFactionError('');
+    } catch (err: any) {
+      setFactionError(err.message || 'Failed to update faction.');
+    }
+  };
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -816,43 +841,72 @@ export const TopBar = () => {
               </div>
             </div>
 
-            {/* Custom Faction Management */}
+            {/* Faction Management */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 border-b border-primary/20 pb-2">
                 <div className="w-4 h-4 rounded-full border-2 border-primary" />
                 <h3 className="text-[11px] uppercase font-bold tracking-widest text-primary">Faction Management</h3>
               </div>
-              <div className="space-y-1 max-h-40 overflow-y-auto">
+              <div className="space-y-1 max-h-52 overflow-y-auto">
                 {factionList.map(f => {
-                  const isBuiltin = BUILTIN_FACTION_IDS.includes(f.id);
+                  const isEditing = editingFactionId === f.id;
                   return (
-                    <div key={f.id} className="flex items-center justify-between p-2 bg-white/5 rounded border border-white/10">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full border border-white/20" style={{ backgroundColor: `hsl(${f.color})` }} />
-                        <span className="text-[11px]">{f.name}</span>
-                        {isBuiltin && <span className="text-[8px] text-muted-foreground bg-white/10 px-1 rounded uppercase">Built-in</span>}
-                      </div>
-                      {!isBuiltin && (
-                        <Button variant="ghost" size="sm" onClick={() => handleDeleteFaction(f.id)} className="h-6 text-[9px] text-destructive hover:text-destructive hover:bg-destructive/10">
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
+                    <div key={f.id} className="rounded border border-white/10 bg-white/5 overflow-hidden">
+                      {isEditing ? (
+                        <div className="p-2 space-y-2">
+                          <div className="flex gap-2">
+                            <Input
+                              value={editingFactionName}
+                              onChange={e => setEditingFactionName(e.target.value)}
+                              className="bg-black/60 border-primary/20 h-7 text-xs flex-1"
+                              onKeyDown={e => { if (e.key === 'Enter') saveEditFaction(); if (e.key === 'Escape') cancelEditFaction(); }}
+                              autoFocus
+                            />
+                          </div>
+                          <div className="flex gap-2 items-center">
+                            <Input
+                              value={editingFactionColor}
+                              onChange={e => setEditingFactionColor(e.target.value)}
+                              placeholder="H S% L%"
+                              className="bg-black/60 border-primary/20 h-7 text-xs font-mono flex-1"
+                            />
+                            <div className="w-7 h-7 rounded border border-white/20 shrink-0" style={{ backgroundColor: `hsl(${editingFactionColor})` }} />
+                          </div>
+                          <div className="flex gap-1 justify-end">
+                            <Button variant="ghost" size="sm" onClick={cancelEditFaction} className="h-6 text-[9px] text-muted-foreground hover:text-foreground px-2">CANCEL</Button>
+                            <Button size="sm" onClick={saveEditFaction} className="h-6 text-[9px] px-2 bg-primary text-background">SAVE</Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between p-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-3 h-3 rounded-full border border-white/20 shrink-0" style={{ backgroundColor: `hsl(${f.color})` }} />
+                            <span className="text-[11px] truncate">{f.name}</span>
+                          </div>
+                          <div className="flex gap-1 shrink-0 ml-2">
+                            <Button variant="ghost" size="sm" onClick={() => startEditFaction(f)} className="h-6 w-6 p-0 text-primary/50 hover:text-primary hover:bg-primary/10" title="Edit">
+                              <Edit2 className="w-3 h-3" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleDeleteFaction(f.id)} className="h-6 w-6 p-0 text-destructive/50 hover:text-destructive hover:bg-destructive/10" title="Delete">
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
                       )}
                     </div>
                   );
                 })}
               </div>
               <div className="space-y-2 p-3 bg-white/5 rounded border border-white/10">
-                <Label className="text-[10px] uppercase text-primary/60">Add Custom Faction</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Input value={newFactionName} onChange={e => setNewFactionName(e.target.value)} placeholder="Faction name" className="bg-black/60 border-primary/20 h-8 text-xs" />
-                  <div className="flex gap-2 items-center">
-                    <Input value={newFactionColor} onChange={e => setNewFactionColor(e.target.value)} placeholder="H S% L%" className="bg-black/60 border-primary/20 h-8 text-xs font-mono flex-1" />
-                    <div className="w-8 h-8 rounded border border-white/20 shrink-0" style={{ backgroundColor: `hsl(${newFactionColor})` }} />
-                  </div>
+                <Label className="text-[10px] uppercase text-primary/60">Add New Faction</Label>
+                <div className="flex gap-2">
+                  <Input value={newFactionName} onChange={e => setNewFactionName(e.target.value)} placeholder="Faction name" className="bg-black/60 border-primary/20 h-8 text-xs flex-1" onKeyDown={e => e.key === 'Enter' && handleAddFaction()} />
                 </div>
-                <div className="flex justify-end">
-                  <Button onClick={handleAddFaction} size="sm" className="h-8 text-[10px] gap-1.5 font-display">
-                    <Plus className="w-3 h-3" /> ADD FACTION
+                <div className="flex gap-2 items-center">
+                  <Input value={newFactionColor} onChange={e => setNewFactionColor(e.target.value)} placeholder="H S% L%" className="bg-black/60 border-primary/20 h-8 text-xs font-mono flex-1" />
+                  <div className="w-8 h-8 rounded border border-white/20 shrink-0" style={{ backgroundColor: `hsl(${newFactionColor})` }} />
+                  <Button onClick={handleAddFaction} size="sm" className="h-8 text-[10px] gap-1 font-display shrink-0">
+                    <Plus className="w-3 h-3" /> ADD
                   </Button>
                 </div>
                 {factionError && <div className="text-destructive text-[10px] font-bold uppercase">{factionError}</div>}
