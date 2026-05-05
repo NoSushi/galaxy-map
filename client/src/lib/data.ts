@@ -57,11 +57,26 @@ export interface Fleet {
   isCapitalShip?: boolean | null;
 }
 
+export interface FactionInfo {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface AuthUser {
+  id: string;
+  username: string;
+  isAdmin: boolean;
+  password: string;
+}
+
 export interface MapContextType {
   planets: Planet[];
   sectors: Sector[];
   lanes: HyperspaceLane[];
   fleets: Fleet[];
+  factionList: FactionInfo[];
+  currentUser: AuthUser | null;
   selectedPlanet: Planet | null;
   selectedSector: Sector | null;
   selectedLane: HyperspaceLane | null;
@@ -80,10 +95,13 @@ export interface MapContextType {
     environment: string;
   };
   isLoading: boolean;
+  unlockedPlanetIds: Set<string>;
   setPlanets: (planets: Planet[]) => void;
   setSectors: (sectors: Sector[]) => void;
   setLanes: (lanes: HyperspaceLane[]) => void;
   setFleets: (fleets: Fleet[]) => void;
+  setFactionList: (factions: FactionInfo[]) => void;
+  setCurrentUser: (user: AuthUser | null) => void;
   setSelectedPlanet: (planet: Planet | null) => void;
   setSelectedSector: (sector: Sector | null) => void;
   setSelectedLane: (lane: HyperspaceLane | null) => void;
@@ -111,6 +129,10 @@ export interface MapContextType {
   deleteFleet: (id: string) => void;
   deleteSector: (id: string) => void;
   deleteLane: (id: string) => void;
+  addFaction: (name: string, color: string) => Promise<void>;
+  deleteFaction: (id: string) => Promise<void>;
+  unlockPlanet: (id: string) => void;
+  lockPlanet: (id: string) => void;
   getViewportCenter: () => { x: number; y: number };
   setGetViewportCenter: (fn: () => { x: number; y: number }) => void;
   targetedPlanet: Planet | null;

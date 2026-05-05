@@ -1,7 +1,6 @@
 import { pgTable, text, varchar, integer, boolean, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { sql } from "drizzle-orm";
 
 export const planets = pgTable("planets", {
   id: varchar("id", { length: 64 }).primaryKey(),
@@ -56,10 +55,25 @@ export const fleets = pgTable("fleets", {
   isCapitalShip: boolean("is_capital_ship").default(false),
 });
 
+export const factions = pgTable("factions", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  name: text("name").notNull(),
+  color: text("color").notNull().default("0 50% 50%"),
+});
+
+export const users = pgTable("users", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  username: text("username").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  isAdmin: boolean("is_admin").notNull().default(false),
+});
+
 export const insertPlanetSchema = createInsertSchema(planets);
 export const insertSectorSchema = createInsertSchema(sectors);
 export const insertLaneSchema = createInsertSchema(hyperspaceLanes);
 export const insertFleetSchema = createInsertSchema(fleets);
+export const insertFactionSchema = createInsertSchema(factions);
+export const insertUserSchema = createInsertSchema(users);
 
 export type Planet = typeof planets.$inferSelect;
 export type InsertPlanet = z.infer<typeof insertPlanetSchema>;
@@ -69,3 +83,7 @@ export type HyperspaceLane = typeof hyperspaceLanes.$inferSelect;
 export type InsertLane = z.infer<typeof insertLaneSchema>;
 export type Fleet = typeof fleets.$inferSelect;
 export type InsertFleet = z.infer<typeof insertFleetSchema>;
+export type Faction = typeof factions.$inferSelect;
+export type InsertFaction = z.infer<typeof insertFactionSchema>;
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;

@@ -1,4 +1,4 @@
-import type { Planet, Sector, HyperspaceLane, Fleet } from './data';
+import type { Planet, Sector, HyperspaceLane, Fleet, FactionInfo } from './data';
 
 const api = async (url: string, options?: RequestInit) => {
   const res = await fetch(url, {
@@ -6,13 +6,13 @@ const api = async (url: string, options?: RequestInit) => {
     ...options,
   });
   if (!res.ok && res.status !== 204) {
-    throw new Error(`API error: ${res.status}`);
+    const errBody = await res.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(errBody.error || `API error: ${res.status}`);
   }
   if (res.status === 204) return null;
   return res.json();
 };
 
-// Helper to convert DB column names (snake_case) to frontend (camelCase)
 function mapPlanetFromApi(p: any): Planet {
   return {
     id: p.id,
@@ -33,6 +33,7 @@ function mapPlanetFromApi(p: any): Planet {
     isPowerbaseCapital: p.isPowerbaseCapital ?? p.is_powerbase_capital ?? false,
     powerbaseOf: p.powerbaseOf ?? p.powerbase_of ?? null,
     oversector: p.oversector ?? null,
+    travelable: p.travelable ?? true,
   };
 }
 
@@ -56,6 +57,7 @@ function mapPlanetToApi(p: Planet): any {
     isPowerbaseCapital: p.isPowerbaseCapital || false,
     powerbaseOf: p.powerbaseOf || null,
     oversector: p.oversector || null,
+    travelable: p.travelable ?? true,
   };
 }
 
@@ -146,4 +148,27 @@ export const fleetApi = {
   create: async (f: Fleet): Promise<Fleet> => mapFleetFromApi(await api('/api/fleets', { method: 'POST', body: JSON.stringify(mapFleetToApi(f)) })),
   update: async (f: Fleet): Promise<Fleet> => mapFleetFromApi(await api(`/api/fleets/${f.id}`, { method: 'PATCH', body: JSON.stringify(mapFleetToApi(f)) })),
   delete: async (id: string): Promise<void> => { await api(`/api/fleets/${id}`, { method: 'DELETE' }); },
+};
+
+export const factionApi = {
+  getAll: async (): Promise<FactionInfo[]> => api('/api/factions'),
+  create: async (name: string, color: string): Promise<FactionInfo> => api('/api/factions', { method: 'POST', body: JSON.stringify({ name, color }) }),
+  update: async (id: string, data: Partial<FactionInfo>): Promise<FactionInfo> => api(`/api/factions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  delete: async (id: string): Promise<void> => { await api(`/api/factions/${id}`, { method: 'DELETE' }); },
+};
+
+export const authApi = {
+  login: async (username: string, password: string) =>
+    api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
+  changePassword: async (username: string, currentPassword: string, newPassword: string) =>
+    api('/api/auth/change-password', { method: 'POST', body: JSON.stringify({ username, currentPassword, newPassword }) }),
+};
+
+export const adminApi = {
+  getUsers: async (username: string, password: string) =>
+    api(`/api/admin/users?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`),
+  createUser: async (adminUsername: string, adminPassword: string, username: string, password: string, isAdmin: boolean) =>
+    api('/api/admin/users', { method: 'POST', body: JSON.stringify({ adminUsername, adminPassword, username, password, isAdmin }) }),
+  deleteUser: async (adminUsername: string, adminPassword: string, userId: string) =>
+    api(`/api/admin/users/${userId}`, { method: 'DELETE', body: JSON.stringify({ adminUsername, adminPassword }) }),
 };

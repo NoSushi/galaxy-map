@@ -28,12 +28,15 @@ All prefixed with `/api`:
 - `GET/POST /sectors`, `PATCH/DELETE /sectors/:id`
 - `GET/POST /lanes`, `PATCH/DELETE /lanes/:id`
 - `GET/POST /fleets`, `PATCH/DELETE /fleets/:id`
+- `GET/POST /factions`, `DELETE /factions/:id`
+- `POST /auth/login`, `POST /auth/change-password`
+- `GET/POST/DELETE /admin/users` (admin only)
 
 ## Map Configuration
 - Canvas: 5000x5000 pixels
 - Galaxy scale: 120,000 light years across
 - Background image fits 1:1 to canvas
-- Admin password: `admin123`
+- Default admin credentials: username `admin`, password `admin123`
 
 ## Features
 - Zoomable/pannable galaxy map (min 0.15x, max 10x), 6000x6000 total canvas with 500px padding
@@ -45,13 +48,20 @@ All prefixed with `/api`:
 - Hyperspace lanes (Major/Minor/Dangerous) with freehand path waypoints
 - Fleet markers (custom ship images, capital ship designation)
 - Reference map overlay (toggleable in Admin Mode) for accurate planet positioning
-- Admin Mode: full CRUD for all entities, drag positioning, hyperlane creation tool
+- Admin Mode: full CRUD for all entities, hyperlane creation tool
 - Hyperspace Travel Calculator using Dijkstra's algorithm along lane network
 - All changes persist to PostgreSQL database with debounced writes
+- **Planet position locking**: planets are locked by default; must click MOVE in sidebar to unlock drag
+- **Sector erasing**: drawing a new sector clips/erases the overlapping area from existing sectors
+- **Auto faction assignment**: planets inside a drawn sector are auto-assigned to that sector's faction
+- **Custom factions**: add/delete factions via Admin Panel (built-in factions are protected)
+- **User accounts**: username+password login, admin panel for user management, self-service password change
 
 ## Factions
-- Galactic Republic, Empire, Hutt Cartel, Chiss Ascendancy, Independent
+- Built-in: Galactic Republic, Empire, Hutt Cartel, Chiss Ascendancy, Independent
+- Custom factions can be added/deleted by admins via the Admin Panel
 
 ## Database
 - Uses CUSTOM_DATABASE_URL env var (falls back to DATABASE_URL)
-- Currently connected to external Neon PostgreSQL instance
+- drizzle.config.ts also respects CUSTOM_DATABASE_URL for schema pushes
+- Tables: planets, sectors, hyperspace_lanes, fleets, factions, users

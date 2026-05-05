@@ -20,7 +20,7 @@ interface PlanetMarkerProps {
   isHovered: boolean;
   hasOtherHovered: boolean;
   isLaneStart: boolean;
-  planetLocked: boolean;
+  planetUnlocked: boolean;
   showLabels: boolean;
   editMode: boolean;
   hasBrokenImage: boolean;
@@ -33,7 +33,7 @@ interface PlanetMarkerProps {
 
 const PlanetMarker = React.memo<PlanetMarkerProps>(({
   planet, pad, isSelected, isHovered, hasOtherHovered, isLaneStart,
-  planetLocked, showLabels, editMode, hasBrokenImage,
+  planetUnlocked, showLabels, editMode, hasBrokenImage,
   onImageError, onClick, onMouseEnter, onMouseLeave, onMouseDown
 }) => {
   const shouldHide = !isSelected && !isHovered && (planet.isMinor || hasOtherHovered);
@@ -43,7 +43,7 @@ const PlanetMarker = React.memo<PlanetMarkerProps>(({
       tabIndex={-1}
       className={cn(
         "absolute transform -translate-x-1/2 -translate-y-1/2 transition-opacity duration-200 outline-none focus:outline-none focus-visible:outline-none select-none",
-        planetLocked ? "cursor-pointer" : (editMode ? "cursor-move" : "cursor-pointer"),
+        editMode && planetUnlocked ? "cursor-move" : "cursor-pointer",
         isLaneStart && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-full"
       )}
       style={{
@@ -129,6 +129,7 @@ export const GalaxyMap = () => {
     searchQuery, filters,
     setGetViewportCenter,
     targetedPlanet, setTargetedPlanet,
+    unlockedPlanetIds, lockPlanet,
   } = useMap();
 
   const mapWidth = 5000;
@@ -515,9 +516,9 @@ export const GalaxyMap = () => {
       return;
     }
     if (isInAnyDrawCreation) return;
-    if (editMode) setDraggingPlanet(planet.id);
+    if (editMode && unlockedPlanetIds.has(planet.id)) setDraggingPlanet(planet.id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isInAnyDrawCreation, laneDrawMode, laneDrawStartPlanet, editMode]);
+  }, [isInAnyDrawCreation, laneDrawMode, laneDrawStartPlanet, editMode, unlockedPlanetIds]);
 
   const pointToSegDist = (px: number, py: number, ax: number, ay: number, bx: number, by: number) => {
     const abx = bx - ax, aby = by - ay;
@@ -1050,7 +1051,7 @@ export const GalaxyMap = () => {
                     isHovered={hoveredItem?.type === 'planet' && hoveredItem.id === planet.id}
                     hasOtherHovered={!!hoveredItem && !(hoveredItem.type === 'planet' && hoveredItem.id === planet.id)}
                     isLaneStart={laneDrawStartPlanet === planet.id}
-                    planetLocked={isInAnyDrawCreation}
+                    planetUnlocked={unlockedPlanetIds.has(planet.id)}
                     showLabels={showLabels}
                     editMode={editMode}
                     hasBrokenImage={brokenImages.has(planet.id)}

@@ -1,11 +1,13 @@
 import { eq } from "drizzle-orm";
 import { db } from "./db";
 import {
-  planets, sectors, hyperspaceLanes, fleets,
+  planets, sectors, hyperspaceLanes, fleets, factions, users,
   type Planet, type InsertPlanet,
   type Sector, type InsertSector,
   type HyperspaceLane, type InsertLane,
   type Fleet, type InsertFleet,
+  type Faction, type InsertFaction,
+  type User, type InsertUser,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -32,6 +34,19 @@ export interface IStorage {
   createFleet(fleet: InsertFleet): Promise<Fleet>;
   updateFleet(id: string, fleet: Partial<InsertFleet>): Promise<Fleet | undefined>;
   deleteFleet(id: string): Promise<void>;
+
+  getAllFactions(): Promise<Faction[]>;
+  getFaction(id: string): Promise<Faction | undefined>;
+  createFaction(faction: InsertFaction): Promise<Faction>;
+  updateFaction(id: string, faction: Partial<InsertFaction>): Promise<Faction | undefined>;
+  deleteFaction(id: string): Promise<void>;
+
+  getAllUsers(): Promise<User[]>;
+  getUser(id: string): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
+  deleteUser(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -109,6 +124,48 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteFleet(id: string): Promise<void> {
     await db.delete(fleets).where(eq(fleets.id, id));
+  }
+
+  async getAllFactions(): Promise<Faction[]> {
+    return db.select().from(factions);
+  }
+  async getFaction(id: string): Promise<Faction | undefined> {
+    const [faction] = await db.select().from(factions).where(eq(factions.id, id));
+    return faction;
+  }
+  async createFaction(faction: InsertFaction): Promise<Faction> {
+    const [created] = await db.insert(factions).values(faction).returning();
+    return created;
+  }
+  async updateFaction(id: string, data: Partial<InsertFaction>): Promise<Faction | undefined> {
+    const [updated] = await db.update(factions).set(data).where(eq(factions.id, id)).returning();
+    return updated;
+  }
+  async deleteFaction(id: string): Promise<void> {
+    await db.delete(factions).where(eq(factions.id, id));
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return db.select().from(users);
+  }
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
+  }
+  async createUser(user: InsertUser): Promise<User> {
+    const [created] = await db.insert(users).values(user).returning();
+    return created;
+  }
+  async updateUser(id: string, data: Partial<InsertUser>): Promise<User | undefined> {
+    const [updated] = await db.update(users).set(data).where(eq(users.id, id)).returning();
+    return updated;
+  }
+  async deleteUser(id: string): Promise<void> {
+    await db.delete(users).where(eq(users.id, id));
   }
 }
 

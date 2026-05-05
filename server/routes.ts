@@ -1,11 +1,41 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { hashPassword, verifyPassword } from "./auth";
+
+const DEFAULT_FACTIONS = [
+  { id: 'f-republic', name: 'Galactic Republic', color: '210 80% 55%' },
+  { id: 'f-empire', name: 'Empire', color: '0 75% 50%' },
+  { id: 'f-hutt', name: 'Hutt Cartel', color: '45 80% 50%' },
+  { id: 'f-chiss', name: 'Chiss Ascendancy', color: '240 70% 55%' },
+  { id: 'f-independent', name: 'Independent', color: '137 41% 31%' },
+];
+
+async function seedDefaults() {
+  const existingFactions = await storage.getAllFactions();
+  if (existingFactions.length === 0) {
+    for (const f of DEFAULT_FACTIONS) {
+      await storage.createFaction(f);
+    }
+  }
+
+  const existingUsers = await storage.getAllUsers();
+  if (existingUsers.length === 0) {
+    const hash = await hashPassword('admin123');
+    await storage.createUser({
+      id: 'u-admin',
+      username: 'admin',
+      passwordHash: hash,
+      isAdmin: true,
+    });
+  }
+}
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  await seedDefaults();
 
   // --- Planets ---
   app.get("/api/planets", async (_req, res) => {
@@ -92,6 +122,104 @@ export async function registerRoutes(
 
   app.delete("/api/fleets/:id", async (req, res) => {
     await storage.deleteFleet(req.params.id);
+    res.status(204).send();
+  });
+
+  // --- Factions ---
+  app.get("/api/factions", async (_req, res) => {
+    const factionList = await storage.getAllFactions();
+    res.json(factionList);
+  });
+
+  app.post("/api/factions", async (req, res) => {
+    const { name, color } = req.body;
+    if (!name) return res.status(400).json({ error: "Name required" });
+    const faction = await storage.createFaction({
+      id: `f-${Date.now()}`,
+      name,
+      color: color || '0 50% 50%',
+    });
+    res.status(201).json(faction);
+  });
+
+  app.patch("/api/factions/:id", async (req, res) => {
+    const faction = await storage.updateFaction(req.params.id, req.body);
+    if (!faction) return res.status(404).json({ error: "Faction not found" });
+    res.json(faction);
+  });
+
+  app.delete("/api/factions/:id", async (req, res) => {
+    const defaultIds = DEFAULT_FACTIONS.map(f => f.id);
+    if (defaultIds.includes(req.params.id)) {
+      return res.status(400).json({ error: "Cannot delete a built-in faction" });
+    }
+    await storage.deleteFaction(req.params.id);
+    res.status(204).send();
+  });
+
+  // --- Auth ---
+  app.post("/api/auth/login", async (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ error: "Username and password required" });
+    const user = await storage.getUserByUsername(username);
+    if (!user) return res.status(401).json({ error: "Invalid credentials" });
+    const valid = await verifyPassword(password, user.passwordHash);
+    if (!valid) return res.status(401).json({ error: "Invalid credentials" });
+    res.json({ id: user.id, username: user.username, isAdmin: user.isAdmin });
+  });
+
+  app.post("/api/auth/change-password", async (req, res) => {
+    const { username, currentPassword, newPassword } = req.body;
+    if (!username || !currentPassword || !newPassword) {
+      return res.status(400).json({ error: "All fields required" });
+    }
+    const user = await storage.getUserByUsername(username);
+    if (!user) return res.status(404).json({ error: "User not found" });
+    const valid = await verifyPassword(currentPassword, user.passwordHash);
+    if (!valid) return res.status(401).json({ error: "Current password incorrect" });
+    const newHash = await hashPassword(newPassword);
+    await storage.updateUser(user.id, { passwordHash: newHash });
+    res.json({ success: true });
+  });
+
+  // --- Admin: User management ---
+  app.get("/api/admin/users", async (req, res) => {
+    const { username, password } = req.query as { username: string, password: string };
+    const admin = await storage.getUserByUsername(username);
+    if (!admin || !admin.isAdmin) return res.status(403).json({ error: "Admin access required" });
+    const valid = await verifyPassword(password, admin.passwordHash);
+    if (!valid) return res.status(403).json({ error: "Admin access required" });
+    const allUsers = await storage.getAllUsers();
+    res.json(allUsers.map(u => ({ id: u.id, username: u.username, isAdmin: u.isAdmin })));
+  });
+
+  app.post("/api/admin/users", async (req, res) => {
+    const { adminUsername, adminPassword, username, password, isAdmin } = req.body;
+    const admin = await storage.getUserByUsername(adminUsername);
+    if (!admin || !admin.isAdmin) return res.status(403).json({ error: "Admin access required" });
+    const valid = await verifyPassword(adminPassword, admin.passwordHash);
+    if (!valid) return res.status(403).json({ error: "Admin access required" });
+    if (!username || !password) return res.status(400).json({ error: "Username and password required" });
+    const existing = await storage.getUserByUsername(username);
+    if (existing) return res.status(409).json({ error: "Username already exists" });
+    const hash = await hashPassword(password);
+    const user = await storage.createUser({
+      id: `u-${Date.now()}`,
+      username,
+      passwordHash: hash,
+      isAdmin: isAdmin || false,
+    });
+    res.status(201).json({ id: user.id, username: user.username, isAdmin: user.isAdmin });
+  });
+
+  app.delete("/api/admin/users/:id", async (req, res) => {
+    const { adminUsername, adminPassword } = req.body;
+    const admin = await storage.getUserByUsername(adminUsername);
+    if (!admin || !admin.isAdmin) return res.status(403).json({ error: "Admin access required" });
+    const valid = await verifyPassword(adminPassword, admin.passwordHash);
+    if (!valid) return res.status(403).json({ error: "Admin access required" });
+    if (req.params.id === admin.id) return res.status(400).json({ error: "Cannot delete your own account" });
+    await storage.deleteUser(req.params.id);
     res.status(204).send();
   });
 

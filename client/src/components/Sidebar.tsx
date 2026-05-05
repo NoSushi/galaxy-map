@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useMap, Planet, Sector, HyperspaceLane, Fleet, Faction, Environment, RouteType } from '@/lib/data';
-import { X, Globe, Map, Route, Edit2, Plus, Settings2, Search, Ship, Crown, Trash2 } from 'lucide-react';
+import { useMap, Planet, Sector, HyperspaceLane, Fleet, FactionInfo } from '@/lib/data';
+import { X, Globe, Map, Route, Edit2, Plus, Settings2, Search, Ship, Crown, Trash2, Lock, Unlock, Move } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -35,6 +35,20 @@ const pointInPolygon = (x: number, y: number, polygon: [number, number][]): bool
     if (intersect) inside = !inside;
   }
   return inside;
+};
+
+const FactionSelect = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => {
+  const { factionList } = useMap();
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="bg-black/60 border-primary/20 h-8 text-xs"><SelectValue /></SelectTrigger>
+      <SelectContent>
+        {factionList.map(f => (
+          <SelectItem key={f.id} value={f.name}>{f.name}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 };
 
 export const Sidebar = () => {
@@ -87,9 +101,10 @@ export const Sidebar = () => {
 };
 
 const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: Planet, editMode: boolean, sectors: Sector[], lanes: HyperspaceLane[], planets: Planet[] }) => {
-  const { updatePlanet, deletePlanet } = useMap();
+  const { updatePlanet, deletePlanet, setSelectedPlanet, unlockedPlanetIds, unlockPlanet, lockPlanet } = useMap();
   const sector = sectors.find(s => s.id === planet.sectorId);
   const connectedLanes = lanes.filter(l => l.planetIds.includes(planet.id));
+  const isUnlocked = unlockedPlanetIds.has(planet.id);
 
   if (editMode) {
     return (
@@ -98,6 +113,27 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
           <Label className="text-[10px] uppercase text-primary/70">Planet Settings</Label>
           <Button variant="ghost" size="sm" onClick={() => deletePlanet(planet.id)} className="h-6 text-[9px] text-destructive hover:text-destructive/80 hover:bg-destructive/10 gap-1"><Trash2 className="w-3 h-3" /> DELETE</Button>
         </div>
+
+        {/* Planet Lock / Move control */}
+        <div className="flex items-center justify-between p-2 rounded border bg-amber-950/20 border-amber-500/30">
+          <div className="flex items-center gap-2">
+            {isUnlocked ? <Unlock className="w-4 h-4 text-amber-400" /> : <Lock className="w-4 h-4 text-muted-foreground" />}
+            <div>
+              <Label className="text-xs">{isUnlocked ? 'Position Unlocked' : 'Position Locked'}</Label>
+              <p className="text-[9px] text-muted-foreground">{isUnlocked ? 'Drag planet to reposition, then lock.' : 'Unlock to drag and reposition.'}</p>
+            </div>
+          </div>
+          <Button
+            variant={isUnlocked ? "default" : "outline"}
+            size="sm"
+            onClick={() => isUnlocked ? lockPlanet(planet.id) : unlockPlanet(planet.id)}
+            className={cn("h-7 text-[9px] gap-1", isUnlocked ? "bg-amber-500 hover:bg-amber-600 text-black" : "border-amber-500/40 text-amber-400 hover:bg-amber-950/40")}
+            data-testid="button-planet-lock"
+          >
+            {isUnlocked ? <><Lock className="w-3 h-3" /> LOCK</> : <><Move className="w-3 h-3" /> MOVE</>}
+          </Button>
+        </div>
+
         <div className="space-y-1">
           <Label className="text-[10px] uppercase text-primary/70">Planet Name</Label>
           <Input value={planet.name} onChange={e => updatePlanet({...planet, name: e.target.value})} className="bg-black/60 border-primary/20 h-8 text-xs" />
@@ -106,16 +142,7 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
             <Label className="text-[10px] uppercase text-primary/70">Faction</Label>
-            <Select value={planet.faction} onValueChange={(val: any) => updatePlanet({...planet, faction: val})}>
-              <SelectTrigger className="bg-black/60 border-primary/20 h-8 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Galactic Republic">Republic</SelectItem>
-                <SelectItem value="Empire">Empire</SelectItem>
-                <SelectItem value="Independent">Indie</SelectItem>
-                <SelectItem value="Hutt Cartel">Hutts</SelectItem>
-                <SelectItem value="Chiss Ascendancy">Chiss</SelectItem>
-              </SelectContent>
-            </Select>
+            <FactionSelect value={planet.faction} onChange={val => updatePlanet({...planet, faction: val})} />
           </div>
           <div className="space-y-1">
             <Label className="text-[10px] uppercase text-primary/70">Environment</Label>
@@ -145,7 +172,7 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
             <Crown className={cn("w-4 h-4", planet.isCapital ? "text-yellow-400" : "text-muted-foreground")} />
             <Label htmlFor="is-capital" className="text-xs">Galactic Capital</Label>
           </div>
-          <Switch checked={planet.isCapital} onCheckedChange={c => updatePlanet({...planet, isCapital: c})} id="is-capital" />
+          <Switch checked={planet.isCapital || false} onCheckedChange={c => updatePlanet({...planet, isCapital: c})} id="is-capital" />
         </div>
 
         {planet.isCapital && (
@@ -300,16 +327,7 @@ const SectorDetails = ({ sector, editMode, planets }: { sector: Sector, editMode
         </div>
         <div className="space-y-1">
           <Label className="text-[10px] uppercase text-primary/70">Admin Faction</Label>
-          <Select value={sector.faction} onValueChange={(val: any) => updateSector({...sector, faction: val})}>
-            <SelectTrigger className="bg-black/60 border-primary/20 h-8 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Galactic Republic">Republic</SelectItem>
-              <SelectItem value="Empire">Empire</SelectItem>
-              <SelectItem value="Independent">Independent</SelectItem>
-              <SelectItem value="Hutt Cartel">Hutt</SelectItem>
-              <SelectItem value="Chiss Ascendancy">Chiss</SelectItem>
-            </SelectContent>
-          </Select>
+          <FactionSelect value={sector.faction} onChange={val => updateSector({...sector, faction: val})} />
         </div>
 
         <div className="flex items-center justify-between p-2 bg-white/5 rounded border border-white/10">
@@ -324,29 +342,11 @@ const SectorDetails = ({ sector, editMode, planets }: { sector: Sector, editMode
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <Label className="text-[10px] uppercase text-primary/70">Faction 1</Label>
-              <Select value={sector.contestedFaction1 || ''} onValueChange={(val: any) => updateSector({...sector, contestedFaction1: val})}>
-                <SelectTrigger className="bg-black/60 border-primary/20 h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Galactic Republic">Republic</SelectItem>
-                  <SelectItem value="Empire">Empire</SelectItem>
-                  <SelectItem value="Independent">Independent</SelectItem>
-                  <SelectItem value="Hutt Cartel">Hutt</SelectItem>
-                  <SelectItem value="Chiss Ascendancy">Chiss</SelectItem>
-                </SelectContent>
-              </Select>
+              <FactionSelect value={sector.contestedFaction1 || ''} onChange={val => updateSector({...sector, contestedFaction1: val})} />
             </div>
             <div className="space-y-1">
               <Label className="text-[10px] uppercase text-primary/70">Faction 2</Label>
-              <Select value={sector.contestedFaction2 || ''} onValueChange={(val: any) => updateSector({...sector, contestedFaction2: val})}>
-                <SelectTrigger className="bg-black/60 border-primary/20 h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Galactic Republic">Republic</SelectItem>
-                  <SelectItem value="Empire">Empire</SelectItem>
-                  <SelectItem value="Independent">Independent</SelectItem>
-                  <SelectItem value="Hutt Cartel">Hutt</SelectItem>
-                  <SelectItem value="Chiss Ascendancy">Chiss</SelectItem>
-                </SelectContent>
-              </Select>
+              <FactionSelect value={sector.contestedFaction2 || ''} onChange={val => updateSector({...sector, contestedFaction2: val})} />
             </div>
           </div>
         )}
@@ -556,18 +556,9 @@ const LaneDetails = ({ lane, editMode, planets }: { lane: HyperspaceLane, editMo
               return (
                 <div key={planet.id} className="flex items-stretch">
                   <div className="flex flex-col items-center w-6 shrink-0">
-                    <div className={cn(
-                      "w-0.5 flex-1",
-                      isFirst ? "bg-transparent" : "bg-primary/30"
-                    )} />
-                    <div className={cn(
-                      "w-3 h-3 rounded-full shrink-0 border-2",
-                      isEndpoint ? "bg-primary border-primary" : "bg-background border-primary/50"
-                    )} />
-                    <div className={cn(
-                      "w-0.5 flex-1",
-                      isLast ? "bg-transparent" : "bg-primary/30"
-                    )} />
+                    <div className={cn("w-0.5 flex-1", isFirst ? "bg-transparent" : "bg-primary/30")} />
+                    <div className={cn("w-3 h-3 rounded-full shrink-0 border-2", isEndpoint ? "bg-primary border-primary" : "bg-background border-primary/50")} />
+                    <div className={cn("w-0.5 flex-1", isLast ? "bg-transparent" : "bg-primary/30")} />
                   </div>
                   <div
                     className="flex items-center justify-between flex-1 py-1.5 pl-2 pr-2 hover:bg-white/5 transition-colors cursor-pointer rounded"
@@ -609,7 +600,7 @@ const FleetDetails = ({ fleet, editMode }: { fleet: Fleet, editMode: boolean }) 
             <Crown className={cn("w-4 h-4", fleet.isCapitalShip ? "text-primary" : "text-muted-foreground")} />
             <Label htmlFor="is-capital-ship" className="text-xs">Flagship / Capital Ship</Label>
           </div>
-          <Switch checked={fleet.isCapitalShip} onCheckedChange={c => updateFleet({...fleet, isCapitalShip: c})} id="is-capital-ship" />
+          <Switch checked={fleet.isCapitalShip || false} onCheckedChange={c => updateFleet({...fleet, isCapitalShip: c})} id="is-capital-ship" />
         </div>
 
         <div className="space-y-1">
@@ -619,16 +610,7 @@ const FleetDetails = ({ fleet, editMode }: { fleet: Fleet, editMode: boolean }) 
 
         <div className="space-y-1">
           <Label className="text-[10px] uppercase text-primary/70">Faction Command</Label>
-          <Select value={fleet.faction} onValueChange={(val: any) => updateFleet({...fleet, faction: val})}>
-            <SelectTrigger className="bg-black/60 border-primary/20 h-8 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Galactic Republic">Republic</SelectItem>
-              <SelectItem value="Empire">Empire</SelectItem>
-              <SelectItem value="Hutt Cartel">Hutt Cartel</SelectItem>
-              <SelectItem value="Chiss Ascendancy">Chiss</SelectItem>
-              <SelectItem value="Independent">Independent</SelectItem>
-            </SelectContent>
-          </Select>
+          <FactionSelect value={fleet.faction} onChange={val => updateFleet({...fleet, faction: val})} />
         </div>
         <div className="space-y-1">
           <Label className="text-[10px] uppercase text-primary/70">Tactical Notes</Label>
