@@ -9,6 +9,7 @@ import {
   AuthUser,
 } from './data';
 import { planetApi, sectorApi, laneApi, fleetApi, factionApi } from './api';
+import { polygonDifference, polygonArea } from './polygon-ops';
 
 // ─── Polygon helpers ──────────────────────────────────────────────────────────
 
@@ -40,14 +41,12 @@ function lineSegmentIntersection(
 }
 
 function polygonsOverlap(a: [number, number][], b: [number, number][]): boolean {
-  // Check if any vertex of a is inside b or vice versa
   for (const [x, y] of a) {
     if (pointInPolygon(x, y, b)) return true;
   }
   for (const [x, y] of b) {
     if (pointInPolygon(x, y, a)) return true;
   }
-  // Check edge intersections
   for (let i = 0; i < a.length; i++) {
     const a1 = a[i], a2 = a[(i + 1) % a.length];
     for (let j = 0; j < b.length; j++) {
@@ -56,58 +55,6 @@ function polygonsOverlap(a: [number, number][], b: [number, number][]): boolean 
     }
   }
   return false;
-}
-
-/**
- * Computes the difference polygon: subject minus clip.
- * Returns the portion of subject that lies OUTSIDE the clip polygon.
- * Uses a vertex-walking approach that handles most practical cases.
- */
-function polygonDifference(subject: [number, number][], clip: [number, number][]): [number, number][] {
-  if (subject.length < 3 || clip.length < 3) return subject;
-
-  const result: [number, number][] = [];
-  const n = subject.length;
-
-  for (let i = 0; i < n; i++) {
-    const curr = subject[i];
-    const next = subject[(i + 1) % n];
-    const currInside = pointInPolygon(curr[0], curr[1], clip);
-    const nextInside = pointInPolygon(next[0], next[1], clip);
-
-    // Find all intersections of this edge with the clip boundary
-    const edgeIntersections: { pt: [number, number]; t: number }[] = [];
-    const m = clip.length;
-    for (let j = 0; j < m; j++) {
-      const c1 = clip[j];
-      const c2 = clip[(j + 1) % m];
-      const pt = lineSegmentIntersection(curr, next, c1, c2);
-      if (pt) {
-        const dx = next[0] - curr[0], dy = next[1] - curr[1];
-        const len2 = dx * dx + dy * dy;
-        const t = len2 > 1e-10 ? ((pt[0] - curr[0]) * dx + (pt[1] - curr[1]) * dy) / len2 : 0;
-        edgeIntersections.push({ pt, t });
-      }
-    }
-    edgeIntersections.sort((a, b) => a.t - b.t);
-
-    if (!currInside) {
-      result.push(curr);
-    }
-    // Add intersection points
-    for (const { pt } of edgeIntersections) {
-      result.push(pt);
-    }
-  }
-
-  // Deduplicate nearby points
-  const deduped = result.filter((pt, i) => {
-    if (i === 0) return true;
-    const prev = result[i - 1];
-    return Math.abs(pt[0] - prev[0]) > 0.5 || Math.abs(pt[1] - prev[1]) > 0.5;
-  });
-
-  return deduped.length >= 3 ? deduped : subject;
 }
 
 // ─── Provider ────────────────────────────────────────────────────────────────
@@ -296,23 +243,48 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
   // Clip existing sectors against the newly drawn sector (erase overlapping area)
   const clipSectorsAgainstNew = useCallback((newSector: Sector) => {
     if (newSector.points.length < 3) return;
+    const extraSectors: Sector[] = [];
     setSectors(prev => {
       let changed = false;
       const updated = prev.map(existing => {
         if (existing.id === newSector.id) return existing;
         if (existing.points.length < 3) return existing;
         if (!polygonsOverlap(existing.points, newSector.points)) return existing;
-        const clipped = polygonDifference(existing.points, newSector.points);
-        if (clipped.length === existing.points.length && 
-            clipped.every((pt, i) => pt[0] === existing.points[i][0] && pt[1] === existing.points[i][1])) {
+        // polygonDifference returns an array of result polygons (may be >1 if clip creates disconnected pieces)
+        const pieces = polygonDifference(existing.points, newSector.points);
+        if (pieces.length === 0) {
+          // Existing sector fully consumed — remove it
+          changed = true;
+          debouncedApiCall(`sector-del-${existing.id}`, () => sectorApi.delete(existing.id));
+          return null as unknown as Sector;
+        }
+        // Pick the largest piece as the primary sector; any extras become new sectors
+        const sorted = [...pieces].sort((a, b) => polygonArea(b) - polygonArea(a));
+        const primaryPts = sorted[0];
+        // Queue extra pieces as new sectors
+        sorted.slice(1).forEach((pts, i) => {
+          const extra: Sector = {
+            ...existing,
+            id: `${existing.id}_split${Date.now()}_${i}`,
+            points: pts,
+          };
+          extraSectors.push(extra);
+        });
+        if (primaryPts.length === existing.points.length &&
+            primaryPts.every((pt, i) => pt[0] === existing.points[i][0] && pt[1] === existing.points[i][1])) {
           return existing;
         }
         changed = true;
-        const updated = { ...existing, points: clipped };
-        debouncedApiCall(`sector-points-${existing.id}`, () => sectorApi.update(updated));
-        return updated;
-      });
+        const updatedEx = { ...existing, points: primaryPts };
+        debouncedApiCall(`sector-points-${existing.id}`, () => sectorApi.update(updatedEx));
+        return updatedEx;
+      }).filter(Boolean) as Sector[];
       return changed ? updated : prev;
+    });
+    // Persist any split-off pieces
+    extraSectors.forEach(s => {
+      setSectors(prev => [...prev, s]);
+      sectorApi.create(s).catch(err => console.error('Failed to create split sector:', err));
     });
   }, [debouncedApiCall]);
 

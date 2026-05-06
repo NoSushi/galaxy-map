@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { TransformWrapper, TransformComponent, ReactZoomPanPinchRef } from 'react-zoom-pan-pinch';
 import { useMap, Planet, Fleet, HyperspaceLane, Sector } from '@/lib/data';
+import { polygonIntersection } from '@/lib/polygon-ops';
 import { cn } from '@/lib/utils';
 import { Crown, Ship, Plus, Pencil, AlertTriangle } from 'lucide-react';
 import { TargetingOverlay } from './TargetingOverlay';
@@ -519,16 +520,36 @@ export const GalaxyMap = () => {
 
   const handleOverlapConfirm = () => {
     if (!pendingSector || !overlapChoice) return;
+
     if (overlapChoice === 'erase') {
+      // Add new sector, clip existing overlapping sectors around it
       addSector(pendingSector, { clip: true });
     } else {
-      addSector({
-        ...pendingSector,
-        isContested: true,
-        contestedFaction1: contestFaction1,
-        contestedFaction2: contestFaction2,
-      }, { clip: false });
+      // CONTESTED: add both sectors as-is, then create a new sector for the intersection area
+      addSector(pendingSector, { clip: false });
+
+      overlappingSectors.forEach((existing, exIdx) => {
+        const intersections = polygonIntersection(
+          existing.points as [number, number][],
+          pendingSector.points as [number, number][]
+        );
+        intersections.forEach((pts, ptIdx) => {
+          if (pts.length < 3) return;
+          const contestedSector: Sector = {
+            id: `s${Date.now()}_contested_${exIdx}_${ptIdx}`,
+            name: `${existing.name} / ${pendingSector.name} Contested`,
+            color: existing.color,
+            points: pts,
+            faction: contestFaction1,
+            isContested: true,
+            contestedFaction1: contestFaction1,
+            contestedFaction2: contestFaction2,
+          };
+          addSector(contestedSector, { clip: false });
+        });
+      });
     }
+
     setOverlapDialogOpen(false);
     setPendingSector(null);
     setOverlappingSectors([]);
