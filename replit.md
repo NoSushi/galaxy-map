@@ -52,7 +52,7 @@ All prefixed with `/api`:
 - Hyperspace Travel Calculator using Dijkstra's algorithm along lane network
 - All changes persist to PostgreSQL database with debounced writes
 - **Planet position locking**: planets are locked by default; must click MOVE in sidebar to unlock drag
-- **Sector erasing**: drawing a new sector clips/erases the overlapping area from existing sectors
+- **Sector overlap dialog**: drawing a new sector over an existing one shows a popup — choose "Erase Overlap" (clips existing sector) or "Mark as Contested" (both sectors coexist, pick two factions)
 - **Auto faction assignment**: planets inside a drawn sector are auto-assigned to that sector's faction
 - **Custom factions**: add/delete factions via Admin Panel (built-in factions are protected)
 - **User accounts**: username+password login, admin panel for user management, self-service password change

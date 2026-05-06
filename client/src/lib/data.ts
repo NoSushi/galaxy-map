@@ -123,7 +123,7 @@ export interface MapContextType {
   updatePlanet: (planet: Planet) => void;
   addPlanet: (planet: Planet) => void;
   updateSector: (sector: Sector) => void;
-  addSector: (sector: Sector) => void;
+  addSector: (sector: Sector, options?: { clip?: boolean }) => void;
   updateSectorPoints: (sectorId: string, points: [number, number][]) => void;
   updateLane: (lane: HyperspaceLane) => void;
   addLane: (lane: HyperspaceLane) => void;

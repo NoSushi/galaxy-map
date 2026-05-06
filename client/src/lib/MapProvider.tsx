@@ -327,12 +327,11 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const addSector = (newSector: Sector) => {
+  const addSector = (newSector: Sector, options?: { clip?: boolean }) => {
+    const shouldClip = options?.clip !== false;
     setSectors(prev => [...prev, newSector]);
     sectorApi.create(newSector).catch(err => console.error('Failed to create sector:', err));
-    // Clip existing sectors
-    clipSectorsAgainstNew(newSector);
-    // Auto-assign planet factions
+    if (shouldClip) clipSectorsAgainstNew(newSector);
     autoAssignPlanetFactions(newSector, planets);
   };
 

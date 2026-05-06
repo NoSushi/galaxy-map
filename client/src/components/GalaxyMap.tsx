@@ -2,8 +2,38 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { TransformWrapper, TransformComponent, ReactZoomPanPinchRef } from 'react-zoom-pan-pinch';
 import { useMap, Planet, Fleet, HyperspaceLane, Sector } from '@/lib/data';
 import { cn } from '@/lib/utils';
-import { Crown, Ship, Plus, Pencil } from 'lucide-react';
+import { Crown, Ship, Plus, Pencil, AlertTriangle } from 'lucide-react';
 import { TargetingOverlay } from './TargetingOverlay';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
+import { Button } from './ui/button';
+import { Label } from './ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+
+// ── Polygon helpers (local) ────────────────────────────────────────────────
+function _ptInPoly(x: number, y: number, poly: [number, number][]): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1];
+    if (((yi > y) !== (yj > y)) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+function _segIntersect(a1: [number,number], a2: [number,number], b1: [number,number], b2: [number,number]): boolean {
+  const d1x = a2[0]-a1[0], d1y = a2[1]-a1[1], d2x = b2[0]-b1[0], d2y = b2[1]-b1[1];
+  const cross = d1x*d2y - d1y*d2x;
+  if (Math.abs(cross) < 1e-10) return false;
+  const t = ((b1[0]-a1[0])*d2y - (b1[1]-a1[1])*d2x) / cross;
+  const u = ((b1[0]-a1[0])*d1y - (b1[1]-a1[1])*d1x) / cross;
+  return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+}
+function _polysOverlap(a: [number,number][], b: [number,number][]): boolean {
+  for (const [x,y] of a) if (_ptInPoly(x, y, b)) return true;
+  for (const [x,y] of b) if (_ptInPoly(x, y, a)) return true;
+  for (let i = 0; i < a.length; i++)
+    for (let j = 0; j < b.length; j++)
+      if (_segIntersect(a[i], a[(i+1)%a.length], b[j], b[(j+1)%b.length])) return true;
+  return false;
+}
 
 const FACTION_COLORS: Record<string, string> = {
   'Galactic Republic': '210 80% 55%',
@@ -117,7 +147,7 @@ const PlanetMarker = React.memo<PlanetMarkerProps>(({
 export const GalaxyMap = () => {
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
   const { 
-    planets, sectors, lanes, fleets,
+    planets, sectors, lanes, fleets, factionList,
     showLanes, showSectors, showLabels, showOverlay,
     selectedPlanet, setSelectedPlanet,
     selectedSector, setSelectedSector,
@@ -152,6 +182,14 @@ export const GalaxyMap = () => {
   const [sectorDrawPoints, setSectorDrawPoints] = useState<[number, number][]>([]);
   const [isSectorDrawing, setIsSectorDrawing] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<{ type: 'planet' | 'fleet' | 'lane'; id: string } | null>(null);
+
+  // Overlap dialog state
+  const [pendingSector, setPendingSector] = useState<Sector | null>(null);
+  const [overlapDialogOpen, setOverlapDialogOpen] = useState(false);
+  const [overlappingSectors, setOverlappingSectors] = useState<Sector[]>([]);
+  const [overlapChoice, setOverlapChoice] = useState<'erase' | 'contested' | null>(null);
+  const [contestFaction1, setContestFaction1] = useState('');
+  const [contestFaction2, setContestFaction2] = useState('');
   const [laneTooltipPos, setLaneTooltipPos] = useState<{ x: number; y: number } | null>(null);
 
   const transformRef = useRef<ReactZoomPanPinchRef | null>(null);
@@ -414,14 +452,26 @@ export const GalaxyMap = () => {
         const distToOrigin = Math.sqrt((last[0] - origin[0]) ** 2 + (last[1] - origin[1]) ** 2);
         
         if (distToOrigin < closeRadius) {
-          const newSector = {
+          const newSector: Sector = {
             id: `s${Date.now()}`,
             name: 'New Sector',
             color: `${Math.round(Math.random() * 360)} 50% 50%`,
             points: sectorDrawPoints,
-            faction: 'Independent' as const
+            faction: 'Independent',
           };
-          addSector(newSector);
+          const overlapping = sectors.filter(s =>
+            s.points.length >= 3 && _polysOverlap(s.points as [number,number][], sectorDrawPoints)
+          );
+          if (overlapping.length > 0) {
+            setPendingSector(newSector);
+            setOverlappingSectors(overlapping);
+            setOverlapChoice(null);
+            setContestFaction1(overlapping[0].faction || 'Independent');
+            setContestFaction2('Independent');
+            setOverlapDialogOpen(true);
+          } else {
+            addSector(newSector);
+          }
         }
       }
       setSectorDrawPoints([]);
@@ -465,6 +515,31 @@ export const GalaxyMap = () => {
     setDrawingMode(mode);
     setIsDrawing(true);
     setDrawingPoints([]);
+  };
+
+  const handleOverlapConfirm = () => {
+    if (!pendingSector || !overlapChoice) return;
+    if (overlapChoice === 'erase') {
+      addSector(pendingSector, { clip: true });
+    } else {
+      addSector({
+        ...pendingSector,
+        isContested: true,
+        contestedFaction1: contestFaction1,
+        contestedFaction2: contestFaction2,
+      }, { clip: false });
+    }
+    setOverlapDialogOpen(false);
+    setPendingSector(null);
+    setOverlappingSectors([]);
+    setOverlapChoice(null);
+  };
+
+  const handleOverlapCancel = () => {
+    setOverlapDialogOpen(false);
+    setPendingSector(null);
+    setOverlappingSectors([]);
+    setOverlapChoice(null);
   };
 
   useEffect(() => {
@@ -1114,6 +1189,105 @@ export const GalaxyMap = () => {
           </>
         )}
       </TransformWrapper>
+
+      {/* Sector Overlap Dialog */}
+      <Dialog open={overlapDialogOpen} onOpenChange={(o) => { if (!o) handleOverlapCancel(); }}>
+        <DialogContent className="glass-panel-primary border-primary/30 sm:max-w-md bg-[#05080f]/95 backdrop-blur-3xl">
+          <DialogHeader className="items-center text-center">
+            <AlertTriangle className="w-10 h-10 text-yellow-400 mb-2" />
+            <DialogTitle className="text-primary font-display font-black text-xl tracking-[0.2em]">SECTOR OVERLAP</DialogTitle>
+            <DialogDescription className="text-primary/60 text-[10px] uppercase font-bold tracking-[0.2em]">
+              This sector overlaps {overlappingSectors.length === 1 ? `"${overlappingSectors[0].name}"` : `${overlappingSectors.length} existing sectors`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4 space-y-3">
+            {/* Option cards */}
+            <button
+              onClick={() => setOverlapChoice('erase')}
+              className={cn(
+                "w-full text-left p-3 rounded-lg border transition-all",
+                overlapChoice === 'erase'
+                  ? "border-primary bg-primary/10 shadow-[0_0_10px_hsl(var(--primary)/0.3)]"
+                  : "border-white/10 bg-white/5 hover:border-primary/40 hover:bg-primary/5"
+              )}
+            >
+              <div className="font-display font-black text-[11px] uppercase tracking-widest text-primary mb-1">Erase Overlap</div>
+              <div className="text-[10px] text-primary/60">
+                Clip the overlapping area from the existing sector{overlappingSectors.length > 1 ? 's' : ''}, carving out space for the new one.
+              </div>
+            </button>
+
+            <button
+              onClick={() => setOverlapChoice('contested')}
+              className={cn(
+                "w-full text-left p-3 rounded-lg border transition-all",
+                overlapChoice === 'contested'
+                  ? "border-yellow-400/60 bg-yellow-400/10 shadow-[0_0_10px_rgba(250,204,21,0.2)]"
+                  : "border-white/10 bg-white/5 hover:border-yellow-400/30 hover:bg-yellow-400/5"
+              )}
+            >
+              <div className="font-display font-black text-[11px] uppercase tracking-widest text-yellow-400 mb-1">Mark as Contested</div>
+              <div className="text-[10px] text-primary/60">
+                Both sectors coexist — mark the new sector as disputed territory between two factions.
+              </div>
+            </button>
+
+            {/* Faction selectors — only shown when contested is chosen */}
+            {overlapChoice === 'contested' && (
+              <div className="p-3 bg-yellow-400/5 border border-yellow-400/20 rounded-lg space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="text-[10px] uppercase font-bold tracking-widest text-yellow-400/80">Contested Factions</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-[9px] uppercase text-primary/60">Faction 1</Label>
+                    <Select value={contestFaction1} onValueChange={setContestFaction1}>
+                      <SelectTrigger className="h-8 bg-black/60 border-primary/20 text-[10px] uppercase font-bold">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {factionList.map(f => (
+                          <SelectItem key={f.id} value={f.name}>{f.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[9px] uppercase text-primary/60">Faction 2</Label>
+                    <Select value={contestFaction2} onValueChange={setContestFaction2}>
+                      <SelectTrigger className="h-8 bg-black/60 border-primary/20 text-[10px] uppercase font-bold">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {factionList.map(f => (
+                          <SelectItem key={f.id} value={f.name}>{f.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="ghost" onClick={handleOverlapCancel} className="border border-white/10 text-primary/60 hover:text-primary hover:bg-primary/10 font-display tracking-widest text-[10px]">
+              CANCEL
+            </Button>
+            <Button
+              onClick={handleOverlapConfirm}
+              disabled={!overlapChoice || (overlapChoice === 'contested' && (!contestFaction1 || !contestFaction2))}
+              className={cn(
+                "font-display font-black tracking-[0.2em] text-[10px] flex-1",
+                overlapChoice === 'contested'
+                  ? "bg-yellow-500 hover:bg-yellow-400 text-black"
+                  : "bg-primary text-background"
+              )}
+            >
+              {overlapChoice === 'erase' ? 'ERASE OVERLAP' : overlapChoice === 'contested' ? 'MARK CONTESTED' : 'CONFIRM'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
