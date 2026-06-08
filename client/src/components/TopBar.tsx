@@ -470,7 +470,7 @@ export const TopBar = () => {
   return (
     <>
       {/* ── Main bar ─────────────────────────────────────────────── */}
-      <div className="absolute top-0 left-0 w-full z-10 glass-panel-primary border-x-0 border-t-0">
+      <div className="absolute top-0 left-0 w-full z-30 glass-panel-primary border-x-0 border-t-0">
         <div className="flex items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4 sm:py-2.5">
 
           {/* Logo */}
