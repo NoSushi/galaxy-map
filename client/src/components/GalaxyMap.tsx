@@ -193,6 +193,10 @@ export const GalaxyMap = () => {
   const [contestFaction2, setContestFaction2] = useState('');
   const [laneTooltipPos, setLaneTooltipPos] = useState<{ x: number; y: number } | null>(null);
 
+  // Viewport transform — tracked at a throttled rate for culling/LOD
+  const [viewTransform, setViewTransform] = useState({ scale: 0.2, posX: 0, posY: 0 });
+  const transformThrottleRef = useRef(0);
+
   const transformRef = useRef<ReactZoomPanPinchRef | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -300,14 +304,40 @@ export const GalaxyMap = () => {
     };
   }, []);
 
-  const filteredPlanets = useMemo(() => planets.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFaction = filters.faction === 'All' || p.faction === filters.faction;
-    const matchesHabitable = filters.habitable === 'All' ||
-                             (filters.habitable === 'Yes' ? p.habitable : !p.habitable);
-    const matchesEnv = filters.environment === 'All' || p.environment === filters.environment;
-    return matchesSearch && matchesFaction && matchesHabitable && matchesEnv;
-  }), [planets, searchQuery, filters]);
+  // LOD thresholds
+  const ZOOM_HIDE_MINOR = 0.32;
+  const ZOOM_HIDE_JUNCTIONS = 0.28;
+  const CULL_MARGIN = 400;
+
+  const visibleBounds = useMemo(() => {
+    const cw = mapContainerRef.current?.clientWidth ?? 1400;
+    const ch = mapContainerRef.current?.clientHeight ?? 900;
+    const { scale, posX, posY } = viewTransform;
+    const pad = 500;
+    return {
+      minX: (-posX / scale) - pad - CULL_MARGIN,
+      minY: (-posY / scale) - pad - CULL_MARGIN,
+      maxX: (-posX / scale) - pad + cw / scale + CULL_MARGIN,
+      maxY: (-posY / scale) - pad + ch / scale + CULL_MARGIN,
+    };
+  }, [viewTransform]);
+
+  const filteredPlanets = useMemo(() => {
+    const { minX, minY, maxX, maxY } = visibleBounds;
+    const isLowZoom = viewTransform.scale < ZOOM_HIDE_MINOR;
+    return planets.filter(p => {
+      const matchesSearch = !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesFaction = filters.faction === 'All' || p.faction === filters.faction;
+      const matchesHabitable = filters.habitable === 'All' ||
+                               (filters.habitable === 'Yes' ? p.habitable : !p.habitable);
+      const matchesEnv = filters.environment === 'All' || p.environment === filters.environment;
+      if (!matchesSearch || !matchesFaction || !matchesHabitable || !matchesEnv) return false;
+      // LOD: hide minor planets at low zoom (always show selected)
+      if (isLowZoom && p.isMinor && p.id !== selectedPlanet?.id) return false;
+      // Viewport culling
+      return p.x >= minX && p.x <= maxX && p.y >= minY && p.y <= maxY;
+    });
+  }, [planets, searchQuery, filters, visibleBounds, viewTransform.scale, selectedPlanet?.id]);
 
   // O(1) planet lookups
   const planetById = useMemo(() => {
@@ -338,6 +368,43 @@ export const GalaxyMap = () => {
     return paths;
   }, [lanes, planetById]);
 
+  // Viewport-culled collections for rendering
+  const filteredFleets = useMemo(() => {
+    const { minX, minY, maxX, maxY } = visibleBounds;
+    return fleets.filter(f => f.x >= minX && f.x <= maxX && f.y >= minY && f.y <= maxY);
+  }, [fleets, visibleBounds]);
+
+  const filteredLanes = useMemo(() => {
+    if (!showLanes) return [];
+    const { minX, minY, maxX, maxY } = visibleBounds;
+    const LM = 800;
+    return lanes.filter(lane => {
+      const p1 = planetById.get(lane.planetIds[0]);
+      const p2 = lane.planetIds[1] ? planetById.get(lane.planetIds[1]) : null;
+      if (p1 && p1.x >= minX - LM && p1.x <= maxX + LM && p1.y >= minY - LM && p1.y <= maxY + LM) return true;
+      if (p2 && p2.x >= minX - LM && p2.x <= maxX + LM && p2.y >= minY - LM && p2.y <= maxY + LM) return true;
+      if (lane.pathPoints?.some(pt => pt[0] >= minX - LM && pt[0] <= maxX + LM && pt[1] >= minY - LM && pt[1] <= maxY + LM)) return true;
+      // Always keep selected lane visible
+      if (selectedLane?.id === lane.id) return true;
+      return false;
+    });
+  }, [lanes, planetById, visibleBounds, showLanes, selectedLane?.id]);
+
+  const filteredSectors = useMemo(() => {
+    if (!showSectors) return [];
+    const { minX, minY, maxX, maxY } = visibleBounds;
+    return sectors.filter(sector => {
+      if (sector.points.length < 3) return false;
+      // Always show selected sector
+      if (selectedSector?.id === sector.id) return true;
+      const xs = sector.points.map(p => p[0]);
+      const ys = sector.points.map(p => p[1]);
+      const sMinX = Math.min(...xs), sMaxX = Math.max(...xs);
+      const sMinY = Math.min(...ys), sMaxY = Math.max(...ys);
+      return sMinX <= maxX && sMaxX >= minX && sMinY <= maxY && sMaxY >= minY;
+    });
+  }, [sectors, visibleBounds, showSectors, selectedSector?.id]);
+
   // Memoized hovered lane lookup
   const hoveredLane = useMemo(
     () => hoveredItem?.type === 'lane' ? lanes.find(l => l.id === hoveredItem.id) ?? null : null,
@@ -353,6 +420,14 @@ export const GalaxyMap = () => {
   }, []);
   const handlePlanetMouseLeave = useCallback(() => {
     setHoveredItem(null);
+  }, []);
+
+  // Throttled transform update — updates viewport culling/LOD bounds
+  const handleTransformed = useCallback((_ref: ReactZoomPanPinchRef, state: { scale: number; positionX: number; positionY: number }) => {
+    const now = Date.now();
+    if (now - transformThrottleRef.current < 60) return;
+    transformThrottleRef.current = now;
+    setViewTransform({ scale: state.scale, posX: state.positionX, posY: state.positionY });
   }, []);
 
   const pad = 500;
@@ -761,11 +836,11 @@ export const GalaxyMap = () => {
   };
 
   const laneJunctions = React.useMemo(() => {
-    if (!showLanes || lanes.length < 2) return [];
+    if (!showLanes || filteredLanes.length < 2 || viewTransform.scale < ZOOM_HIDE_JUNCTIONS) return [];
     const junctions: { x: number; y: number; count: number }[] = [];
     const planetLaneCount = new Map<string, number>();
 
-    for (const lane of lanes) {
+    for (const lane of filteredLanes) {
       const seen = new Set<string>();
       for (const pid of lane.planetIds) {
         if (!seen.has(pid)) {
@@ -775,18 +850,19 @@ export const GalaxyMap = () => {
       }
     }
 
+    const { minX, minY, maxX, maxY } = visibleBounds;
     const added = new Set<string>();
     for (const [pid, count] of planetLaneCount) {
       if (count >= 2 && !added.has(pid)) {
         added.add(pid);
         const planet = planets.find(p => p.id === pid);
-        if (planet) {
+        if (planet && planet.x >= minX && planet.x <= maxX && planet.y >= minY && planet.y <= maxY) {
           junctions.push({ x: planet.x, y: planet.y, count });
         }
       }
     }
     return junctions;
-  }, [lanes, planets, showLanes]);
+  }, [filteredLanes, planets, showLanes, viewTransform.scale, visibleBounds]);
 
   const isDragging = draggingPlanet !== null || draggingSectorPoint !== null || draggingFleet !== null || draggingLanePoint !== null || isDrawing || isLaneDrawing || isSectorDrawing;
 
@@ -848,6 +924,7 @@ export const GalaxyMap = () => {
         centerOnInit
         limitToBounds={true}
         disabled={isDragging}
+        onTransformed={handleTransformed}
       >
         {({ zoomIn, zoomOut, resetTransform, centerView }) => (
           <>
@@ -877,7 +954,7 @@ export const GalaxyMap = () => {
               )}
             </div>
 
-            <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }}>
+            <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }} contentStyle={{ willChange: 'transform' }}>
               <div 
                 className={cn("relative origin-top-left", (isDrawing || isLaneDrawing || isSectorDrawing || sectorDrawMode) ? "cursor-crosshair" : "cursor-grab active:cursor-grabbing")}
                 style={{ 
@@ -912,7 +989,7 @@ export const GalaxyMap = () => {
                     top: `${pad}px`,
                     width: `${mapWidth}px`,
                     height: `${mapHeight}px`,
-                    backgroundImage: `url('/galaxy-map.png')`,
+                    backgroundImage: `url('/galaxy-map.webp')`,
                     backgroundSize: '100% 100%',
                     backgroundRepeat: 'no-repeat',
                     backgroundPosition: 'center',
@@ -928,7 +1005,7 @@ export const GalaxyMap = () => {
                       top: `${pad}px`,
                       width: `${mapWidth}px`,
                       height: `${mapHeight}px`,
-                      backgroundImage: `url('/reference-map.png')`,
+                      backgroundImage: `url('/reference-map.webp')`,
                       backgroundSize: '100% 100%',
                       backgroundRepeat: 'no-repeat',
                       backgroundPosition: 'center',
@@ -963,7 +1040,7 @@ export const GalaxyMap = () => {
                     })}
                   </defs>
 
-                  {showSectors && sectors.map(sector => {
+                  {filteredSectors.map(sector => {
                     const isSelected = selectedSector?.id === sector.id;
                     const pathD = `M ${sector.points.map(p => `${p[0]},${p[1]}`).join(' L ')} Z`;
                     
@@ -1023,7 +1100,7 @@ export const GalaxyMap = () => {
                     );
                   })}
 
-                  {showLanes && lanes.map(lane => {
+                  {filteredLanes.map(lane => {
                     const pathD = lanePaths.get(lane.id);
                     if (!pathD) return null;
                     const isSelected = selectedLane?.id === lane.id;
@@ -1159,7 +1236,7 @@ export const GalaxyMap = () => {
                   />
                 ))}
 
-                {fleets.map(fleet => {
+                {filteredFleets.map(fleet => {
                   const isSelected = selectedFleet?.id === fleet.id;
                   return (
                     <div

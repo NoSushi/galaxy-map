@@ -9,22 +9,22 @@ import { Switch } from './ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 const ENV_IMAGES: Record<string, string> = {
-  'Desert': '/planet-desert.png',
-  'Forest': '/planet-forest.png',
-  'City': '/planet-city.png',
-  'Volcanic': '/planet-desert.png',
-  'Icy': '/planet-desert.png',
-  'Arid': '/planet-desert.png',
-  'Barren': '/planet-desert.png',
-  'Oceanic': '/planet-forest.png',
-  'Swamp': '/planet-forest.png',
-  'Tropical': '/planet-forest.png',
-  'Gaseous': '/planet-desert.png',
-  'Mountainous': '/planet-desert.png',
-  'Unknown': '/planet-desert.png',
+  'Desert': '/planet-desert.webp',
+  'Forest': '/planet-forest.webp',
+  'City': '/planet-city.webp',
+  'Volcanic': '/planet-desert.webp',
+  'Icy': '/planet-desert.webp',
+  'Arid': '/planet-desert.webp',
+  'Barren': '/planet-desert.webp',
+  'Oceanic': '/planet-forest.webp',
+  'Swamp': '/planet-forest.webp',
+  'Tropical': '/planet-forest.webp',
+  'Gaseous': '/planet-desert.webp',
+  'Mountainous': '/planet-desert.webp',
+  'Unknown': '/planet-desert.webp',
 };
 
-const getDefaultPlanetImage = (environment: string) => ENV_IMAGES[environment] || '/planet-desert.png';
+const getDefaultPlanetImage = (environment: string) => ENV_IMAGES[environment] || '/planet-desert.webp';
 
 const pointInPolygon = (x: number, y: number, polygon: [number, number][]): boolean => {
   let inside = false;
