@@ -3,12 +3,30 @@ import { TransformWrapper, TransformComponent, ReactZoomPanPinchRef } from 'reac
 import { useMap, Planet, Fleet, HyperspaceLane, Sector } from '@/lib/data';
 import { polygonIntersection } from '@/lib/polygon-ops';
 import { cn } from '@/lib/utils';
-import { Crown, Ship, Plus, Pencil, AlertTriangle } from 'lucide-react';
+import { Crown, Ship, Plus, Pencil, AlertTriangle, GitMerge, X, Crosshair } from 'lucide-react';
 import { TargetingOverlay } from './TargetingOverlay';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+
+// ── Snap-to-polyline helper ────────────────────────────────────────────────
+// Returns the closest point on a polyline to (px, py)
+function snapToPolyline(px: number, py: number, poly: [number, number][]): [number, number] {
+  let minDist = Infinity;
+  let best: [number, number] = [px, py];
+  for (let i = 0; i < poly.length - 1; i++) {
+    const [ax, ay] = poly[i], [bx, by] = poly[i + 1];
+    const dx = bx - ax, dy = by - ay;
+    const lenSq = dx * dx + dy * dy;
+    let cx: number, cy: number;
+    if (lenSq === 0) { cx = ax; cy = ay; }
+    else { const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq)); cx = ax + t * dx; cy = ay + t * dy; }
+    const dist = Math.hypot(px - cx, py - cy);
+    if (dist < minDist) { minDist = dist; best = [cx, cy]; }
+  }
+  return best;
+}
 
 // ── Polygon helpers (local) ────────────────────────────────────────────────
 function _ptInPoly(x: number, y: number, poly: [number, number][]): boolean {
@@ -205,6 +223,11 @@ export const GalaxyMap = () => {
   const [draggingSectorPoint, setDraggingSectorPoint] = useState<{sectorId: string, pointIndex: number} | null>(null);
   const [draggingFleet, setDraggingFleet] = useState<string | null>(null);
   const [draggingLanePoint, setDraggingLanePoint] = useState<{laneId: string, pointIndex: number} | null>(null);
+
+  // Waypoint snap-to-route state
+  const [snapMode, setSnapMode] = useState(false);
+  const [snapSelectedWaypoints, setSnapSelectedWaypoints] = useState<Set<number>>(new Set());
+  const exitSnapMode = useCallback(() => { setSnapMode(false); setSnapSelectedWaypoints(new Set()); }, []);
   
   const [drawingMode, setDrawingMode] = useState<'sector' | 'lane' | null>(null);
   const [drawingPoints, setDrawingPoints] = useState<[number, number][]>([]);
@@ -816,6 +839,32 @@ export const GalaxyMap = () => {
   const handleLaneClick = (e: React.MouseEvent, lane: HyperspaceLane) => {
     e.stopPropagation();
     if (isInAnyDrawCreation) return;
+
+    // ── Snap mode: clicking a different lane performs the snap ─────────────
+    if (snapMode && selectedLane && lane.id !== selectedLane.id) {
+      if (snapSelectedWaypoints.size > 0 && selectedLane.pathPoints) {
+        // Build target lane's full polyline
+        const tp1 = planetById.get(lane.planetIds[0]);
+        if (tp1) {
+          const tp2 = lane.planetIds[1] ? planetById.get(lane.planetIds[1]) : null;
+          const targetPoly: [number, number][] = [[tp1.x, tp1.y]];
+          if (lane.pathPoints) targetPoly.push(...lane.pathPoints);
+          if (tp2) targetPoly.push([tp2.x, tp2.y]);
+
+          const newPts = [...selectedLane.pathPoints] as [number, number][];
+          for (const idx of snapSelectedWaypoints) {
+            if (idx < newPts.length) {
+              newPts[idx] = snapToPolyline(newPts[idx][0], newPts[idx][1], targetPoly);
+            }
+          }
+          updateLanePathPoints(selectedLane.id, newPts);
+        }
+      }
+      exitSnapMode();
+      return;
+    }
+
+    exitSnapMode();
     setSelectedLane(lane);
     setSelectedPlanet(null);
     setSelectedSector(null);
@@ -979,7 +1028,7 @@ export const GalaxyMap = () => {
                   <Pencil className="w-3 h-3" /> DRAW SECTOR BORDER
                 </button>
               )}
-              {editMode && selectedLane && !isInAnyDrawCreation && (
+              {editMode && selectedLane && !isInAnyDrawCreation && !snapMode && (
                 <button
                   onMouseDown={(e) => startDrawing('lane', e)}
                   className="glass-panel rounded-md p-2 text-[10px] font-display flex items-center gap-2 text-foreground hover:text-primary"
@@ -987,6 +1036,33 @@ export const GalaxyMap = () => {
                 >
                   <Pencil className="w-3 h-3" /> DRAW LANE PATH
                 </button>
+              )}
+              {editMode && selectedLane && !isInAnyDrawCreation && !snapMode && selectedLane.pathPoints && selectedLane.pathPoints.length > 0 && (
+                <button
+                  onMouseDown={(e) => { e.stopPropagation(); setSnapMode(true); setSnapSelectedWaypoints(new Set()); }}
+                  className="glass-panel rounded-md p-2 text-[10px] font-display flex items-center gap-2 text-foreground hover:text-yellow-400"
+                  data-testid="button-snap-waypoints"
+                  title="Select waypoints then click another route to snap them onto it"
+                >
+                  <GitMerge className="w-3 h-3" /> SNAP TO ROUTE
+                </button>
+              )}
+              {snapMode && (
+                <div className="glass-panel rounded-md p-2 text-[10px] font-display flex items-center gap-2 text-yellow-400 border border-yellow-400/30">
+                  <Crosshair className="w-3 h-3 shrink-0" />
+                  <span>
+                    {snapSelectedWaypoints.size === 0
+                      ? 'CLICK WAYPOINTS TO SELECT'
+                      : `${snapSelectedWaypoints.size} SELECTED — CLICK TARGET ROUTE`}
+                  </span>
+                  <button
+                    onMouseDown={(e) => { e.stopPropagation(); exitSnapMode(); }}
+                    className="ml-1 text-foreground/50 hover:text-destructive shrink-0"
+                    title="Cancel"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
               )}
             </div>
 
@@ -1136,7 +1212,15 @@ export const GalaxyMap = () => {
                     );
                   })}
 
-                  {filteredLanes.map(lane => {
+                  {[...filteredLanes]
+                    .sort((a, b) => {
+                      // Render shorter/less-dominant lanes first so longer ones paint on top
+                      const pr: Record<string, number> = { Major: 3, Minor: 2, Dangerous: 1 };
+                      const pa = pr[a.type] ?? 1, pb = pr[b.type] ?? 1;
+                      if (pa !== pb) return pa - pb;
+                      return (a.pathPoints?.length ?? 0) - (b.pathPoints?.length ?? 0);
+                    })
+                    .map(lane => {
                     const pathD = lanePaths.get(lane.id);
                     if (!pathD) return null;
                     const isSelected = selectedLane?.id === lane.id;
@@ -1164,25 +1248,47 @@ export const GalaxyMap = () => {
                           className="transition-all duration-300"
                           filter={isSelected ? "url(#glow)" : undefined}
                         />
-                        {editMode && isSelected && !isInAnyDrawCreation && lane.pathPoints && lane.pathPoints.map((point, idx) => (
-                          <circle
-                            key={`${lane.id}-lp-${idx}`}
-                            cx={point[0]} cy={point[1]} r={8}
-                            fill={strokeColor} stroke="white" strokeWidth={2}
-                            className="pointer-events-auto cursor-move"
-                            onMouseDown={(e) => {
-                              e.stopPropagation();
-                              setDraggingLanePoint({ laneId: lane.id, pointIndex: idx });
-                            }}
-                            onContextMenu={(e) => {
-                              e.preventDefault();
-                              if (lane.pathPoints) {
-                                const newPoints = lane.pathPoints.filter((_, i) => i !== idx);
-                                updateLanePathPoints(lane.id, newPoints as [number, number][]);
-                              }
-                            }}
-                          />
-                        ))}
+                        {editMode && isSelected && !isInAnyDrawCreation && lane.pathPoints && lane.pathPoints.map((point, idx) => {
+                          const isSnapped = snapMode && snapSelectedWaypoints.has(idx);
+                          return (
+                            <g key={`${lane.id}-lp-${idx}`}>
+                              {isSnapped && (
+                                <circle
+                                  cx={point[0]} cy={point[1]} r={14}
+                                  fill="none" stroke="#f59e0b" strokeWidth={2}
+                                  strokeDasharray="4 3"
+                                  className="pointer-events-none"
+                                />
+                              )}
+                              <circle
+                                cx={point[0]} cy={point[1]} r={8}
+                                fill={isSnapped ? '#f59e0b' : strokeColor}
+                                stroke="white" strokeWidth={2}
+                                className={cn("pointer-events-auto", snapMode ? "cursor-pointer" : "cursor-move")}
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  if (snapMode) {
+                                    setSnapSelectedWaypoints(prev => {
+                                      const next = new Set(prev);
+                                      if (next.has(idx)) next.delete(idx); else next.add(idx);
+                                      return next;
+                                    });
+                                  } else {
+                                    setDraggingLanePoint({ laneId: lane.id, pointIndex: idx });
+                                  }
+                                }}
+                                onContextMenu={(e) => {
+                                  if (snapMode) return;
+                                  e.preventDefault();
+                                  if (lane.pathPoints) {
+                                    const newPoints = lane.pathPoints.filter((_, i) => i !== idx);
+                                    updateLanePathPoints(lane.id, newPoints as [number, number][]);
+                                  }
+                                }}
+                              />
+                            </g>
+                          );
+                        })}
                       </g>
                     );
                   })}
