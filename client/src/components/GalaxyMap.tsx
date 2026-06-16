@@ -399,6 +399,94 @@ export const GalaxyMap = () => {
     return paths;
   }, [lanes, planetById]);
 
+  // ─── Lane merging: hide segments of a lane that are already drawn by a
+  //     more-dominant lane running the same route ──────────────────────────
+  const lanePathsMasked = useMemo(() => {
+    const SHADOW_PX = 40; // map-coord pixels — lanes closer than this are merged
+    const TYPE_RANK: Record<string, number> = { Major: 3, Minor: 2, Dangerous: 1 };
+
+    // Build full point arrays (start-planet → pathPoints → end-planet)
+    const polys = new Map<string, [number, number][]>();
+    for (const lane of lanes) {
+      const p1 = planetById.get(lane.planetIds[0]);
+      if (!p1) continue;
+      const p2 = lane.planetIds[1] ? planetById.get(lane.planetIds[1]) : null;
+      const pts: [number, number][] = [[p1.x, p1.y]];
+      if (lane.pathPoints) pts.push(...lane.pathPoints);
+      if (p2) pts.push([p2.x, p2.y]);
+      polys.set(lane.id, pts);
+    }
+
+    // Rank: higher type wins; within same type, longer path wins; id breaks ties
+    const ranked = [...lanes].sort((a, b) => {
+      const ra = TYPE_RANK[a.type] ?? 1, rb = TYPE_RANK[b.type] ?? 1;
+      if (ra !== rb) return rb - ra;
+      const la = polys.get(a.id)?.length ?? 0, lb = polys.get(b.id)?.length ?? 0;
+      if (la !== lb) return lb - la;
+      return a.id < b.id ? -1 : 1;
+    });
+
+    function segDist(px: number, py: number, ax: number, ay: number, bx: number, by: number) {
+      const dx = bx - ax, dy = by - ay;
+      const lenSq = dx * dx + dy * dy;
+      if (lenSq === 0) return Math.hypot(px - ax, py - ay);
+      const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq));
+      return Math.hypot(px - ax - t * dx, py - ay - t * dy);
+    }
+
+    function polylineDist(px: number, py: number, poly: [number, number][]) {
+      let min = Infinity;
+      for (let i = 0; i < poly.length - 1; i++) {
+        const d = segDist(px, py, poly[i][0], poly[i][1], poly[i + 1][0], poly[i + 1][1]);
+        if (d < min) min = d;
+      }
+      return min;
+    }
+
+    const masked = new Map<string, string | null>();
+
+    for (let i = 0; i < ranked.length; i++) {
+      const lane = ranked[i];
+      const pts = polys.get(lane.id);
+      if (!pts || pts.length < 2) { masked.set(lane.id, null); continue; }
+
+      const dominantPolys = ranked.slice(0, i)
+        .map(dl => polys.get(dl.id))
+        .filter((p): p is [number, number][] => !!p && p.length >= 2);
+
+      if (dominantPolys.length === 0) {
+        masked.set(lane.id, lanePaths.get(lane.id) ?? null);
+        continue;
+      }
+
+      // Per-point shadow flags; never shadow the endpoint planets
+      const shadowed = pts.map((pt, idx) => {
+        if (idx === 0 || idx === pts.length - 1) return false;
+        return dominantPolys.some(poly => polylineDist(pt[0], pt[1], poly) < SHADOW_PX);
+      });
+
+      // Build broken path: M at every start of an unshadowed run
+      let d = '';
+      let penDown = false;
+      for (let j = 0; j < pts.length; j++) {
+        if (!shadowed[j]) {
+          if (!penDown || shadowed[j - 1]) {
+            d += `M ${pts[j][0]},${pts[j][1]} `;
+            penDown = true;
+          } else {
+            d += `L ${pts[j][0]},${pts[j][1]} `;
+          }
+        } else {
+          penDown = false;
+        }
+      }
+
+      masked.set(lane.id, d.trim() || null);
+    }
+
+    return masked;
+  }, [lanes, planetById, lanePaths]);
+
   // Viewport-culled collections for rendering
   const filteredFleets = useMemo(() => {
     const { minX, minY, maxX, maxY } = visibleBounds;
@@ -1132,8 +1220,9 @@ export const GalaxyMap = () => {
                   })}
 
                   {filteredLanes.map(lane => {
-                    const pathD = lanePaths.get(lane.id);
+                    const pathD = lanePaths.get(lane.id);       // full path — used for hitbox
                     if (!pathD) return null;
+                    const maskedD = lanePathsMasked.get(lane.id); // merged path — used for visible stroke
                     const isSelected = selectedLane?.id === lane.id;
                     let strokeColor = "hsl(var(--primary))";
                     if (lane.type === 'Dangerous') strokeColor = "hsl(var(--destructive))";
@@ -1147,9 +1236,12 @@ export const GalaxyMap = () => {
                           setLaneTooltipPos({ x: e.clientX, y: e.clientY });
                         }}
                       >
+                        {/* transparent hitbox always covers the full lane for hover/click */}
                         <path d={pathD} fill="none" stroke="transparent" strokeWidth={20} />
+                        {/* visible stroke uses the merged/masked path so parallel lanes don't double-draw */}
+                        {(maskedD || isSelected) && (
                         <path
-                          d={pathD}
+                          d={isSelected ? pathD : (maskedD ?? pathD)}
                           fill="none"
                           stroke={strokeColor}
                           strokeWidth={isSelected ? 5 : (lane.type === 'Major' ? 3.5 : 2.5)}
@@ -1159,6 +1251,7 @@ export const GalaxyMap = () => {
                           className="transition-all duration-300"
                           filter={isSelected ? "url(#glow)" : undefined}
                         />
+                        )}
                         {editMode && isSelected && !isInAnyDrawCreation && lane.pathPoints && lane.pathPoints.map((point, idx) => (
                           <circle
                             key={`${lane.id}-lp-${idx}`}
