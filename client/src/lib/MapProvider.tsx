@@ -105,24 +105,68 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
 
   const updateTimers = useRef<Record<string, NodeJS.Timeout>>({});
 
+  // ─── Session cache helpers ────────────────────────────────────────────────
+  const CACHE_VERSION = 'v1';
+  const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+  function readCache<T>(key: string): T[] | null {
+    try {
+      const raw = sessionStorage.getItem(`swmap_${CACHE_VERSION}_${key}`);
+      if (!raw) return null;
+      const { ts, data } = JSON.parse(raw);
+      if (Date.now() - ts > CACHE_TTL) return null;
+      return data as T[];
+    } catch { return null; }
+  }
+
+  function writeCache(key: string, data: unknown[]) {
+    try {
+      sessionStorage.setItem(`swmap_${CACHE_VERSION}_${key}`, JSON.stringify({ ts: Date.now(), data }));
+    } catch { /* quota exceeded or private mode — silently ignore */ }
+  }
+
   useEffect(() => {
     const loadData = async () => {
+      // ── Phase 1: paint from cache instantly if available ──────────────────
+      const cachedPlanets = readCache<Planet>('planets');
+      const cachedFactions = readCache<FactionInfo>('factions');
+      const cachedSectors = readCache<Sector>('sectors');
+      const cachedLanes = readCache<HyperspaceLane>('lanes');
+      const cachedFleets = readCache<Fleet>('fleets');
+
+      if (cachedPlanets) setPlanets(cachedPlanets);
+      if (cachedFactions) setFactionList(cachedFactions);
+      if (cachedSectors) setSectors(cachedSectors);
+      if (cachedLanes) setLanes(cachedLanes);
+      if (cachedFleets) setFleets(cachedFleets);
+      if (cachedPlanets) setIsLoading(false); // show map immediately from cache
+
       try {
-        const [p, s, l, f, factions] = await Promise.all([
+        // ── Phase 2: critical path — planets + factions first ─────────────
+        const [freshPlanets, freshFactions] = await Promise.all([
           planetApi.getAll(),
+          factionApi.getAll(),
+        ]);
+        setPlanets(freshPlanets);
+        setFactionList(freshFactions);
+        writeCache('planets', freshPlanets);
+        writeCache('factions', freshFactions);
+        setIsLoading(false); // map ready even if secondary data still loading
+
+        // ── Phase 3: secondary data in background ─────────────────────────
+        const [freshSectors, freshLanes, freshFleets] = await Promise.all([
           sectorApi.getAll(),
           laneApi.getAll(),
           fleetApi.getAll(),
-          factionApi.getAll(),
         ]);
-        setPlanets(p);
-        setSectors(s);
-        setLanes(l);
-        setFleets(f);
-        setFactionList(factions);
+        setSectors(freshSectors);
+        setLanes(freshLanes);
+        setFleets(freshFleets);
+        writeCache('sectors', freshSectors);
+        writeCache('lanes', freshLanes);
+        writeCache('fleets', freshFleets);
       } catch (err) {
         console.error('Failed to load map data:', err);
-      } finally {
         setIsLoading(false);
       }
     };

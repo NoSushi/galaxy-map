@@ -1049,7 +1049,7 @@ export const GalaxyMap = () => {
                 <svg 
                   ref={svgRef}
                   className="absolute pointer-events-none" 
-                  style={{ left: `${pad}px`, top: `${pad}px`, width: `${mapWidth}px`, height: `${mapHeight}px` }} 
+                  style={{ left: `${pad}px`, top: `${pad}px`, width: `${mapWidth}px`, height: `${mapHeight}px`, contain: 'paint' }} 
                   viewBox={`0 0 ${mapWidth} ${mapHeight}`}
                 >
                   <defs>
