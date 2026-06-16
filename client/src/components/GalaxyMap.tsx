@@ -55,6 +55,7 @@ interface PlanetMarkerProps {
   showLabels: boolean;
   editMode: boolean;
   hasBrokenImage: boolean;
+  shouldLoadImage: boolean;
   onImageError: (id: string) => void;
   onClick: (e: React.MouseEvent, planet: Planet) => void;
   onMouseEnter: (id: string) => void;
@@ -62,12 +63,46 @@ interface PlanetMarkerProps {
   onMouseDown: (e: React.MouseEvent, planet: Planet) => void;
 }
 
+const FACTION_DOT_CLASSES: Record<string, string> = {
+  'Empire': 'bg-destructive shadow-[0_0_12px_hsl(var(--destructive))]',
+  'Hutt Cartel': 'bg-yellow-500 shadow-[0_0_12px_#eab308]',
+  'Chiss Ascendancy': 'bg-indigo-500 shadow-[0_0_12px_#6366f1]',
+  'Galactic Republic': 'bg-primary shadow-[0_0_12px_hsl(var(--primary))]',
+};
+const INDEPENDENT_DOT_STYLE = { backgroundColor: 'hsl(140, 52%, 55%)' };
+const INDEPENDENT_DOT_SHADOW = 'shadow-[0_0_12px_hsl(140,90%,45%)]';
+const NAMED_FACTIONS = ['Empire', 'Hutt Cartel', 'Chiss Ascendancy', 'Galactic Republic'];
+
 const PlanetMarker = React.memo<PlanetMarkerProps>(({
   planet, pad, isSelected, isHovered, hasOtherHovered, isLaneStart,
-  planetUnlocked, showLabels, editMode, hasBrokenImage,
+  planetUnlocked, showLabels, editMode, hasBrokenImage, shouldLoadImage,
   onImageError, onClick, onMouseEnter, onMouseLeave, onMouseDown
 }) => {
   const shouldHide = !isSelected && !isHovered && (planet.isMinor || hasOtherHovered);
+  const [imgLoaded, setImgLoaded] = useState(false);
+
+  // Only mount the <img> element when zoomed in enough — prevents image
+  // requests at low zoom. Once loaded, imgLoaded stays true for this mount.
+  const hasCustomImage = shouldLoadImage && !!planet.markerImage?.trim() && !hasBrokenImage;
+
+  const isIndependent = !NAMED_FACTIONS.includes(planet.faction || '');
+  const dotClass = FACTION_DOT_CLASSES[planet.faction || ''] ?? INDEPENDENT_DOT_SHADOW;
+
+  // Coloured faction dot — shown at low zoom and as placeholder while image loads
+  const FactionDot = (
+    <div
+      className={cn(
+        "rounded-full relative transition-all",
+        planet.isMinor ? "w-2.5 h-2.5" : "w-5 h-5",
+        dotClass,
+        isSelected && "scale-125",
+        isLaneStart && "bg-primary shadow-[0_0_20px_hsl(var(--primary))] scale-150"
+      )}
+      style={isIndependent && !isLaneStart ? INDEPENDENT_DOT_STYLE : undefined}
+    >
+      {isSelected && <div className="absolute inset-[-6px] border-2 border-primary rounded-full animate-ping opacity-75" />}
+    </div>
+  );
 
   return (
     <div
@@ -99,37 +134,32 @@ const PlanetMarker = React.memo<PlanetMarkerProps>(({
             <Crown className="w-3.5 h-3.5 fill-amber-500/20" />
           </div>
         )}
-        {planet.markerImage && planet.markerImage.trim() && !hasBrokenImage ? (
+
+        {hasCustomImage ? (
           <div className={cn("relative transition-all duration-300", isSelected ? "scale-125 drop-shadow-[0_0_15px_rgba(255,255,255,0.6)]" : "hover:scale-110")}>
+            {/* Pulsing placeholder shown while image fetches */}
+            {!imgLoaded && (
+              <div className={cn(
+                "rounded-full animate-pulse bg-white/20",
+                planet.isMinor ? "w-5 h-5" : "w-10 h-10"
+              )} />
+            )}
             <img
-              src={planet.markerImage}
+              src={planet.markerImage!}
               alt=""
-              className={cn("object-contain pointer-events-none drop-shadow-lg", planet.isMinor ? "w-5 h-5" : "w-10 h-10")}
+              className={cn(
+                "object-contain pointer-events-none drop-shadow-lg transition-opacity duration-500",
+                planet.isMinor ? "w-5 h-5" : "w-10 h-10",
+                imgLoaded ? "opacity-100" : "opacity-0 absolute inset-0"
+              )}
+              onLoad={() => setImgLoaded(true)}
               onError={() => onImageError(planet.id)}
               style={{ color: 'transparent' }}
             />
-            {isSelected && <div className="absolute inset-[-6px] border-2 border-primary rounded-full animate-ping opacity-75"></div>}
+            {isSelected && <div className="absolute inset-[-6px] border-2 border-primary rounded-full animate-ping opacity-75" />}
           </div>
         ) : (
-          <div className={cn(
-            "rounded-full relative transition-all",
-            planet.isMinor ? "w-2.5 h-2.5" : "w-5 h-5",
-            planet.faction === 'Empire' ? "bg-destructive shadow-[0_0_12px_hsl(var(--destructive))]"
-              : planet.faction === 'Hutt Cartel' ? "bg-yellow-500 shadow-[0_0_12px_#eab308]"
-              : planet.faction === 'Chiss Ascendancy' ? "bg-indigo-500 shadow-[0_0_12px_#6366f1]"
-              : planet.faction === 'Galactic Republic' ? "bg-primary shadow-[0_0_12px_hsl(var(--primary))]"
-              : "",
-            !['Empire', 'Hutt Cartel', 'Chiss Ascendancy', 'Galactic Republic'].includes(planet.faction || '') && "shadow-[0_0_12px_hsl(140, 90%, 45%)]",
-            isSelected && "scale-125",
-            isLaneStart && "bg-primary shadow-[0_0_20px_hsl(var(--primary))] scale-150"
-          )}
-          style={
-            !['Empire', 'Hutt Cartel', 'Chiss Ascendancy', 'Galactic Republic'].includes(planet.faction || '') && !isLaneStart
-              ? { backgroundColor: 'hsl(140, 52%, 55%)' }
-              : undefined
-          }>
-            {isSelected && <div className="absolute inset-[-6px] border-2 border-primary rounded-full animate-ping opacity-75"></div>}
-          </div>
+          FactionDot
         )}
       </div>
       {showLabels && (
@@ -307,6 +337,7 @@ export const GalaxyMap = () => {
   // LOD thresholds
   const ZOOM_HIDE_MINOR = 0.32;
   const ZOOM_HIDE_JUNCTIONS = 0.28;
+  const ZOOM_LOAD_IMAGES = 0.38; // below this zoom: no <img> requests, just coloured dots
   const CULL_MARGIN = 400;
 
   const visibleBounds = useMemo(() => {
@@ -1228,6 +1259,7 @@ export const GalaxyMap = () => {
                     showLabels={showLabels}
                     editMode={editMode}
                     hasBrokenImage={brokenImages.has(planet.id)}
+                    shouldLoadImage={viewTransform.scale >= ZOOM_LOAD_IMAGES}
                     onImageError={handleImageError}
                     onClick={handlePlanetClick}
                     onMouseEnter={handlePlanetMouseEnter}
