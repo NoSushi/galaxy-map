@@ -224,12 +224,13 @@ export const GalaxyMap = () => {
   const [draggingFleet, setDraggingFleet] = useState<string | null>(null);
   const [draggingLanePoint, setDraggingLanePoint] = useState<{laneId: string, pointIndex: number} | null>(null);
 
-  // Waypoint snap-to-route — two explicit steps
-  // 'select': user clicks waypoints on the selected lane to mark them
-  // 'target': user clicks any other lane to snap those waypoints onto it
-  const [snapStep, setSnapStep] = useState<'select' | 'target' | null>(null);
-  const [snapSelectedWaypoints, setSnapSelectedWaypoints] = useState<Set<number>>(new Set());
-  const exitSnapMode = useCallback(() => { setSnapStep(null); setSnapSelectedWaypoints(new Set()); }, []);
+  // Waypoint snap-to-route:
+  // 1. User clicks "SNAP NODES" → snapActive = true, planets hidden, all lane nodes visible
+  // 2. User clicks any node on any lane → snapFirstNode set (gold highlight)
+  // 3. User clicks a node on a DIFFERENT lane → first node moves to second node's position, done
+  const [snapActive, setSnapActive] = useState(false);
+  const [snapFirstNode, setSnapFirstNode] = useState<{ laneId: string; pointIndex: number; x: number; y: number } | null>(null);
+  const exitSnapMode = useCallback(() => { setSnapActive(false); setSnapFirstNode(null); }, []);
   
   const [drawingMode, setDrawingMode] = useState<'sector' | 'lane' | null>(null);
   const [drawingPoints, setDrawingPoints] = useState<[number, number][]>([]);
@@ -842,31 +843,9 @@ export const GalaxyMap = () => {
     e.stopPropagation();
     if (isInAnyDrawCreation) return;
 
-    // ── Snap mode: clicking a different lane performs the snap ─────────────
-    if (snapStep === 'target' && selectedLane && lane.id !== selectedLane.id) {
-      if (snapSelectedWaypoints.size > 0 && selectedLane.pathPoints) {
-        // Build target lane's full polyline
-        const tp1 = planetById.get(lane.planetIds[0]);
-        if (tp1) {
-          const tp2 = lane.planetIds[1] ? planetById.get(lane.planetIds[1]) : null;
-          const targetPoly: [number, number][] = [[tp1.x, tp1.y]];
-          if (lane.pathPoints) targetPoly.push(...lane.pathPoints);
-          if (tp2) targetPoly.push([tp2.x, tp2.y]);
+    // In snap mode, lane-background clicks do nothing — only node circles handle snap logic
+    if (snapActive) return;
 
-          const newPts = [...selectedLane.pathPoints] as [number, number][];
-          for (const idx of snapSelectedWaypoints) {
-            if (idx < newPts.length) {
-              newPts[idx] = snapToPolyline(newPts[idx][0], newPts[idx][1], targetPoly);
-            }
-          }
-          updateLanePathPoints(selectedLane.id, newPts);
-        }
-      }
-      exitSnapMode();
-      return;
-    }
-
-    exitSnapMode();
     setSelectedLane(lane);
     setSelectedPlanet(null);
     setSelectedSector(null);
@@ -884,6 +863,7 @@ export const GalaxyMap = () => {
 
   const handleMapClick = (e: React.MouseEvent) => {
     if (isDrawing || isLaneDrawing || isSectorDrawing) return;
+    if (snapActive) return; // don't deselect anything while snapping
     if (editMode && selectedSector) {
     } else {
       setSelectedPlanet(null);
@@ -1030,7 +1010,7 @@ export const GalaxyMap = () => {
                   <Pencil className="w-3 h-3" /> DRAW SECTOR BORDER
                 </button>
               )}
-              {editMode && selectedLane && !isInAnyDrawCreation && !snapStep && (
+              {editMode && selectedLane && !isInAnyDrawCreation && !snapActive && (
                 <button
                   onMouseDown={(e) => startDrawing('lane', e)}
                   className="glass-panel rounded-md p-2 text-[10px] font-display flex items-center gap-2 text-foreground hover:text-primary"
@@ -1039,66 +1019,41 @@ export const GalaxyMap = () => {
                   <Pencil className="w-3 h-3" /> DRAW LANE PATH
                 </button>
               )}
-              {editMode && selectedLane && !isInAnyDrawCreation && !snapStep && selectedLane.pathPoints && selectedLane.pathPoints.length > 0 && (
+              {editMode && !isInAnyDrawCreation && !snapActive && (
                 <button
-                  onMouseDown={(e) => { e.stopPropagation(); setSnapStep('select'); setSnapSelectedWaypoints(new Set()); }}
+                  onMouseDown={(e) => { e.stopPropagation(); setSnapActive(true); setSnapFirstNode(null); }}
                   className="glass-panel rounded-md p-2 text-[10px] font-display flex items-center gap-2 text-foreground hover:text-yellow-400"
-                  data-testid="button-snap-waypoints"
+                  data-testid="button-snap-nodes"
                 >
-                  <GitMerge className="w-3 h-3" /> SNAP TO ROUTE
+                  <GitMerge className="w-3 h-3" /> SNAP NODES
                 </button>
               )}
 
-              {/* ── Snap wizard panel ── */}
-              {snapStep === 'select' && (
-                <div className="glass-panel rounded-md px-3 py-2 text-[10px] font-display flex flex-col gap-2 border border-yellow-400/30 min-w-[170px]">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-yellow-400 flex items-center gap-1">
-                      <Crosshair className="w-3 h-3" /> STEP 1 OF 2
+              {/* ── Snap nodes panel ── */}
+              {snapActive && (
+                <div className="glass-panel rounded-md px-3 py-2 text-[10px] font-display flex flex-col gap-2 border border-yellow-400/30 min-w-[180px]">
+                  <div className="flex items-center justify-between">
+                    <span className={cn("flex items-center gap-1", snapFirstNode ? "text-cyan-400" : "text-yellow-400")}>
+                      <Crosshair className="w-3 h-3" />
+                      {snapFirstNode ? 'NOW CLICK NODE ON ANOTHER ROUTE' : 'CLICK A NODE TO START'}
                     </span>
-                    <button onMouseDown={(e) => { e.stopPropagation(); exitSnapMode(); }} className="text-foreground/40 hover:text-destructive">
+                    <button onMouseDown={(e) => { e.stopPropagation(); exitSnapMode(); }} className="text-foreground/40 hover:text-destructive ml-2 shrink-0">
                       <X className="w-3 h-3" />
                     </button>
                   </div>
-                  <p className="text-foreground/70 leading-tight">
-                    Click the <span className="text-yellow-400">dot waypoints</span> along this route to select which ones to move.
+                  <p className="text-foreground/50 leading-tight text-[9px]">
+                    {snapFirstNode
+                      ? <>Node selected on <span className="text-yellow-400">{lanes.find(l => l.id === snapFirstNode.laneId)?.name ?? 'route'}</span>. Click a node on a different route to join them.</>
+                      : 'Planets are hidden. All route nodes are shown as dots — click one on either route to begin.'}
                   </p>
-                  <p className="text-foreground/50 text-[9px]">
-                    {snapSelectedWaypoints.size === 0 ? 'No waypoints selected yet.' : `${snapSelectedWaypoints.size} waypoint${snapSelectedWaypoints.size > 1 ? 's' : ''} selected.`}
-                  </p>
-                  <button
-                    onMouseDown={(e) => { e.stopPropagation(); if (snapSelectedWaypoints.size > 0) setSnapStep('target'); }}
-                    className={cn(
-                      "rounded px-2 py-1 text-[10px] font-display flex items-center justify-center gap-1 transition-colors",
-                      snapSelectedWaypoints.size > 0
-                        ? "bg-yellow-400/20 text-yellow-400 hover:bg-yellow-400/30 cursor-pointer"
-                        : "bg-background/20 text-foreground/30 cursor-not-allowed"
-                    )}
-                    data-testid="button-snap-next"
-                  >
-                    NEXT: PICK TARGET ROUTE →
-                  </button>
-                </div>
-              )}
-              {snapStep === 'target' && (
-                <div className="glass-panel rounded-md px-3 py-2 text-[10px] font-display flex flex-col gap-2 border border-cyan-400/40 min-w-[170px]">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-cyan-400 flex items-center gap-1">
-                      <Crosshair className="w-3 h-3" /> STEP 2 OF 2
-                    </span>
-                    <button onMouseDown={(e) => { e.stopPropagation(); exitSnapMode(); }} className="text-foreground/40 hover:text-destructive">
-                      <X className="w-3 h-3" />
+                  {snapFirstNode && (
+                    <button
+                      onMouseDown={(e) => { e.stopPropagation(); setSnapFirstNode(null); }}
+                      className="rounded px-2 py-1 text-[9px] font-display text-foreground/50 hover:text-foreground bg-background/20 hover:bg-background/40 transition-colors"
+                    >
+                      ← RESELECT FIRST NODE
                     </button>
-                  </div>
-                  <p className="text-foreground/70 leading-tight">
-                    Now <span className="text-cyan-400">click any other route</span> on the map to snap your {snapSelectedWaypoints.size} waypoint{snapSelectedWaypoints.size > 1 ? 's' : ''} onto it.
-                  </p>
-                  <button
-                    onMouseDown={(e) => { e.stopPropagation(); setSnapStep('select'); }}
-                    className="rounded px-2 py-1 text-[10px] font-display text-foreground/50 hover:text-foreground bg-background/20 hover:bg-background/40 transition-colors"
-                  >
-                    ← BACK
-                  </button>
+                  )}
                 </div>
               )}
             </div>
@@ -1285,41 +1240,60 @@ export const GalaxyMap = () => {
                           className="transition-all duration-300"
                           filter={isSelected ? "url(#glow)" : undefined}
                         />
-                        {editMode && isSelected && !isInAnyDrawCreation && lane.pathPoints && lane.pathPoints.map((point, idx) => {
-                          const isSnapped = snapStep === 'select' && snapSelectedWaypoints.has(idx);
+                        {/* Normal drag waypoints (only when not in snap mode) */}
+                        {!snapActive && editMode && isSelected && !isInAnyDrawCreation && lane.pathPoints && lane.pathPoints.map((point, idx) => (
+                          <circle
+                            key={`${lane.id}-lp-${idx}`}
+                            cx={point[0]} cy={point[1]} r={8}
+                            fill={strokeColor} stroke="white" strokeWidth={2}
+                            className="pointer-events-auto cursor-move"
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              setDraggingLanePoint({ laneId: lane.id, pointIndex: idx });
+                            }}
+                            onContextMenu={(e) => {
+                              e.preventDefault();
+                              if (lane.pathPoints) {
+                                const newPoints = lane.pathPoints.filter((_, i) => i !== idx);
+                                updateLanePathPoints(lane.id, newPoints as [number, number][]);
+                              }
+                            }}
+                          />
+                        ))}
+                        {/* Snap-mode waypoints — shown for ALL lanes, large hit targets */}
+                        {snapActive && lane.pathPoints && lane.pathPoints.map((point, idx) => {
+                          const isFirst = snapFirstNode?.laneId === lane.id && snapFirstNode?.pointIndex === idx;
                           return (
-                            <g key={`${lane.id}-lp-${idx}`}>
-                              {isSnapped && (
-                                <circle
-                                  cx={point[0]} cy={point[1]} r={14}
+                            <g key={`${lane.id}-snap-${idx}`}>
+                              {isFirst && (
+                                <circle cx={point[0]} cy={point[1]} r={18}
                                   fill="none" stroke="#f59e0b" strokeWidth={2}
-                                  strokeDasharray="4 3"
-                                  className="pointer-events-none"
-                                />
+                                  strokeDasharray="4 3" className="pointer-events-none" />
                               )}
                               <circle
-                                cx={point[0]} cy={point[1]} r={8}
-                                fill={isSnapped ? '#f59e0b' : strokeColor}
-                                stroke="white" strokeWidth={2}
-                                className={cn("pointer-events-auto", snapStep === 'select' ? "cursor-pointer" : "cursor-move")}
-                                onMouseDown={(e) => {
+                                cx={point[0]} cy={point[1]}
+                                r={isFirst ? 11 : 9}
+                                fill={isFirst ? '#f59e0b' : strokeColor}
+                                stroke="white" strokeWidth={isFirst ? 3 : 2}
+                                className="pointer-events-auto cursor-pointer"
+                                onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                                onClick={(e) => {
                                   e.stopPropagation();
-                                  if (snapStep === 'select') {
-                                    setSnapSelectedWaypoints(prev => {
-                                      const next = new Set(prev);
-                                      if (next.has(idx)) next.delete(idx); else next.add(idx);
-                                      return next;
-                                    });
-                                  } else if (!snapStep) {
-                                    setDraggingLanePoint({ laneId: lane.id, pointIndex: idx });
-                                  }
-                                }}
-                                onContextMenu={(e) => {
-                                  if (snapStep) return;
-                                  e.preventDefault();
-                                  if (lane.pathPoints) {
-                                    const newPoints = lane.pathPoints.filter((_, i) => i !== idx);
-                                    updateLanePathPoints(lane.id, newPoints as [number, number][]);
+                                  if (!snapFirstNode) {
+                                    // First node selected
+                                    setSnapFirstNode({ laneId: lane.id, pointIndex: idx, x: point[0], y: point[1] });
+                                  } else if (snapFirstNode.laneId !== lane.id) {
+                                    // Second node on a different lane — perform snap
+                                    const srcLane = lanes.find(l => l.id === snapFirstNode.laneId);
+                                    if (srcLane?.pathPoints) {
+                                      const newPts = [...srcLane.pathPoints] as [number, number][];
+                                      newPts[snapFirstNode.pointIndex] = [point[0], point[1]];
+                                      updateLanePathPoints(snapFirstNode.laneId, newPts);
+                                    }
+                                    setSnapFirstNode(null); // stay in snap mode for more joins
+                                  } else {
+                                    // Same lane — replace first node selection
+                                    setSnapFirstNode({ laneId: lane.id, pointIndex: idx, x: point[0], y: point[1] });
                                   }
                                 }}
                               />
@@ -1394,7 +1368,7 @@ export const GalaxyMap = () => {
                   )}
                 </svg>
 
-                {filteredPlanets.map(planet => (
+                {!snapActive && filteredPlanets.map(planet => (
                   <PlanetMarker
                     key={planet.id}
                     planet={planet}
