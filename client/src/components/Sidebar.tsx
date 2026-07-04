@@ -74,7 +74,7 @@ export const Sidebar = () => {
 
   return (
     <div className={cn(
-      "absolute top-0 right-0 w-85 h-full z-20 glass-panel-primary border-l border-primary/20",
+      "absolute top-16 right-0 w-85 h-[calc(100%-4rem)] z-20 glass-panel-primary border-l border-primary/20",
       "transform transition-transform duration-300 ease-out flex flex-col",
       isOpen ? "translate-x-0" : "translate-x-full"
     )}>

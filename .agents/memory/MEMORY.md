@@ -1,0 +1,1 @@
+- [Absolute-positioned sibling overlapping fixed header](absolute-sibling-vs-fixed-header.md) — top-0 absolute panels ignore parent padding-top and can render under a higher z-index top bar.
