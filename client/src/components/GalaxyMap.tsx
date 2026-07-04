@@ -223,6 +223,50 @@ export const GalaxyMap = () => {
   const [draggingSectorPoint, setDraggingSectorPoint] = useState<{sectorId: string, pointIndex: number} | null>(null);
   const [draggingFleet, setDraggingFleet] = useState<string | null>(null);
   const [draggingLanePoint, setDraggingLanePoint] = useState<{laneId: string, pointIndex: number} | null>(null);
+  const [sectorSnapPoint, setSectorSnapPoint] = useState<[number, number] | null>(null);
+
+  const SECTOR_SNAP_RADIUS = 45;
+
+  const closestPointOnSegment = (px: number, py: number, ax: number, ay: number, bx: number, by: number): [number, number] => {
+    const abx = bx - ax, aby = by - ay;
+    const lenSq = abx * abx + aby * aby;
+    if (lenSq === 0) return [ax, ay];
+    let t = ((px - ax) * abx + (py - ay) * aby) / lenSq;
+    t = Math.max(0, Math.min(1, t));
+    return [ax + t * abx, ay + t * aby];
+  };
+
+  const findSectorSnapPoint = (x: number, y: number, currentSectorId: string): [number, number] | null => {
+    let best: [number, number] | null = null;
+    let bestDist = SECTOR_SNAP_RADIUS;
+
+    for (const s of sectors) {
+      if (s.id === currentSectorId) continue;
+      for (const p of s.points) {
+        const d = Math.sqrt((p[0] - x) ** 2 + (p[1] - y) ** 2);
+        if (d < bestDist) {
+          bestDist = d;
+          best = [p[0], p[1]];
+        }
+      }
+    }
+    if (best) return best;
+
+    for (const s of sectors) {
+      if (s.id === currentSectorId) continue;
+      for (let i = 0; i < s.points.length; i++) {
+        const a = s.points[i];
+        const b = s.points[(i + 1) % s.points.length];
+        const [cx, cy] = closestPointOnSegment(x, y, a[0], a[1], b[0], b[1]);
+        const d = Math.sqrt((cx - x) ** 2 + (cy - y) ** 2);
+        if (d < bestDist) {
+          bestDist = d;
+          best = [cx, cy];
+        }
+      }
+    }
+    return best;
+  };
 
   // Waypoint snap-to-route:
   // 1. User clicks "SNAP NODES" → snapActive = true, planets hidden, all lane nodes visible
@@ -564,8 +608,11 @@ export const GalaxyMap = () => {
     } else if (draggingSectorPoint) {
       const sector = sectors.find(s => s.id === draggingSectorPoint.sectorId);
       if (sector) {
+        const snap = findSectorSnapPoint(x, y, sector.id);
+        setSectorSnapPoint(snap);
+        const finalPoint: [number, number] = snap ?? [x, y];
         const newPoints = [...sector.points] as [number, number][];
-        newPoints[draggingSectorPoint.pointIndex] = [x, y];
+        newPoints[draggingSectorPoint.pointIndex] = finalPoint;
         updateSectorPoints(sector.id, newPoints);
       }
     } else if (draggingFleet) {
@@ -644,6 +691,7 @@ export const GalaxyMap = () => {
     }
     setDraggingPlanet(null);
     setDraggingSectorPoint(null);
+    setSectorSnapPoint(null);
     setDraggingFleet(null);
     setDraggingLanePoint(null);
   };
@@ -1203,6 +1251,14 @@ export const GalaxyMap = () => {
                       </g>
                     );
                   })}
+
+                  {draggingSectorPoint && sectorSnapPoint && (
+                    <circle
+                      cx={sectorSnapPoint[0]} cy={sectorSnapPoint[1]} r={16}
+                      fill="none" stroke="#22d3ee" strokeWidth={3}
+                      className="pointer-events-none animate-pulse"
+                    />
+                  )}
 
                   {[...filteredLanes]
                     .sort((a, b) => {
