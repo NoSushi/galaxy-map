@@ -54,7 +54,7 @@ export const fleets = pgTable("fleets", {
   description: text("description").notNull().default(""),
   markerImage: text("marker_image"),
   isCapitalShip: boolean("is_capital_ship").default(false),
-  labelMode: text("label_mode").default("normal"),
+  labelMode: text("label_mode").default("hover"),
 });
 
 export const factions = pgTable("factions", {
