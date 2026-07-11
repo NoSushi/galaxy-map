@@ -143,6 +143,8 @@ export interface MapContextType {
   setGetViewportCenter: (fn: () => { x: number; y: number }) => void;
   targetedPlanet: Planet | null;
   setTargetedPlanet: (planet: Planet | null) => void;
+  targetedFleet: Fleet | null;
+  setTargetedFleet: (fleet: Fleet | null) => void;
 }
 
 export const MapContext = createContext<MapContextType | undefined>(undefined);

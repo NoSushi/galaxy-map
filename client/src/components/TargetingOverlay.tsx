@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Planet } from '@/lib/data';
 
 interface Props {
-  planet: Planet;
+  targetName: string;
+  targetType?: 'planet' | 'fleet';
   screenX: number;
   screenY: number;
   containerWidth: number;
@@ -18,7 +18,7 @@ const H_LINE_TRANSITION = 'top 1.0s linear, box-shadow 0.35s ease';
 const V_LINE_TRANSITION = 'left 0.9s linear, box-shadow 0.35s ease';
 
 export const TargetingOverlay: React.FC<Props> = ({
-  planet, screenX, screenY, containerWidth, containerHeight, onZoom, onComplete
+  targetName, targetType = 'planet', screenX, screenY, containerWidth, containerHeight, onZoom, onComplete
 }) => {
   const [dimOpacity, setDimOpacity] = useState(0);
   const [showV, setShowV] = useState(false);
@@ -218,9 +218,9 @@ export const TargetingOverlay: React.FC<Props> = ({
             opacity: linesOpacity,
             transition: 'opacity 0.5s ease-out',
           }}>
-            {planet.name}
+            {targetName}
             <br />
-            <span style={{ fontSize: '8px', opacity: 0.65, letterSpacing: '0.22em' }}>TARGET LOCKED</span>
+            <span style={{ fontSize: '8px', opacity: 0.65, letterSpacing: '0.22em' }}>{targetType === 'fleet' ? 'FLEET ACQUIRED' : 'TARGET LOCKED'}</span>
           </div>
         )}
 

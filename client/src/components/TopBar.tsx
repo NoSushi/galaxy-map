@@ -102,12 +102,12 @@ export const TopBar = () => {
     editMode, setEditMode,
     searchQuery, setSearchQuery,
     filters, setFilters,
-    planets, lanes, factionList,
-    addPlanet, setSelectedPlanet, addSector, addFleet,
+    planets, lanes, factionList, fleets,
+    addPlanet, setSelectedPlanet, setSelectedFleet, addSector, addFleet,
     laneDrawMode, setLaneDrawMode,
     sectorDrawMode, setSectorDrawMode,
     getViewportCenter,
-    setTargetedPlanet,
+    setTargetedPlanet, setTargetedFleet,
     currentUser, setCurrentUser,
     addFaction, updateFaction, deleteFaction,
   } = useMap();
@@ -155,18 +155,34 @@ export const TopBar = () => {
 
   const travelablePlanets = useMemo(() => planets.filter(p => p.travelable !== false), [planets]);
 
-  const searchResults = useMemo(() => {
-    if (!searchInput.trim()) return [];
-    return planets.filter(p => p.name.toLowerCase().includes(searchInput.toLowerCase())).slice(0, 12);
-  }, [searchInput, planets]);
+  type SearchResult = { type: 'planet'; item: Planet } | { type: 'fleet'; item: Fleet };
 
-  const handleSearchSelect = (planet: Planet) => {
-    setSearchInput(planet.name);
+  const searchResults = useMemo((): SearchResult[] => {
+    if (!searchInput.trim()) return [];
+    const q = searchInput.toLowerCase();
+    const planetMatches = planets
+      .filter(p => p.name.toLowerCase().includes(q))
+      .slice(0, 7)
+      .map(p => ({ type: 'planet' as const, item: p }));
+    const fleetMatches = fleets
+      .filter(f => f.name.toLowerCase().includes(q))
+      .slice(0, 5)
+      .map(f => ({ type: 'fleet' as const, item: f }));
+    return [...planetMatches, ...fleetMatches].slice(0, 12);
+  }, [searchInput, planets, fleets]);
+
+  const handleSearchSelect = (result: SearchResult) => {
+    setSearchInput(result.item.name);
     setSearchQuery('');
     setSearchOpen(false);
     searchRef.current?.blur();
-    setSelectedPlanet(planet);
-    setTargetedPlanet(planet);
+    if (result.type === 'planet') {
+      setSelectedPlanet(result.item);
+      setTargetedPlanet(result.item);
+    } else {
+      setSelectedFleet(result.item);
+      setTargetedFleet(result.item);
+    }
   };
 
   const travelResult = useMemo(() => {
@@ -500,13 +516,25 @@ export const TopBar = () => {
             />
             {searchOpen && searchResults.length > 0 && (
               <div className="absolute z-50 top-full mt-1 w-full bg-[#060c1a]/98 border border-primary/30 rounded-md shadow-2xl overflow-hidden backdrop-blur-xl">
-                {searchResults.map((p) => (
-                  <div key={p.id} className="px-3 py-2 text-[11px] uppercase cursor-pointer transition-colors hover:bg-primary/15 hover:text-primary text-foreground/75 flex items-center gap-2" onMouseDown={(e) => { e.preventDefault(); handleSearchSelect(p); }}>
-                    <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: factionList.find(f => f.name === p.faction)?.color ? `hsl(${factionList.find(f => f.name === p.faction)!.color})` : '#4ade80' }} />
-                    {p.name}
-                    {p.isMinor && <span className="ml-auto text-[9px] text-primary/30 uppercase">Minor</span>}
-                  </div>
-                ))}
+                {searchResults.map((result) => {
+                  const faction = result.item.faction;
+                  const factionColor = factionList.find(f => f.name === faction)?.color;
+                  const dotBg = factionColor ? `hsl(${factionColor})` : '#4ade80';
+                  return (
+                    <div
+                      key={result.item.id}
+                      className="px-3 py-2 text-[11px] uppercase cursor-pointer transition-colors hover:bg-primary/15 hover:text-primary text-foreground/75 flex items-center gap-2"
+                      onMouseDown={(e) => { e.preventDefault(); handleSearchSelect(result); }}
+                    >
+                      <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: dotBg }} />
+                      <span className="flex-1 truncate">{result.item.name}</span>
+                      {result.type === 'fleet'
+                        ? <span className="ml-auto text-[9px] text-cyan-400/60 uppercase font-display tracking-widest shrink-0">Fleet</span>
+                        : (result.item as Planet).isMinor && <span className="ml-auto text-[9px] text-primary/30 uppercase shrink-0">Minor</span>
+                      }
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

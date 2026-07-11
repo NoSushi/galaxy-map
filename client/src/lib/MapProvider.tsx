@@ -96,6 +96,7 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [targetedPlanet, setTargetedPlanet] = useState<Planet | null>(null);
+  const [targetedFleet, setTargetedFleet] = useState<Fleet | null>(null);
 
   const [filters, setFilters] = useState({
     faction: 'All',
@@ -521,6 +522,8 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
       setGetViewportCenter,
       targetedPlanet,
       setTargetedPlanet,
+      targetedFleet,
+      setTargetedFleet,
     }}>
       {children}
     </MapContext.Provider>

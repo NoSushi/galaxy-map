@@ -222,6 +222,7 @@ export const GalaxyMap = () => {
     searchQuery, filters,
     setGetViewportCenter,
     targetedPlanet, setTargetedPlanet,
+    targetedFleet, setTargetedFleet,
     unlockedPlanetIds, lockPlanet,
   } = useMap();
 
@@ -315,55 +316,64 @@ export const GalaxyMap = () => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
 
-  // Targeting overlay state
-  const [overlayPlanet, setOverlayPlanet] = useState<Planet | null>(null);
+  // Targeting overlay state (shared between planets and fleets)
+  const [overlayTarget, setOverlayTarget] = useState<{ name: string; type: 'planet' | 'fleet'; x: number; y: number } | null>(null);
   const [overlayScreenPos, setOverlayScreenPos] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
 
   // Scale used for both the fly-to pan and the overlay animation
   const FLY_SCALE = 0.4;
-  const FLY_DURATION = 700; // ms camera takes to fly to planet
+  const FLY_DURATION = 700; // ms camera takes to fly to target
 
-  useEffect(() => {
-    if (!targetedPlanet) return;
-
+  const flyToTarget = useCallback((mapX: number, mapY: number, name: string, type: 'planet' | 'fleet') => {
+    const PAD = 500;
     const ref = transformRef.current;
     const container = mapContainerRef.current;
     if (!ref || !container) return;
 
     const rect = container.getBoundingClientRect();
-
-    // Step 1: Fly camera to center the planet at FLY_SCALE so animation is always visible
-    const flyX = rect.width / 2 - (targetedPlanet.x + pad) * FLY_SCALE;
-    const flyY = rect.height / 2 - (targetedPlanet.y + pad) * FLY_SCALE;
+    const flyX = rect.width / 2 - (mapX + PAD) * FLY_SCALE;
+    const flyY = rect.height / 2 - (mapY + PAD) * FLY_SCALE;
     ref.setTransform(flyX, flyY, FLY_SCALE, FLY_DURATION);
 
-    // Step 2: After camera settles, compute the (now-centered) screen position and mount overlay
     const timer = setTimeout(() => {
       const { scale, positionX, positionY } = ref.instance.transformState;
-      const screenX = (targetedPlanet.x + pad) * scale + positionX;
-      const screenY = (targetedPlanet.y + pad) * scale + positionY;
-      setOverlayPlanet(targetedPlanet);
+      const screenX = (mapX + PAD) * scale + positionX;
+      const screenY = (mapY + PAD) * scale + positionY;
+      setOverlayTarget({ name, type, x: mapX, y: mapY });
       setOverlayScreenPos({ x: screenX, y: screenY, w: rect.width, h: rect.height });
     }, FLY_DURATION + 60);
 
-    return () => clearTimeout(timer);
+    return timer;
+  }, []);
+
+  useEffect(() => {
+    if (!targetedPlanet) return;
+    const timer = flyToTarget(targetedPlanet.x, targetedPlanet.y, targetedPlanet.name, 'planet');
+    return () => { if (timer) clearTimeout(timer); };
   }, [targetedPlanet]);
 
+  useEffect(() => {
+    if (!targetedFleet) return;
+    const timer = flyToTarget(targetedFleet.x, targetedFleet.y, targetedFleet.name, 'fleet');
+    return () => { if (timer) clearTimeout(timer); };
+  }, [targetedFleet]);
+
   const handleOverlayZoom = useCallback(() => {
-    if (!targetedPlanet || !transformRef.current || !mapContainerRef.current) return;
+    if (!overlayTarget || !transformRef.current || !mapContainerRef.current) return;
     const container = mapContainerRef.current;
     const rect = container.getBoundingClientRect();
     const targetScale = 1.2;
-    const newX = rect.width / 2 - (targetedPlanet.x + pad) * targetScale;
-    const newY = rect.height / 2 - (targetedPlanet.y + pad) * targetScale;
+    const newX = rect.width / 2 - (overlayTarget.x + pad) * targetScale;
+    const newY = rect.height / 2 - (overlayTarget.y + pad) * targetScale;
     transformRef.current.setTransform(newX, newY, targetScale, 500);
-  }, [targetedPlanet]);
+  }, [overlayTarget]);
 
   const handleOverlayComplete = useCallback(() => {
-    setOverlayPlanet(null);
+    setOverlayTarget(null);
     setOverlayScreenPos(null);
     setTargetedPlanet(null);
-  }, [setTargetedPlanet]);
+    setTargetedFleet(null);
+  }, [setTargetedPlanet, setTargetedFleet]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -1011,10 +1021,11 @@ export const GalaxyMap = () => {
          style={{ background: '#020408', backgroundImage: `url('/starfield-bg.png')`, backgroundSize: '512px 512px', backgroundRepeat: 'repeat' }}>
 
       {/* Targeting animation overlay */}
-      {overlayPlanet && overlayScreenPos && (
+      {overlayTarget && overlayScreenPos && (
         <TargetingOverlay
-          key={overlayPlanet.id}
-          planet={overlayPlanet}
+          key={overlayTarget.name}
+          targetName={overlayTarget.name}
+          targetType={overlayTarget.type}
           screenX={overlayScreenPos.x}
           screenY={overlayScreenPos.y}
           containerWidth={overlayScreenPos.w}
