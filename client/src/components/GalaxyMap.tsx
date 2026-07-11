@@ -81,6 +81,8 @@ interface PlanetMarkerProps {
   onMouseDown: (e: React.MouseEvent, planet: Planet) => void;
 }
 
+type LabelMode = 'normal' | 'top' | 'hover';
+
 const FACTION_DOT_CLASSES: Record<string, string> = {
   'Empire': 'bg-destructive shadow-[0_0_12px_hsl(var(--destructive))]',
   'Hutt Cartel': 'bg-yellow-500 shadow-[0_0_12px_#eab308]',
@@ -135,7 +137,7 @@ const PlanetMarker = React.memo<PlanetMarkerProps>(({
         // translate3d keeps this element in the parent's GPU compositing context so
         // it is rasterised at the CURRENT zoom scale — avoids the CSS-scale blur
         transform: 'translate3d(-50%, -50%, 0)',
-        zIndex: isLaneStart ? 20 : (isHovered ? 20 : undefined),
+        zIndex: (planet.labelMode as LabelMode) === 'top' ? 30 : isLaneStart ? 20 : (isHovered ? 20 : undefined),
         outline: 'none',
         WebkitTapHighlightColor: 'transparent',
       }}
@@ -183,17 +185,24 @@ const PlanetMarker = React.memo<PlanetMarkerProps>(({
           FactionDot
         )}
       </div>
-      {showLabels && (
-        <div
-          className={cn(
-            "absolute left-1/2 -translate-x-1/2 top-full mt-1 px-2 py-0.5 rounded text-[10px] font-display tracking-widest whitespace-nowrap bg-background/80 border uppercase pointer-events-none",
-            isSelected ? "border-primary text-primary shadow-[0_0_15px_hsl(var(--primary)/0.4)]" : "border-border/60 text-foreground/90",
-          )}
-          style={{ opacity: shouldHide ? 0 : 1, visibility: shouldHide ? 'hidden' : 'visible' }}
-        >
-          {planet.name}
-        </div>
-      )}
+      {(() => {
+        const lm = (planet.labelMode as LabelMode) || 'normal';
+        const showLabel = lm === 'hover'
+          ? (isHovered || isSelected)
+          : lm === 'top'
+            ? showLabels
+            : showLabels && !shouldHide;
+        return showLabel ? (
+          <div
+            className={cn(
+              "absolute left-1/2 -translate-x-1/2 top-full mt-1 px-2 py-0.5 rounded text-[10px] font-display tracking-widest whitespace-nowrap bg-background/80 border uppercase pointer-events-none",
+              isSelected ? "border-primary text-primary shadow-[0_0_15px_hsl(var(--primary)/0.4)]" : "border-border/60 text-foreground/90",
+            )}
+          >
+            {planet.name}
+          </div>
+        ) : null;
+      })()}
     </div>
   );
 });
@@ -1483,12 +1492,19 @@ export const GalaxyMap = () => {
                           </div>
                         )}
                       </div>
-                      <div className={cn(
-                        "absolute left-1/2 -translate-x-1/2 top-full mt-1 px-2 py-0.5 rounded text-[9px] font-display tracking-widest bg-background/95 border border-primary/30 text-primary uppercase transition-opacity duration-200 pointer-events-none",
-                        hoveredItem && hoveredItem.id !== fleet.id && !isSelected ? "opacity-0" : "opacity-100"
-                      )}>
-                        {fleet.name}
-                      </div>
+                      {(() => {
+                        const lm = (fleet.labelMode as LabelMode) || 'normal';
+                        const showFleetLabel = lm === 'hover'
+                          ? (hoveredItem?.id === fleet.id || isSelected)
+                          : lm === 'top'
+                            ? true
+                            : !(hoveredItem && hoveredItem.id !== fleet.id && !isSelected);
+                        return showFleetLabel ? (
+                          <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1 px-2 py-0.5 rounded text-[9px] font-display tracking-widest bg-background/95 border border-primary/30 text-primary uppercase pointer-events-none">
+                            {fleet.name}
+                          </div>
+                        ) : null;
+                      })()}
                     </div>
                   );
                 })}

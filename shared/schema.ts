@@ -22,6 +22,7 @@ export const planets = pgTable("planets", {
   powerbaseOf: text("powerbase_of"),
   oversector: text("oversector"),
   travelable: boolean("travelable").default(true),
+  labelMode: text("label_mode").default("normal"),
 });
 
 export const sectors = pgTable("sectors", {
@@ -53,6 +54,7 @@ export const fleets = pgTable("fleets", {
   description: text("description").notNull().default(""),
   markerImage: text("marker_image"),
   isCapitalShip: boolean("is_capital_ship").default(false),
+  labelMode: text("label_mode").default("normal"),
 });
 
 export const factions = pgTable("factions", {

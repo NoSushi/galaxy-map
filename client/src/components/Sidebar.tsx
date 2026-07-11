@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMap, Planet, Sector, HyperspaceLane, Fleet, FactionInfo } from '@/lib/data';
-import { X, Globe, Map, Route, Edit2, Plus, Settings2, Search, Ship, Crown, Trash2, Lock, Unlock, Move } from 'lucide-react';
+import { X, Globe, Map, Route, Edit2, Plus, Settings2, Search, Ship, Crown, Trash2, Lock, Unlock, Move, Eye, EyeOff, Layers2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -196,6 +196,31 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
             <Label htmlFor="is-minor" className="text-xs">Minor Planet</Label>
           </div>
           <Switch checked={planet.isMinor || false} onCheckedChange={c => updatePlanet({...planet, isMinor: c})} id="is-minor" />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-[10px] uppercase text-primary/70">Label Display</Label>
+          <div className="grid grid-cols-3 gap-1">
+            {([
+              { value: 'normal', label: 'Normal', icon: <Eye className="w-3 h-3" /> },
+              { value: 'top',    label: 'Always Top', icon: <Layers2 className="w-3 h-3" /> },
+              { value: 'hover',  label: 'Hover Only', icon: <EyeOff className="w-3 h-3" /> },
+            ] as const).map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => updatePlanet({...planet, labelMode: opt.value})}
+                className={cn(
+                  "flex flex-col items-center gap-1 p-1.5 rounded border text-[9px] font-display uppercase tracking-widest transition-all",
+                  (planet.labelMode || 'normal') === opt.value
+                    ? "border-primary bg-primary/15 text-primary"
+                    : "border-white/10 bg-white/5 text-muted-foreground hover:border-primary/40 hover:text-primary/70"
+                )}
+              >
+                {opt.icon}
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="flex items-center justify-between p-2 bg-white/5 rounded border border-white/10">
@@ -593,6 +618,31 @@ const FleetDetails = ({ fleet, editMode }: { fleet: Fleet, editMode: boolean }) 
         <div className="space-y-1">
           <Label className="text-[10px] uppercase text-primary/70">Fleet ID</Label>
           <Input value={fleet.name} onChange={e => updateFleet({...fleet, name: e.target.value})} className="bg-black/60 border-primary/20 h-8 text-xs" />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-[10px] uppercase text-primary/70">Label Display</Label>
+          <div className="grid grid-cols-3 gap-1">
+            {([
+              { value: 'normal', label: 'Normal',     icon: <Eye className="w-3 h-3" /> },
+              { value: 'top',    label: 'Always Top', icon: <Layers2 className="w-3 h-3" /> },
+              { value: 'hover',  label: 'Hover Only', icon: <EyeOff className="w-3 h-3" /> },
+            ] as const).map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => updateFleet({...fleet, labelMode: opt.value})}
+                className={cn(
+                  "flex flex-col items-center gap-1 p-1.5 rounded border text-[9px] font-display uppercase tracking-widest transition-all",
+                  (fleet.labelMode || 'normal') === opt.value
+                    ? "border-primary bg-primary/15 text-primary"
+                    : "border-white/10 bg-white/5 text-muted-foreground hover:border-primary/40 hover:text-primary/70"
+                )}
+              >
+                {opt.icon}
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="flex items-center justify-between p-2 bg-white/5 rounded border border-white/10">
