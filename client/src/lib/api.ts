@@ -34,6 +34,7 @@ function mapPlanetFromApi(p: any): Planet {
     powerbaseOf: p.powerbaseOf ?? p.powerbase_of ?? null,
     oversector: p.oversector ?? null,
     travelable: p.travelable ?? true,
+    labelMode: p.labelMode ?? p.label_mode ?? 'normal',
   };
 }
 
@@ -58,6 +59,7 @@ function mapPlanetToApi(p: Planet): any {
     powerbaseOf: p.powerbaseOf || null,
     oversector: p.oversector || null,
     travelable: p.travelable ?? true,
+    labelMode: p.labelMode ?? 'normal',
   };
 }
 
@@ -105,6 +107,7 @@ function mapFleetFromApi(f: any): Fleet {
     description: f.description,
     markerImage: f.markerImage ?? f.marker_image,
     isCapitalShip: f.isCapitalShip ?? f.is_capital_ship,
+    labelMode: f.labelMode ?? f.label_mode ?? 'hover',
   };
 }
 
@@ -119,6 +122,7 @@ function mapFleetToApi(f: Fleet): any {
     description: f.description,
     markerImage: f.markerImage || null,
     isCapitalShip: f.isCapitalShip || false,
+    labelMode: f.labelMode ?? 'hover',
   };
 }
 
