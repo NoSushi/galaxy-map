@@ -249,6 +249,17 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
           </div>
         )}
 
+        <div className={cn("flex items-center justify-between p-2 rounded border", planet.isWarzone ? "bg-red-950/30 border-destructive/50" : "bg-white/5 border-white/10")}>
+          <div className="flex items-center gap-2">
+            <Swords className={cn("w-3.5 h-3.5", planet.isWarzone ? "text-destructive" : "text-muted-foreground")} />
+            <div>
+              <Label htmlFor="is-warzone" className="text-xs">Active Warzone</Label>
+              <p className="text-[9px] text-muted-foreground">Enables System Theatre Map</p>
+            </div>
+          </div>
+          <Switch checked={planet.isWarzone || false} onCheckedChange={c => updatePlanet({...planet, isWarzone: c})} id="is-warzone" />
+        </div>
+
         <div className="space-y-1">
           <Label className="text-[10px] uppercase text-primary/70">Oversector</Label>
           <Input value={planet.oversector || ''} onChange={e => updatePlanet({...planet, oversector: e.target.value})} className="bg-black/60 border-primary/20 h-8 text-xs" placeholder="e.g. Oversector Outer" />
