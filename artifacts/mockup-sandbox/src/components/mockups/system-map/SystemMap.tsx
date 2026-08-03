@@ -11,42 +11,42 @@ type FleetMarker = {
 type Objective = { id: string; label: string; faction: string; };
 type SectorPlanet = { id: string; name: string; faction: string; };
 
-const FACTIONS = ["Galactic Republic","Empire","Hutt Cartel","Chiss Ascendancy","Rebel Alliance","Independent"];
+const FACTIONS = ["Galactic Republic","Empire","Hutt Cartel","Chiss Ascendancy","Rebel Alliance","Mandalorian Clans","Independent"];
 const FACTION_COL: Record<string,string> = {
-  "Galactic Republic":"#3399ff","Empire":"#ff2222","Hutt Cartel":"#ff9900",
-  "Chiss Ascendancy":"#0088ff","Rebel Alliance":"#ff4444","Independent":"#5588aa",
+  "Galactic Republic":"#00aaff","Empire":"#cc0000","Hutt Cartel":"#ff9900",
+  "Chiss Ascendancy":"#0055cc","Rebel Alliance":"#00aaff","Mandalorian Clans":"#888800","Independent":"#446677",
 };
 
 const BODIES: Body[] = [
-  { id:"star",    name:"Hoth Prime",            type:"star",     x:480, y:300, radius:44, color:"#ffdd66" },
-  { id:"hoth",    name:"Hoth",                  type:"planet",   x:255, y:300, radius:26, color:"#9dd4f5", faction:"Rebel Alliance", description:"Frozen world — Echo Base Delta-One" },
-  { id:"moon1",   name:"Hoth I",                type:"moon",     x:202, y:272, radius:8,  color:"#8899bb" },
-  { id:"moon2",   name:"Hoth II",               type:"moon",     x:214, y:332, radius:6,  color:"#776688" },
-  { id:"station", name:"Imperial Relay Station", type:"station",  x:680, y:185, radius:12, color:"#ff3333", faction:"Empire" },
-  { id:"ast1",    name:"Ore Belt Alpha",         type:"asteroid", x:395, y:142, radius:5,  color:"#887755" },
+  { id:"star",    name:"Hoth Prime",             type:"star",     x:480, y:300, radius:44, color:"#ffdd66" },
+  { id:"hoth",    name:"Hoth",                   type:"planet",   x:255, y:300, radius:26, color:"#9dd4f5", faction:"Rebel Alliance", description:"Frozen world — Echo Base Delta-One" },
+  { id:"moon1",   name:"Hoth I",                 type:"moon",     x:202, y:272, radius:8,  color:"#8899bb" },
+  { id:"moon2",   name:"Hoth II",                type:"moon",     x:214, y:332, radius:6,  color:"#776688" },
+  { id:"station", name:"Imperial Relay Station", type:"station",  x:680, y:185, radius:12, color:"#cc0000", faction:"Empire" },
+  { id:"ast1",    name:"Ore Belt Alpha",          type:"asteroid", x:395, y:142, radius:5,  color:"#887755" },
 ];
 const FLEETS: FleetMarker[] = [
   { id:"f1", name:"Rogue Squadron",    x:188, y:220, faction:"Rebel Alliance", side:"defense" },
   { id:"f2", name:"Echo Base Defense", x:150, y:340, faction:"Rebel Alliance", side:"defense" },
-  { id:"f3", name:"Death Squadron",    x:635, y:225, faction:"Empire", isCapital:true,  side:"assault" },
+  { id:"f3", name:"Death Squadron",    x:635, y:225, faction:"Empire", isCapital:true, side:"assault" },
   { id:"f4", name:"Blizzard Force",    x:298, y:238, faction:"Empire", side:"assault" },
 ];
 
 const BLUE  = "#00aaff";
 const LBLUE = "#33ccff";
-const RED   = "#ff2222";
-const DIM   = "#003355";
+const RED   = "#cc0000";
+const RRED  = "#ff2222";
 const BG    = "#000a14";
 
-function HudBrackets({ color = BLUE }: { color?: string }) {
-  const C = 14, T = 2;
+function HudBrackets({ color = BLUE, size = 14 }: { color?: string; size?: number }) {
+  const T = 2, C = size;
   return <>
-    {([["tl","0,0"],["tr",`${C},0`],["bl",`0,${C}`],["br",`${C},${C}`]] as [string,[string]][]).map(([pos]) => {
-      const [vy,vx] = pos.split("");
-      const ox = vx==="r" ? C : 0, oy = vy==="b" ? C : 0;
-      const sx = vx==="r" ? -1 : 1, sy = vy==="b" ? -1 : 1;
+    {(["tl","tr","bl","br"] as const).map(pos => {
+      const vy = pos[0]==="t", vx = pos[1]==="l";
+      const ox = vx ? 0 : C, oy = vy ? 0 : C;
+      const sx = vx ? 1 : -1, sy = vy ? 1 : -1;
       return (
-        <div key={pos} style={{ position:"absolute", ...(vy==="t"?{top:0}:{bottom:0}), ...(vx==="l"?{left:0}:{right:0}) }}>
+        <div key={pos} style={{ position:"absolute", ...(vy?{top:0}:{bottom:0}), ...(vx?{left:0}:{right:0}) }}>
           <svg width={C} height={C}>
             <polyline points={`${ox},${C-oy} ${ox},${oy} ${C-ox},${oy}`}
               fill="none" stroke={color} strokeWidth={T}
@@ -73,26 +73,28 @@ function Dot({ color }: { color: string }) {
 }
 
 export function SystemMap() {
-  const [selected,    setSelected]    = useState<string>("hoth");
-  const [tab,         setTab]         = useState<"bodies"|"fleets">("bodies");
-  const [isAdmin]                     = useState(true); // simulating admin mode
-  const [editingObj,  setEditingObj]  = useState<string|null>(null);
-  const [objectives,  setObjectives]  = useState<Objective[]>([
+  const [selected,      setSelected]      = useState<string>("hoth");
+  const [tab,           setTab]           = useState<"bodies"|"fleets">("bodies");
+  const [isAdmin,       setIsAdmin]       = useState(false);
+  const [editingObj,    setEditingObj]    = useState<string|null>(null);
+  const [objectives,    setObjectives]    = useState<Objective[]>([
     { id:"o1", label:"Echo Base",       faction:"Rebel Alliance" },
     { id:"o2", label:"Power Generator", faction:"Empire" },
     { id:"o3", label:"Ion Cannon",      faction:"Rebel Alliance" },
     { id:"o4", label:"Evac Route",      faction:"Independent" },
   ]);
   const [sectorPlanets, setSectorPlanets] = useState<SectorPlanet[]>([
-    { id:"p1", name:"Hoth",          faction:"Rebel Alliance" },
-    { id:"p2", name:"Bespin",        faction:"Empire" },
-    { id:"p3", name:"Ord Mantell",   faction:"Empire" },
-    { id:"p4", name:"Toola",         faction:"Independent" },
-    { id:"p5", name:"Anoat",         faction:"Independent" },
+    { id:"p1", name:"Hoth",        faction:"Rebel Alliance" },
+    { id:"p2", name:"Bespin",      faction:"Empire" },
+    { id:"p3", name:"Ord Mantell", faction:"Empire" },
+    { id:"p4", name:"Toola",       faction:"Independent" },
+    { id:"p5", name:"Anoat",       faction:"Independent" },
   ]);
   const [editingPlanet, setEditingPlanet] = useState<string|null>(null);
-  const [battles, setBattles] = useState({ won: 3, lost: 2 });
+  const [battles,       setBattles]       = useState({ won: 3, lost: 2 });
   const [editingBattles, setEditingBattles] = useState(false);
+  const [battleWonDraft, setBattleWonDraft] = useState("3");
+  const [battleLostDraft, setBattleLostDraft] = useState("2");
 
   const selectedBody  = BODIES.find(b => b.id === selected);
   const selectedFleet = FLEETS.find(f => f.id === selected);
@@ -107,9 +109,10 @@ export function SystemMap() {
         @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Orbitron:wght@400;600;700;900&display=swap');
         @keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
         @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-        select,input{background:#000d1a;color:#00aaff;border:1px solid #00aaff44;padding:2px 4px;font-family:'Orbitron',monospace;font-size:9px;outline:none;letter-spacing:1px;}
+        select,input[type=text],input[type=number]{background:#000d1a;color:${BLUE};border:1px solid ${BLUE}44;padding:2px 4px;font-family:'Orbitron',monospace;font-size:9px;outline:none;letter-spacing:1px;}
         select option{background:#000d1a;}
-        *::-webkit-scrollbar{width:3px} *::-webkit-scrollbar-track{background:#001122} *::-webkit-scrollbar-thumb{background:#00aaff33}
+        *::-webkit-scrollbar{width:3px} *::-webkit-scrollbar-track{background:#001122} *::-webkit-scrollbar-thumb{background:${BLUE}33}
+        .admin-btn:hover{opacity:1!important}
       `}</style>
 
       {/* ══ LEFT PANEL ══ */}
@@ -120,14 +123,28 @@ export function SystemMap() {
             ← GALAXY MAP
           </button>
           <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
-            <Dot color={RED} />
-            <span style={{ fontSize:8, color:RED, letterSpacing:3, fontFamily:"'Orbitron',monospace" }}>WARZONE ACTIVE</span>
+            <Dot color={RRED} />
+            <span style={{ fontSize:8, color:RRED, letterSpacing:3, fontFamily:"'Orbitron',monospace" }}>WARZONE ACTIVE</span>
           </div>
           <div style={{ fontSize:18, fontWeight:900, color:LBLUE, letterSpacing:3, fontFamily:"'Orbitron',monospace", textShadow:`0 0 16px ${BLUE}88` }}>HOTH SYS.</div>
           <div style={{ fontSize:8, color:BLUE+"44", letterSpacing:2, marginTop:1, fontFamily:"'Orbitron',monospace" }}>ANOAT SECTOR · OUTER RIM</div>
           <div style={{ display:"flex", gap:2, marginTop:8 }}>
             {Array.from({length:20}).map((_,i) => <div key={i} style={{ flex:1, height:2, background:BLUE, boxShadow:`0 0 3px ${BLUE}` }} />)}
           </div>
+        </div>
+
+        {/* Admin toggle (simulated login) */}
+        <div style={{ padding:"6px 12px", borderBottom:`1px solid ${BLUE}11`, display:"flex", alignItems:"center", gap:8, background:"#00040a" }}>
+          <span style={{ fontSize:7, color:BLUE+"55", letterSpacing:2, fontFamily:"'Orbitron',monospace", flex:1 }}>ADMIN ACCESS</span>
+          <button onClick={() => { setIsAdmin(a => !a); setEditingObj(null); setEditingPlanet(null); setEditingBattles(false); }} style={{
+            fontSize:7, letterSpacing:1.5, fontFamily:"'Orbitron',monospace", padding:"3px 8px",
+            background: isAdmin ? `${RED}22` : `${BLUE}11`,
+            border: isAdmin ? `1px solid ${RED}66` : `1px solid ${BLUE}22`,
+            color: isAdmin ? RRED : BLUE+"55",
+            cursor:"pointer", textTransform:"uppercase",
+          }}>
+            {isAdmin ? "■ LOGGED IN" : "LOGIN"}
+          </button>
         </div>
 
         {/* Tabs */}
@@ -161,12 +178,14 @@ export function SystemMap() {
                   <div style={{ fontSize:10, fontWeight:600, color:isSel?LBLUE:"#7aaccc", letterSpacing:1, textTransform:"uppercase", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{b.name}</div>
                   <div style={{ fontSize:8, color:BLUE+"44", letterSpacing:1, fontFamily:"'Orbitron',monospace" }}>{b.type}</div>
                 </div>
-                {b.faction && <div style={{ marginLeft:"auto", fontSize:7, color:FACTION_COL[b.faction]??"#aaa", border:`1px solid ${FACTION_COL[b.faction]??"#aaa"}44`, padding:"1px 4px", flexShrink:0, fontFamily:"'Orbitron',monospace" }}>{b.faction==="Rebel Alliance"?"RBL":b.faction==="Empire"?"IMP":b.faction.slice(0,3).toUpperCase()}</div>}
+                {b.faction && <div style={{ marginLeft:"auto", fontSize:7, color:FACTION_COL[b.faction]??"#aaa", border:`1px solid ${FACTION_COL[b.faction]??"#aaa"}44`, padding:"1px 4px", flexShrink:0, fontFamily:"'Orbitron',monospace" }}>
+                  {b.faction==="Rebel Alliance"?"RBL":b.faction==="Empire"?"IMP":b.faction.slice(0,3).toUpperCase()}
+                </div>}
               </button>
             );
           }) : FLEETS.map(f => {
             const isSel = selected===f.id;
-            const fc = f.faction==="Rebel Alliance" ? BLUE : RED;
+            const fc = f.faction==="Empire" ? RED : BLUE;
             return (
               <button key={f.id} onClick={() => setSelected(f.id)} style={{
                 width:"100%", textAlign:"left", padding:"7px 12px", display:"flex", alignItems:"center", gap:8,
@@ -174,7 +193,7 @@ export function SystemMap() {
                 borderLeft: isSel ? `2px solid ${fc}` : "2px solid transparent",
                 border:"none", cursor:"pointer",
               }}>
-                <svg width={10} height={10}><polygon points={f.faction==="Rebel Alliance"?"5,0 10,10 0,10":"5,10 10,0 0,0"} fill={fc} opacity={isSel?1:0.5} /></svg>
+                <svg width={10} height={10}><polygon points={f.faction!=="Empire"?"5,0 10,10 0,10":"5,10 10,0 0,0"} fill={fc} opacity={isSel?1:0.5} /></svg>
                 <div style={{ minWidth:0 }}>
                   <div style={{ fontSize:10, fontWeight:600, color:isSel?fc:"#7aaccc", letterSpacing:1, textTransform:"uppercase", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{f.name}</div>
                   <div style={{ fontSize:7, color:fc+"88", letterSpacing:1, fontFamily:"'Orbitron',monospace" }}>{f.side==="defense"?"⬟ DEFENSE":"▼ ASSAULT"}</div>
@@ -205,7 +224,7 @@ export function SystemMap() {
               )}
             </>}
             {selectedFleet && !selectedBody && (() => {
-              const fc = selectedFleet.faction==="Rebel Alliance" ? BLUE : RED;
+              const fc = selectedFleet.faction==="Empire" ? RED : BLUE;
               return <>
                 <div style={{ fontSize:7, color:fc+"66", letterSpacing:2, fontFamily:"'Orbitron',monospace", marginBottom:2 }}>{selectedFleet.side} // UNIT</div>
                 <div style={{ fontSize:13, fontWeight:700, color:fc, letterSpacing:2, textTransform:"uppercase" }}>{selectedFleet.name}</div>
@@ -227,7 +246,6 @@ export function SystemMap() {
       {/* ══ MAP AREA ══ */}
       <div style={{ flex:1, position:"relative", overflow:"hidden", background:"#00060e" }}>
         <div style={{ position:"absolute", inset:0, background:"repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,20,40,0.06) 3px,rgba(0,20,40,0.06) 4px)", pointerEvents:"none", zIndex:10 }} />
-        {/* HUD corner brackets */}
         {(["tl","tr","bl","br"] as const).map(c => {
           const vy = c[0]==="t", vx = c[1]==="l";
           return (
@@ -244,7 +262,7 @@ export function SystemMap() {
           <span style={{ fontSize:9, color:BLUE+"44", letterSpacing:2, fontFamily:"'Orbitron',monospace", marginLeft:14, marginTop:2 }}>· WARZONE THEATER ·</span>
           <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:16 }}>
             <div style={{ display:"flex", alignItems:"center", gap:6 }}><Dot color={BLUE} /><span style={{ fontSize:8, color:BLUE+"aa", letterSpacing:2, fontFamily:"'Orbitron',monospace" }}>02 DEFENSE</span></div>
-            <div style={{ display:"flex", alignItems:"center", gap:6 }}><Dot color={RED} /><span style={{ fontSize:8, color:RED+"aa", letterSpacing:2, fontFamily:"'Orbitron',monospace" }}>02 ASSAULT</span></div>
+            <div style={{ display:"flex", alignItems:"center", gap:6 }}><Dot color={RRED} /><span style={{ fontSize:8, color:RRED+"aa", letterSpacing:2, fontFamily:"'Orbitron',monospace" }}>02 ASSAULT</span></div>
           </div>
         </div>
 
@@ -286,15 +304,15 @@ export function SystemMap() {
 
           {FLEETS.map(f => {
             const isSel = selected===f.id;
-            const isRbl = f.faction==="Rebel Alliance";
-            const fc = isRbl ? BLUE : RED;
-            const pts = isRbl ? `${f.x},${f.y-11} ${f.x-8},${f.y+7} ${f.x},${f.y+2} ${f.x+8},${f.y+7}` : `${f.x},${f.y+11} ${f.x-8},${f.y-7} ${f.x},${f.y-2} ${f.x+8},${f.y-7}`;
+            const isImp = f.faction==="Empire";
+            const fc = isImp ? RED : BLUE;
+            const pts = !isImp ? `${f.x},${f.y-11} ${f.x-8},${f.y+7} ${f.x},${f.y+2} ${f.x+8},${f.y+7}` : `${f.x},${f.y+11} ${f.x-8},${f.y-7} ${f.x},${f.y-2} ${f.x+8},${f.y-7}`;
             return (
               <g key={f.id} onClick={() => { setSelected(f.id); setTab("fleets"); }} style={{ cursor:"pointer" }}>
                 {isSel && <circle cx={f.x} cy={f.y} r={22} fill="none" stroke={fc} strokeWidth="1" strokeDasharray="3,2" opacity={0.6}><animateTransform attributeName="transform" type="rotate" from={`0 ${f.x} ${f.y}`} to={`360 ${f.x} ${f.y}`} dur="2.5s" repeatCount="indefinite"/></circle>}
                 <polygon points={pts} fill={fc} opacity={isSel?0.95:0.6} filter={isSel?"url(#g2)":undefined} stroke={isSel?"#fff":"transparent"} strokeWidth="0.8"/>
                 {f.isCapital && <text x={f.x} y={f.y+1} textAnchor="middle" fill="#fff" fontSize={7} fontFamily="Arial" dominantBaseline="middle">★</text>}
-                <text x={f.x} y={f.y+(isRbl?24:-16)} textAnchor="middle" fill={isSel?fc:fc+"88"} fontSize={7.5} fontFamily="Orbitron,monospace" fontWeight="600" letterSpacing="1" style={{ textTransform:"uppercase" }}>{f.name}</text>
+                <text x={f.x} y={f.y+(!isImp?24:-16)} textAnchor="middle" fill={isSel?fc:fc+"88"} fontSize={7.5} fontFamily="Orbitron,monospace" fontWeight="600" letterSpacing="1" style={{ textTransform:"uppercase" }}>{f.name}</text>
               </g>
             );
           })}
@@ -310,31 +328,38 @@ export function SystemMap() {
       </div>
 
       {/* ══ RIGHT PANEL ══ */}
-      <div style={{ width:210, flexShrink:0, display:"flex", flexDirection:"column", borderLeft:`1px solid ${BLUE}22`, background:"#00060f" }}>
-        {/* Battle record */}
+      <div style={{ width:220, flexShrink:0, display:"flex", flexDirection:"column", borderLeft:`1px solid ${BLUE}22`, background:"#00060f" }}>
+
+        {/* Battle Record */}
         <Panel label="BATTLE RECORD" color={BLUE} style={{ margin:"10px 10px 0" } as React.CSSProperties}>
           <div style={{ padding:"10px 10px 8px" }}>
             <div style={{ fontSize:10, fontWeight:700, color:LBLUE, letterSpacing:2, fontFamily:"'Orbitron',monospace", marginBottom:8 }}>BATTLE OF HOTH</div>
             {editingBattles && isAdmin ? (
-              <div style={{ display:"flex", gap:6, alignItems:"center", marginBottom:4 }}>
-                <span style={{ fontSize:8, color:BLUE+"88", fontFamily:"'Orbitron',monospace" }}>W</span>
-                <input type="number" value={battles.won} onChange={e => setBattles(b => ({...b, won: Number(e.target.value)}))} style={{ width:36 }} />
-                <span style={{ fontSize:8, color:BLUE+"88", fontFamily:"'Orbitron',monospace" }}>L</span>
-                <input type="number" value={battles.lost} onChange={e => setBattles(b => ({...b, lost: Number(e.target.value)}))} style={{ width:36 }} />
-                <button onClick={() => setEditingBattles(false)} style={{ fontSize:7, color:BLUE, background:"none", border:`1px solid ${BLUE}44`, padding:"1px 5px", cursor:"pointer", fontFamily:"'Orbitron',monospace" }}>SAVE</button>
+              <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                  <span style={{ fontSize:8, color:BLUE+"88", fontFamily:"'Orbitron',monospace", width:40 }}>WINS</span>
+                  <input type="number" value={battleWonDraft} onChange={e => setBattleWonDraft(e.target.value)} style={{ width:48 }} />
+                </div>
+                <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                  <span style={{ fontSize:8, color:RED+"88", fontFamily:"'Orbitron',monospace", width:40 }}>LOSS</span>
+                  <input type="number" value={battleLostDraft} onChange={e => setBattleLostDraft(e.target.value)} style={{ width:48 }} />
+                </div>
+                <button onClick={() => { setBattles({ won: parseInt(battleWonDraft)||0, lost: parseInt(battleLostDraft)||0 }); setEditingBattles(false); }} style={{ fontSize:7, color:BLUE, background:"none", border:`1px solid ${BLUE}44`, padding:"2px 0", cursor:"pointer", fontFamily:"'Orbitron',monospace", letterSpacing:1 }}>CONFIRM</button>
               </div>
             ) : (
               <div style={{ display:"flex", gap:10, alignItems:"center" }}>
                 <div style={{ textAlign:"center" }}>
-                  <div style={{ fontSize:26, fontWeight:900, color:BLUE, fontFamily:"'Orbitron',monospace", lineHeight:1, textShadow:`0 0 12px ${BLUE}88` }}>{battles.won}</div>
+                  <div style={{ fontSize:28, fontWeight:900, color:BLUE, fontFamily:"'Orbitron',monospace", lineHeight:1, textShadow:`0 0 12px ${BLUE}88` }}>{battles.won}</div>
                   <div style={{ fontSize:7, color:BLUE+"55", letterSpacing:2, fontFamily:"'Orbitron',monospace" }}>WON</div>
                 </div>
                 <div style={{ color:BLUE+"33", fontSize:18, fontFamily:"'Orbitron',monospace" }}>/</div>
                 <div style={{ textAlign:"center" }}>
-                  <div style={{ fontSize:26, fontWeight:900, color:RED, fontFamily:"'Orbitron',monospace", lineHeight:1, textShadow:`0 0 12px ${RED}88` }}>{battles.lost}</div>
+                  <div style={{ fontSize:28, fontWeight:900, color:RRED, fontFamily:"'Orbitron',monospace", lineHeight:1, textShadow:`0 0 12px ${RED}88` }}>{battles.lost}</div>
                   <div style={{ fontSize:7, color:RED+"55", letterSpacing:2, fontFamily:"'Orbitron',monospace" }}>LOST</div>
                 </div>
-                {isAdmin && <button onClick={() => setEditingBattles(true)} style={{ marginLeft:"auto", fontSize:7, color:BLUE+"66", background:"none", border:`1px solid ${BLUE}22`, padding:"2px 6px", cursor:"pointer", fontFamily:"'Orbitron',monospace" }}>EDIT</button>}
+                {isAdmin && (
+                  <button onClick={() => { setBattleWonDraft(String(battles.won)); setBattleLostDraft(String(battles.lost)); setEditingBattles(true); }} style={{ marginLeft:"auto", fontSize:7, color:BLUE+"66", background:"none", border:`1px solid ${BLUE}22`, padding:"2px 6px", cursor:"pointer", fontFamily:"'Orbitron',monospace" }}>EDIT</button>
+                )}
               </div>
             )}
           </div>
@@ -347,48 +372,53 @@ export function SystemMap() {
               <div key={obj.id} style={{ marginBottom:7 }}>
                 {editingObj===obj.id && isAdmin ? (
                   <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-                    <input defaultValue={obj.label} onChange={e => setObjectives(os => os.map(o => o.id===obj.id ? {...o, label:e.target.value} : o))} style={{ width:"100%" }} />
-                    <select value={obj.faction} onChange={e => { setObjectives(os => os.map(o => o.id===obj.id ? {...o, faction:e.target.value} : o)); setEditingObj(null); }}>
+                    <input type="text" defaultValue={obj.label} onChange={e => setObjectives(os => os.map(o => o.id===obj.id ? {...o, label:e.target.value} : o))} style={{ width:"100%" }} />
+                    <select value={obj.faction} onChange={e => setObjectives(os => os.map(o => o.id===obj.id ? {...o, faction:e.target.value} : o))}>
                       {FACTIONS.map(f => <option key={f} value={f}>{f}</option>)}
                     </select>
                     <button onClick={() => setEditingObj(null)} style={{ fontSize:7, color:BLUE, background:"none", border:`1px solid ${BLUE}44`, cursor:"pointer", fontFamily:"'Orbitron',monospace", padding:"2px" }}>CONFIRM</button>
                   </div>
                 ) : (
-                  <div style={{ display:"flex", alignItems:"center", gap:6 }} onClick={() => isAdmin && setEditingObj(obj.id)}>
+                  <div style={{ display:"flex", alignItems:"center", gap:6, cursor:isAdmin?"pointer":"default" }} onClick={() => isAdmin && setEditingObj(obj.id)}>
                     <div style={{ width:5, height:5, borderRadius:"50%", background:FACTION_COL[obj.faction]??BLUE, boxShadow:`0 0 5px ${FACTION_COL[obj.faction]??BLUE}`, flexShrink:0 }} />
-                    <span style={{ fontSize:8, color:"#7aaccc", flex:1, textTransform:"uppercase", letterSpacing:0.5, cursor:isAdmin?"pointer":"default" }}>{obj.label}</span>
+                    <span style={{ fontSize:8, color:"#7aaccc", flex:1, textTransform:"uppercase", letterSpacing:0.5 }}>{obj.label}</span>
                     <span style={{ fontSize:7, color:(FACTION_COL[obj.faction]??BLUE)+"99", letterSpacing:1, fontFamily:"'Orbitron',monospace", flexShrink:0 }}>
                       {obj.faction==="Rebel Alliance"?"RBL":obj.faction==="Empire"?"IMP":obj.faction.slice(0,3).toUpperCase()}
                     </span>
-                    {isAdmin && <span style={{ fontSize:8, color:BLUE+"44", cursor:"pointer" }}>✎</span>}
+                    {isAdmin && <span style={{ fontSize:9, color:BLUE+"44" }}>✎</span>}
                   </div>
                 )}
               </div>
             ))}
-            {isAdmin && <button onClick={() => setObjectives(os => [...os, {id:`o${Date.now()}`,label:"New Objective",faction:"Independent"}])} style={{ width:"100%", marginTop:2, fontSize:7, color:BLUE+"66", background:"none", border:`1px solid ${BLUE}22`, padding:"3px 0", cursor:"pointer", fontFamily:"'Orbitron',monospace", letterSpacing:1 }}>+ ADD OBJECTIVE</button>}
+            {isAdmin && (
+              <button onClick={() => setObjectives(os => [...os, {id:`o${Date.now()}`,label:"New Objective",faction:"Independent"}])}
+                style={{ width:"100%", marginTop:2, fontSize:7, color:BLUE+"66", background:"none", border:`1px solid ${BLUE}22`, padding:"3px 0", cursor:"pointer", fontFamily:"'Orbitron',monospace", letterSpacing:1 }}>
+                + ADD OBJECTIVE
+              </button>
+            )}
           </div>
         </Panel>
 
         {/* Sector Control */}
-        <Panel label="SECTOR CONTROL" color={BLUE} style={{ margin:"10px 10px 0", flex:1, display:"flex", flexDirection:"column" } as React.CSSProperties}>
+        <Panel label="SECTOR CONTROL" color={BLUE} style={{ margin:"10px 10px 0", flex:1, display:"flex", flexDirection:"column", minHeight:0 } as React.CSSProperties}>
           <div style={{ padding:"10px 10px 8px", flex:1, overflowY:"auto" }}>
             {sectorPlanets.map(p => (
               <div key={p.id} style={{ marginBottom:6 }}>
                 {editingPlanet===p.id && isAdmin ? (
                   <div style={{ display:"flex", gap:4, alignItems:"center" }}>
-                    <span style={{ fontSize:8, color:BLUE+"88", flex:1, textTransform:"uppercase" }}>{p.name}</span>
+                    <span style={{ fontSize:8, color:BLUE+"88", flex:1, textTransform:"uppercase", fontFamily:"'Orbitron',monospace" }}>{p.name}</span>
                     <select value={p.faction} onChange={e => { setSectorPlanets(ps => ps.map(sp => sp.id===p.id ? {...sp, faction:e.target.value} : sp)); setEditingPlanet(null); }}>
                       {FACTIONS.map(f => <option key={f} value={f}>{f}</option>)}
                     </select>
                   </div>
                 ) : (
-                  <div style={{ display:"flex", alignItems:"center", gap:6 }} onClick={() => isAdmin && setEditingPlanet(p.id)}>
+                  <div style={{ display:"flex", alignItems:"center", gap:6, cursor:isAdmin?"pointer":"default" }} onClick={() => isAdmin && setEditingPlanet(p.id)}>
                     <div style={{ width:4, height:4, borderRadius:"50%", background:FACTION_COL[p.faction]??BLUE, flexShrink:0 }} />
                     <span style={{ fontSize:8, color:"#7aaccc", flex:1, textTransform:"uppercase", letterSpacing:0.5 }}>{p.name}</span>
                     <span style={{ fontSize:7, color:(FACTION_COL[p.faction]??BLUE)+"cc", letterSpacing:1, fontFamily:"'Orbitron',monospace" }}>
                       {p.faction==="Rebel Alliance"?"RBL":p.faction==="Empire"?"IMP":p.faction.slice(0,3).toUpperCase()}
                     </span>
-                    {isAdmin && <span style={{ fontSize:8, color:BLUE+"44", cursor:"pointer" }}>✎</span>}
+                    {isAdmin && <span style={{ fontSize:9, color:BLUE+"44" }}>✎</span>}
                   </div>
                 )}
               </div>
@@ -396,21 +426,10 @@ export function SystemMap() {
           </div>
         </Panel>
 
-        {/* Admin controls */}
-        {isAdmin && (
-          <div style={{ padding:"10px 10px", borderTop:`1px solid ${BLUE}22`, display:"flex", flexDirection:"column", gap:4 }}>
-            <div style={{ fontSize:7, color:BLUE+"44", letterSpacing:2, fontFamily:"'Orbitron',monospace", marginBottom:2 }}>ADMIN CONTROLS</div>
-            {[{label:"+ ADD BODY", color:BLUE},{label:"+ ADD FLEET", color:LBLUE},{label:"CLEAR WARZONE", color:RED}].map(btn => (
-              <button key={btn.label} style={{ width:"100%", textAlign:"left", padding:"5px 8px", fontSize:7, letterSpacing:1.5, fontFamily:"'Orbitron',monospace", background:`${btn.color}08`, border:`1px solid ${btn.color}33`, color:btn.color+"aa", cursor:"pointer", textTransform:"uppercase" }}>
-                {btn.label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div style={{ padding:"0 10px 10px", fontSize:7, color:BLUE+"22", letterSpacing:1, fontFamily:"'Orbitron',monospace", lineHeight:1.8 }}>
+        {/* Footer */}
+        <div style={{ padding:"8px 10px 10px", fontSize:7, color:BLUE+"22", letterSpacing:1, fontFamily:"'Orbitron',monospace", lineHeight:1.8, borderTop:`1px solid ${BLUE}11` }}>
           <div>SYS REF: HG-4401</div>
-          <div style={{ display:"flex", gap:4 }}><span>STATUS:</span><Dot color={RED} /><span style={{ color:RED+"66" }}>ACTIVE</span></div>
+          <div style={{ display:"flex", gap:4 }}><span>STATUS:</span><Dot color={RRED} /><span style={{ color:RRED+"66" }}>ACTIVE</span></div>
         </div>
       </div>
     </div>

@@ -24,6 +24,8 @@ export interface Planet {
   powerbaseOf?: string | null;
   oversector?: string | null;
   travelable?: boolean | null;
+  isWarzone?: boolean | null;
+  labelMode?: string | null;
 }
 
 export interface Sector {

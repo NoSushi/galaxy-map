@@ -35,6 +35,7 @@ function mapPlanetFromApi(p: any): Planet {
     oversector: p.oversector ?? null,
     travelable: p.travelable ?? true,
     labelMode: p.labelMode ?? p.label_mode ?? 'normal',
+    isWarzone: p.isWarzone ?? p.is_warzone ?? false,
   };
 }
 
@@ -60,6 +61,7 @@ function mapPlanetToApi(p: Planet): any {
     oversector: p.oversector || null,
     travelable: p.travelable ?? true,
     labelMode: p.labelMode ?? 'normal',
+    isWarzone: p.isWarzone ?? false,
   };
 }
 

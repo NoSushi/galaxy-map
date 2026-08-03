@@ -23,6 +23,7 @@ export const planets = pgTable("planets", {
   oversector: text("oversector"),
   travelable: boolean("travelable").default(true),
   labelMode: text("label_mode").default("normal"),
+  isWarzone: boolean("is_warzone").default(false),
 });
 
 export const sectors = pgTable("sectors", {

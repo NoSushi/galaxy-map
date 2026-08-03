@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMap, Planet, Sector, HyperspaceLane, Fleet, FactionInfo } from '@/lib/data';
-import { X, Globe, Map, Route, Edit2, Plus, Settings2, Search, Ship, Crown, Trash2, Lock, Unlock, Move, Eye, EyeOff, Layers2 } from 'lucide-react';
+import { X, Globe, Map, Route, Edit2, Plus, Settings2, Search, Ship, Crown, Trash2, Lock, Unlock, Move, Eye, EyeOff, Layers2, Swords, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -290,6 +290,25 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
           </div>
         </div>
       </div>
+
+      {planet.isWarzone && (
+        <div className="flex items-center justify-between p-2.5 rounded border border-destructive/50 bg-red-950/30 animate-in fade-in duration-300">
+          <div className="flex items-center gap-2">
+            <Swords className="w-3.5 h-3.5 text-destructive" />
+            <div>
+              <span className="text-[10px] font-display font-bold text-destructive uppercase tracking-widest">Active Warzone</span>
+              <p className="text-[9px] text-destructive/60">System under active military conflict</p>
+            </div>
+          </div>
+          <button
+            className="flex items-center gap-1 px-2 py-1 text-[9px] font-display uppercase tracking-widest border border-destructive/50 text-destructive hover:bg-destructive/20 transition-colors rounded"
+            title="View System Theatre Map"
+          >
+            <ExternalLink className="w-3 h-3" />
+            THEATRE
+          </button>
+        </div>
+      )}
 
       <div className="space-y-2 bg-black/40 p-3 rounded border border-white/5 shadow-2xl">
         <DataRow label="Sector" value={sector?.name || 'Unknown'} />
