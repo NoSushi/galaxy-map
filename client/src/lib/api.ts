@@ -36,6 +36,10 @@ function mapPlanetFromApi(p: any): Planet {
     travelable: p.travelable ?? true,
     labelMode: p.labelMode ?? p.label_mode ?? 'normal',
     isWarzone: p.isWarzone ?? p.is_warzone ?? false,
+    warzoneBattleName: p.warzoneBattleName ?? p.warzone_battle_name ?? '',
+    warzoneBattlesWon: p.warzoneBattlesWon ?? p.warzone_battles_won ?? 0,
+    warzoneBattlesLost: p.warzoneBattlesLost ?? p.warzone_battles_lost ?? 0,
+    warzoneObjectives: p.warzoneObjectives ?? p.warzone_objectives ?? [],
   };
 }
 
@@ -62,6 +66,10 @@ function mapPlanetToApi(p: Planet): any {
     travelable: p.travelable ?? true,
     labelMode: p.labelMode ?? 'normal',
     isWarzone: p.isWarzone ?? false,
+    warzoneBattleName: p.warzoneBattleName ?? '',
+    warzoneBattlesWon: p.warzoneBattlesWon ?? 0,
+    warzoneBattlesLost: p.warzoneBattlesLost ?? 0,
+    warzoneObjectives: p.warzoneObjectives ?? [],
   };
 }
 

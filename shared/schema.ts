@@ -24,6 +24,10 @@ export const planets = pgTable("planets", {
   travelable: boolean("travelable").default(true),
   labelMode: text("label_mode").default("normal"),
   isWarzone: boolean("is_warzone").default(false),
+  warzoneBattleName: text("warzone_battle_name").default(""),
+  warzoneBattlesWon: integer("warzone_battles_won").default(0),
+  warzoneBattlesLost: integer("warzone_battles_lost").default(0),
+  warzoneObjectives: jsonb("warzone_objectives").$type<{ id: string; label: string; faction: string }[]>(),
 });
 
 export const sectors = pgTable("sectors", {

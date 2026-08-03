@@ -26,6 +26,10 @@ export interface Planet {
   travelable?: boolean | null;
   isWarzone?: boolean | null;
   labelMode?: string | null;
+  warzoneBattleName?: string | null;
+  warzoneBattlesWon?: number | null;
+  warzoneBattlesLost?: number | null;
+  warzoneObjectives?: { id: string; label: string; faction: string }[] | null;
 }
 
 export interface Sector {

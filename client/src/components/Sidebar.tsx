@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'wouter';
 import { useMap, Planet, Sector, HyperspaceLane, Fleet, FactionInfo } from '@/lib/data';
 import { X, Globe, Map, Route, Edit2, Plus, Settings2, Search, Ship, Crown, Trash2, Lock, Unlock, Move, Eye, EyeOff, Layers2, Swords, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -7,6 +8,20 @@ import { Label } from './ui/label';
 import { Button } from './ui/button';
 import { Switch } from './ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+
+function TheatreButton({ planetId }: { planetId: string }) {
+  const [, navigate] = useLocation();
+  return (
+    <button
+      onClick={() => navigate(`/theatre/${planetId}`)}
+      className="flex items-center gap-1 px-2 py-1 text-[9px] font-display uppercase tracking-widest border border-destructive/50 text-destructive hover:bg-destructive/20 transition-colors rounded"
+      title="View System Theatre Map"
+    >
+      <ExternalLink className="w-3 h-3" />
+      THEATRE
+    </button>
+  );
+}
 
 const ENV_IMAGES: Record<string, string> = {
   'Desert': '/planet-desert.webp',
@@ -311,13 +326,7 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
               <p className="text-[9px] text-destructive/60">System under active military conflict</p>
             </div>
           </div>
-          <button
-            className="flex items-center gap-1 px-2 py-1 text-[9px] font-display uppercase tracking-widest border border-destructive/50 text-destructive hover:bg-destructive/20 transition-colors rounded"
-            title="View System Theatre Map"
-          >
-            <ExternalLink className="w-3 h-3" />
-            THEATRE
-          </button>
+          <TheatreButton planetId={planet.id} />
         </div>
       )}
 
