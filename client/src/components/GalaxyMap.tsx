@@ -147,6 +147,17 @@ const PlanetMarker = React.memo<PlanetMarkerProps>(({
       onMouseDown={(e) => onMouseDown(e, planet)}
     >
       <div className="relative">
+        {planet.isWarzone && (
+          <>
+            <div className="absolute inset-[-8px] rounded-full border-2 border-destructive/70 animate-ping pointer-events-none" />
+            <div className="absolute inset-[-8px] rounded-full border border-destructive/40 pointer-events-none" />
+            <div className="absolute left-1/2 -translate-x-1/2 -top-6 text-destructive drop-shadow-[0_0_6px_hsl(var(--destructive))] pointer-events-none" title="Active Warzone">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" y1="19" x2="19" y2="13"/><line x1="16" y1="16" x2="20" y2="20"/><line x1="19" y1="21" x2="21" y2="19"/>
+              </svg>
+            </div>
+          </>
+        )}
         {planet.isCapital && (
           <div className="absolute left-1/2 -translate-x-1/2 -top-5 text-yellow-400 drop-shadow-[0_0_5px_currentColor] animate-bounce pointer-events-none">
             <Crown className="w-5 h-5 fill-yellow-400/20" />

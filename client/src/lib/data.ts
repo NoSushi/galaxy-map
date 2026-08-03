@@ -57,6 +57,7 @@ export interface Fleet {
   description: string;
   markerImage?: string | null;
   isCapitalShip?: boolean | null;
+  labelMode?: string | null;
 }
 
 export interface FactionInfo {
