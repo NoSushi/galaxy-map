@@ -112,6 +112,7 @@ export interface Fleet {
   isCapitalShip?: boolean | null;
   labelMode?: string | null;
   warzonePlanetId?: string | null;
+  color?: string | null;
 }
 
 export interface FactionInfo {

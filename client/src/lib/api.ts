@@ -125,6 +125,7 @@ function mapFleetFromApi(f: any): Fleet {
     isCapitalShip: f.isCapitalShip ?? f.is_capital_ship,
     labelMode: f.labelMode ?? f.label_mode ?? 'hover',
     warzonePlanetId: f.warzonePlanetId ?? f.warzone_planet_id ?? null,
+    color: f.color ?? null,
   };
 }
 
@@ -141,6 +142,7 @@ function mapFleetToApi(f: Fleet): any {
     isCapitalShip: f.isCapitalShip || false,
     labelMode: f.labelMode ?? 'hover',
     warzonePlanetId: f.warzonePlanetId ?? null,
+    color: f.color ?? null,
   };
 }
 

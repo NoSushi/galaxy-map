@@ -260,7 +260,7 @@ function FleetMarker({ fleet, selected, planetFaction, factions, onSelect }: {
   factions: FactionInfo[];
   onSelect: () => void;
 }) {
-  const fc = factionColor(fleet.faction, factions);
+  const fc = fleet.color || factionColor(fleet.faction, factions);
   const isAlly = fleet.faction === planetFaction;
   const pts = isAlly
     ? `${fleet.svgX},${fleet.svgY-10} ${fleet.svgX-7},${fleet.svgY+7} ${fleet.svgX},${fleet.svgY+2} ${fleet.svgX+7},${fleet.svgY+7}`
@@ -285,10 +285,11 @@ function FleetMarker({ fleet, selected, planetFaction, factions, onSelect }: {
 /* ─── Inner page ─────────────────────────────────────────────────────────── */
 function TheatreMapInner({ planetId }: { planetId: string }) {
   const [, navigate] = useLocation();
-  const { planets, fleets, factionList, currentUser, updatePlanet, sectors, setCurrentUser } = useMap();
+  const { planets, fleets, factionList, currentUser, updatePlanet, sectors, setCurrentUser, addFleet, updateFleet, deleteFleet } = useMap();
 
   const planet = planets.find(p => p.id === planetId);
   const isAdmin = !!(currentUser?.isAdmin || currentUser?.canEditPlanets);
+  const canFleet = !!(currentUser?.isAdmin || currentUser?.canEditFleets);
 
   /* ── Warzone editable fields ── */
   const [battleName,  setBattleName]  = useState("");
@@ -386,9 +387,10 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
 
   /* ── Fleet SVG positions (orbiting the main planet body) ── */
   const mainBody = systemBodies.find(b => b.id === `body-${planetId}`);
-  const fleetPositions = nearbyFleets.slice(0, 8).map((f, i) => {
-    const angle = (i / Math.max(nearbyFleets.length, 1)) * Math.PI * 2 - Math.PI / 2;
-    const dist  = 52 + (i % 2) * 28;
+  const fleetPositions = nearbyFleets.map((f, i) => {
+    const ring  = Math.floor(i / 8); // 8 fleets per orbit ring, then step outward
+    const angle = ((i % 8) / Math.min(Math.max(nearbyFleets.length - ring * 8, 1), 8)) * Math.PI * 2 - Math.PI / 2 + ring * 0.4;
+    const dist  = 52 + (i % 2) * 28 + ring * 46;
     const bx    = mainBody?.x ?? CX - 160;
     const by    = mainBody?.y ?? CY;
     return { ...f, svgX: bx + Math.cos(angle) * dist, svgY: by + Math.sin(angle) * dist * 0.7 };
@@ -629,7 +631,7 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
             );
           }) : fleetPositions.map(f => {
             const isSel = selectedId===f.id;
-            const fc = factionColor(f.faction, factionList);
+            const fc = f.color || factionColor(f.faction, factionList);
             const isDefense = Math.hypot(f.x - planet.x, f.y - planet.y) < 200;
             return (
               <button key={f.id} onClick={() => setSelectedId(isSel?null:f.id)} style={{
@@ -656,6 +658,30 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
             <div style={{ padding:"20px 12px", fontSize:8, color:BLUE+"33",
               fontFamily:"'Orbitron',monospace", textAlign:"center", letterSpacing:2 }}>
               NO FLEETS IN RANGE
+            </div>
+          )}
+          {tab==="fleets" && canFleet && (
+            <div style={{ padding:"8px 12px" }}>
+              <button className="tm-btn" onClick={() => {
+                const newFleet = {
+                  id: `fleet-${Date.now()}`,
+                  name: "New Fleet",
+                  x: Math.round(planet.x),
+                  y: Math.round(planet.y),
+                  icon: "default",
+                  faction: planet.faction || factionList[0]?.name || "Independent",
+                  description: "",
+                  markerImage: null,
+                  isCapitalShip: false,
+                  labelMode: "hover",
+                  warzonePlanetId: planet.id,
+                  color: null,
+                };
+                addFleet(newFleet);
+                setSelectedId(newFleet.id);
+              }}>
+                + ADD FLEET
+              </button>
             </div>
           )}
         </div>
@@ -713,9 +739,10 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
 
         {/* Fleet detail pane */}
         {selectedFleet && !editingBody && (
-          <div style={{ borderTop:`1px solid ${BLUE}22`, padding:"10px 12px", background:"#000d1a", flexShrink:0 }}>
+          <div style={{ borderTop:`1px solid ${BLUE}22`, padding:"10px 12px", background:"#000d1a", flexShrink:0, maxHeight:280, overflowY:"auto" }}>
             {(() => {
-              const fc = factionColor(selectedFleet.faction, factionList);
+              const fc = selectedFleet.color || factionColor(selectedFleet.faction, factionList);
+              const baseFleet = fleets.find(fl => fl.id === selectedFleet.id);
               return <>
                 <div style={{ fontSize:7, color:fc+"66", letterSpacing:2, fontFamily:"'Orbitron',monospace", marginBottom:2 }}>FLEET // UNIT</div>
                 <div style={{ fontSize:13, fontWeight:700, color:fc, letterSpacing:2, textTransform:"uppercase" }}>{selectedFleet.name}</div>
@@ -728,6 +755,53 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
                     </div>
                   ))}
                 </div>
+                {canFleet && baseFleet && (
+                  <div style={{ display:"flex", flexDirection:"column", gap:5, marginTop:10, paddingTop:8, borderTop:`1px solid ${BLUE}22` }}>
+                    <div>
+                      <div style={{ fontSize:7, color:BLUE+"55", letterSpacing:1, fontFamily:"'Orbitron',monospace", marginBottom:2 }}>NAME</div>
+                      <input className="tm-input" value={baseFleet.name}
+                        onChange={e => updateFleet({ ...baseFleet, name: e.target.value })} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize:7, color:BLUE+"55", letterSpacing:1, fontFamily:"'Orbitron',monospace", marginBottom:2 }}>FACTION</div>
+                      <select className="tm-select" value={baseFleet.faction}
+                        onChange={e => updateFleet({ ...baseFleet, faction: e.target.value })}>
+                        {factionList.map(fa => <option key={fa.id} value={fa.name}>{fa.name}</option>)}
+                        {!factionList.some(fa => fa.name === "Independent") && <option value="Independent">Independent</option>}
+                      </select>
+                    </div>
+                    <div>
+                      <div style={{ fontSize:7, color:BLUE+"55", letterSpacing:1, fontFamily:"'Orbitron',monospace", marginBottom:2 }}>
+                        COLOR {baseFleet.color ? "— CUSTOM" : "— FACTION DEFAULT"}
+                      </div>
+                      <div style={{ display:"flex", gap:4, flexWrap:"wrap", alignItems:"center" }}>
+                        <div onClick={() => updateFleet({ ...baseFleet, color: null })}
+                          title="Faction default"
+                          style={{ width:16, height:16, borderRadius:"50%", cursor:"pointer",
+                            background: factionColor(baseFleet.faction, factionList),
+                            border: !baseFleet.color ? `2px solid #fff` : `1px solid ${BLUE}44`,
+                            position:"relative" }}>
+                          <span style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:8, color:"#fff" }}>◈</span>
+                        </div>
+                        {["#00aaff","#cc0000","#ff9900","#00cc66","#aa44ff","#ffdd00","#ff44aa","#44ddee","#888888","#ffffff"].map(c => (
+                          <div key={c} onClick={() => updateFleet({ ...baseFleet, color: c })}
+                            style={{ width:16, height:16, borderRadius:"50%", background:c, cursor:"pointer",
+                              border: baseFleet.color===c ? `2px solid #fff` : `1px solid ${c}44` }} />
+                        ))}
+                      </div>
+                    </div>
+                    <label style={{ display:"flex", alignItems:"center", gap:6, cursor:"pointer", fontSize:8, color:BLUE+"88", fontFamily:"'Orbitron',monospace", letterSpacing:1 }}>
+                      <input type="checkbox" checked={!!baseFleet.isCapitalShip}
+                        onChange={e => updateFleet({ ...baseFleet, isCapitalShip: e.target.checked })}
+                        style={{ accentColor:BLUE }} />
+                      CAPITAL SHIP ★
+                    </label>
+                    <button className="tm-btn tm-btn-red" style={{ marginTop:2 }}
+                      onClick={() => { deleteFleet(baseFleet.id); setSelectedId(null); }}>
+                      ✕ DELETE FLEET
+                    </button>
+                  </div>
+                )}
               </>;
             })()}
           </div>
