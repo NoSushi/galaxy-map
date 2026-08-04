@@ -107,6 +107,7 @@ function Panel({ children, label, color=BLUE, style }: {
 
 /* ─── Login modal ─────────────────────────────────────────────────────────── */
 function AdminLoginModal({ onClose }: { onClose: () => void }) {
+  const { setCurrentUser } = useMap();
   const [user, setUser] = useState("");
   const [pass, setPass] = useState("");
   const [err,  setErr]  = useState("");
@@ -121,6 +122,8 @@ function AdminLoginModal({ onClose }: { onClose: () => void }) {
         body: JSON.stringify({ username:user, password:pass }),
       });
       if (!res.ok) { const d = await res.json(); setErr(d.error || "Invalid credentials"); return; }
+      const authUser = await res.json();
+      setCurrentUser(authUser);
       onClose();
     } catch { setErr("Connection error"); }
     finally { setBusy(false); }
