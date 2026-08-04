@@ -30,6 +30,18 @@ export interface Planet {
   warzoneBattlesWon?: number | null;
   warzoneBattlesLost?: number | null;
   warzoneObjectives?: { id: string; label: string; faction: string }[] | null;
+  warzoneSystemLayout?: { bodies: SystemBodyData[] } | null;
+}
+
+export interface SystemBodyData {
+  id: string;
+  type: 'star' | 'planet' | 'moon' | 'asteroid_belt' | 'gas_giant';
+  name: string;
+  x: number;
+  y: number;
+  size: number;
+  color: string;
+  faction?: string;
 }
 
 export interface Sector {

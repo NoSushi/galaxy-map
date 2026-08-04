@@ -28,6 +28,7 @@ export const planets = pgTable("planets", {
   warzoneBattlesWon: integer("warzone_battles_won").default(0),
   warzoneBattlesLost: integer("warzone_battles_lost").default(0),
   warzoneObjectives: jsonb("warzone_objectives").$type<{ id: string; label: string; faction: string }[]>(),
+  warzoneSystemLayout: jsonb("warzone_system_layout").$type<{ bodies: { id: string; type: string; name: string; x: number; y: number; size: number; color: string; faction?: string }[] }>(),
 });
 
 export const sectors = pgTable("sectors", {

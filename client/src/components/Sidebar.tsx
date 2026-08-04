@@ -9,8 +9,21 @@ import { Button } from './ui/button';
 import { Switch } from './ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
-function TheatreButton({ planetId }: { planetId: string }) {
+function TheatreButton({ planetId, variant = "inline" }: { planetId: string; variant?: "inline" | "panel" }) {
   const [, navigate] = useLocation();
+  if (variant === "panel") {
+    return (
+      <button
+        onClick={() => navigate(`/theatre/${planetId}`)}
+        className="w-full flex items-center justify-center gap-2 py-2 text-[10px] font-display uppercase tracking-widest border border-destructive/60 text-destructive bg-destructive/10 hover:bg-destructive/25 active:bg-destructive/40 transition-colors rounded"
+        title="Open System Theatre Map"
+      >
+        <Swords className="w-3.5 h-3.5" />
+        Open Theatre Map
+        <ExternalLink className="w-3 h-3 opacity-60" />
+      </button>
+    );
+  }
   return (
     <button
       onClick={() => navigate(`/theatre/${planetId}`)}
@@ -274,6 +287,10 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
           </div>
           <Switch checked={planet.isWarzone || false} onCheckedChange={c => updatePlanet({...planet, isWarzone: c})} id="is-warzone" />
         </div>
+
+        {planet.isWarzone && (
+          <TheatreButton planetId={planet.id} variant="panel" />
+        )}
 
         <div className="space-y-1">
           <Label className="text-[10px] uppercase text-primary/70">Oversector</Label>
