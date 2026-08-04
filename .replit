@@ -50,7 +50,7 @@ mockupState = "FULLSTACK"
 [userenv]
 
 [userenv.shared]
-CUSTOM_DATABASE_URL = "postgresql://neondb_owner:npg_nh0cl7mqoxpL@ep-frosty-snow-aibdca21-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+
 
 [postMerge]
 path = "scripts/post-merge.sh"
