@@ -142,10 +142,22 @@ function mapFleetToApi(f: Fleet): any {
   };
 }
 
+// Build a PATCH payload containing ONLY the fields present in the partial,
+// reusing the same normalization rules as mapPlanetToApi.
+function mapPlanetPatchToApi(patch: Partial<Planet>): any {
+  const normalized = mapPlanetToApi(patch as Planet);
+  const out: any = {};
+  for (const key of Object.keys(patch)) {
+    if (key === 'id') continue;
+    if (key in normalized) out[key] = normalized[key];
+  }
+  return out;
+}
+
 export const planetApi = {
   getAll: async (): Promise<Planet[]> => (await api('/api/planets')).map(mapPlanetFromApi),
   create: async (p: Planet): Promise<Planet> => mapPlanetFromApi(await api('/api/planets', { method: 'POST', body: JSON.stringify(mapPlanetToApi(p)) })),
-  update: async (p: Planet): Promise<Planet> => mapPlanetFromApi(await api(`/api/planets/${p.id}`, { method: 'PATCH', body: JSON.stringify(mapPlanetToApi(p)) })),
+  update: async (id: string, patch: Partial<Planet>): Promise<Planet> => mapPlanetFromApi(await api(`/api/planets/${id}`, { method: 'PATCH', body: JSON.stringify(mapPlanetPatchToApi(patch)) })),
   delete: async (id: string): Promise<void> => { await api(`/api/planets/${id}`, { method: 'DELETE' }); },
 };
 

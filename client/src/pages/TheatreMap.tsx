@@ -353,15 +353,16 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
     objectives: typeof objectives; bodies: SystemBodyData[]; forces: ForceEntry[];
   }>) => {
     if (!planet) return;
-    updatePlanet({
-      ...planet,
+    // Send only warzone fields so concurrent galaxy-map edits aren't overwritten
+    const changes: Partial<Planet> = {
       warzoneBattleName:    updates.battleName  ?? battleName,
       warzoneBattlesWon:    updates.battlesWon  ?? battlesWon,
       warzoneBattlesLost:   updates.battlesLost ?? battlesLost,
       warzoneObjectives:    updates.objectives  ?? objectives,
       warzoneSystemLayout:  { bodies: updates.bodies ?? systemBodies },
       warzoneForces:        updates.forces ?? forces,
-    });
+    };
+    updatePlanet({ ...planet, ...changes }, changes);
   }, [planet, battleName, battlesWon, battlesLost, objectives, systemBodies, forces, updatePlanet]);
 
   /* Logout */

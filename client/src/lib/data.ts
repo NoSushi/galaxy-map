@@ -149,7 +149,7 @@ export interface MapContextType {
   setSectorDrawMode: (mode: boolean) => void;
   setSearchQuery: (query: string) => void;
   setFilters: (filters: any) => void;
-  updatePlanet: (planet: Planet) => void;
+  updatePlanet: (planet: Planet, changes?: Partial<Planet>) => void;
   addPlanet: (planet: Planet) => void;
   updateSector: (sector: Sector) => void;
   addSector: (sector: Sector, options?: { clip?: boolean }) => void;

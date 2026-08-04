@@ -250,11 +250,40 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
     });
   }, [debouncedApiCall, pointToSegmentDist, planets]);
 
-  const updatePlanet = (updatedPlanet: Planet) => {
+  // Accumulated unsent field changes per planet, merged across debounce cycles
+  // so rapid successive edits are never dropped.
+  const pendingPlanetChanges = useRef<Record<string, Partial<Planet>>>({});
+
+  const updatePlanet = (updatedPlanet: Planet, changes?: Partial<Planet>) => {
     const oldPlanet = planets.find(p => p.id === updatedPlanet.id);
+    // Determine which fields actually changed; only those are sent to the
+    // server so concurrent editors don't overwrite each other's fields.
+    let diff: Partial<Planet>;
+    if (changes) {
+      diff = changes;
+    } else if (oldPlanet) {
+      diff = {};
+      for (const key of Object.keys(updatedPlanet) as (keyof Planet)[]) {
+        if (key === 'id') continue;
+        if (JSON.stringify(updatedPlanet[key]) !== JSON.stringify(oldPlanet[key])) {
+          (diff as any)[key] = updatedPlanet[key];
+        }
+      }
+    } else {
+      diff = { ...updatedPlanet };
+    }
     setPlanets(prev => prev.map(p => p.id === updatedPlanet.id ? updatedPlanet : p));
     if (selectedPlanet?.id === updatedPlanet.id) setSelectedPlanet(updatedPlanet);
-    debouncedApiCall(`planet-${updatedPlanet.id}`, () => planetApi.update(updatedPlanet));
+    if (Object.keys(diff).length > 0) {
+      const id = updatedPlanet.id;
+      pendingPlanetChanges.current[id] = { ...pendingPlanetChanges.current[id], ...diff };
+      debouncedApiCall(`planet-${id}`, () => {
+        const payload = pendingPlanetChanges.current[id];
+        delete pendingPlanetChanges.current[id];
+        if (!payload || Object.keys(payload).length === 0) return Promise.resolve(null);
+        return planetApi.update(id, payload);
+      });
+    }
     if (oldPlanet && (oldPlanet.x !== updatedPlanet.x || oldPlanet.y !== updatedPlanet.y)) {
       autoConnectPlanetToLanes(updatedPlanet);
     }
@@ -287,7 +316,7 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
       if (updated) setSelectedPlanet(updated);
     }
     for (const planet of toUpdate) {
-      debouncedApiCall(`planet-faction-${planet.id}`, () => planetApi.update(planet));
+      debouncedApiCall(`planet-faction-${planet.id}`, () => planetApi.update(planet.id, { faction: planet.faction }));
     }
   }, [debouncedApiCall, selectedPlanet]);
 

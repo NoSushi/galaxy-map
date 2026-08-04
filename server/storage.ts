@@ -62,7 +62,11 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
   async updatePlanet(id: string, data: Partial<InsertPlanet>): Promise<Planet | undefined> {
-    const [updated] = await db.update(planets).set(data).where(eq(planets.id, id)).returning();
+    // Field-level merge: only the supplied fields are written. Strip any
+    // client-sent id so the primary key can never be rewritten by a PATCH.
+    const { id: _ignored, ...fields } = data as Record<string, unknown>;
+    if (Object.keys(fields).length === 0) return this.getPlanet(id);
+    const [updated] = await db.update(planets).set(fields).where(eq(planets.id, id)).returning();
     return updated;
   }
   async deletePlanet(id: string): Promise<void> {

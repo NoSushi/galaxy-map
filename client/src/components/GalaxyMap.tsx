@@ -635,7 +635,7 @@ export const GalaxyMap = () => {
 
     if (draggingPlanet) {
       const planet = planets.find(p => p.id === draggingPlanet);
-      if (planet) updatePlanet({ ...planet, x, y });
+      if (planet) updatePlanet({ ...planet, x, y }, { x, y });
     } else if (draggingSectorPoint) {
       const sector = sectors.find(s => s.id === draggingSectorPoint.sectorId);
       if (sector) {
