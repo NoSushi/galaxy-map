@@ -1,11 +1,25 @@
 import express, { type Request, Response, NextFunction } from "express";
 import compression from "compression";
+import session from "express-session";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 
 const app = express();
 const httpServer = createServer(app);
+
+app.set("trust proxy", 1);
+app.use(session({
+  secret: process.env.SESSION_SECRET || "dev-only-secret",
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+  },
+}));
 
 declare module "http" {
   interface IncomingMessage {

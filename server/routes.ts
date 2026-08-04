@@ -1,7 +1,28 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { hashPassword, verifyPassword } from "./auth";
+
+declare module "express-session" {
+  interface SessionData {
+    userId?: string;
+  }
+}
+
+type Permission = "canEditPlanets" | "canEditSectors" | "canEditLanes" | "canEditFleets" | "canManageFactions";
+
+function requireEditor(permission: Permission): RequestHandler {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const userId = req.session?.userId;
+    if (!userId) return res.status(401).json({ error: "Authentication required" });
+    const user = await storage.getUser(userId);
+    if (!user) return res.status(401).json({ error: "Authentication required" });
+    if (!user.isAdmin && !user[permission]) {
+      return res.status(403).json({ error: "Permission denied" });
+    }
+    next();
+  };
+}
 
 const DEFAULT_FACTIONS = [
   { id: 'f-republic', name: 'Galactic Republic', color: '210 80% 55%' },
@@ -43,19 +64,19 @@ export async function registerRoutes(
     res.json(planets);
   });
 
-  app.post("/api/planets", async (req, res) => {
+  app.post("/api/planets", requireEditor("canEditPlanets"), async (req, res) => {
     const planet = await storage.createPlanet(req.body);
     res.status(201).json(planet);
   });
 
-  app.patch("/api/planets/:id", async (req, res) => {
-    const planet = await storage.updatePlanet(req.params.id, req.body);
+  app.patch("/api/planets/:id", requireEditor("canEditPlanets"), async (req, res) => {
+    const planet = await storage.updatePlanet(String(req.params.id), req.body);
     if (!planet) return res.status(404).json({ error: "Planet not found" });
     res.json(planet);
   });
 
-  app.delete("/api/planets/:id", async (req, res) => {
-    await storage.deletePlanet(req.params.id);
+  app.delete("/api/planets/:id", requireEditor("canEditPlanets"), async (req, res) => {
+    await storage.deletePlanet(String(req.params.id));
     res.status(204).send();
   });
 
@@ -65,19 +86,19 @@ export async function registerRoutes(
     res.json(sectors);
   });
 
-  app.post("/api/sectors", async (req, res) => {
+  app.post("/api/sectors", requireEditor("canEditSectors"), async (req, res) => {
     const sector = await storage.createSector(req.body);
     res.status(201).json(sector);
   });
 
-  app.patch("/api/sectors/:id", async (req, res) => {
-    const sector = await storage.updateSector(req.params.id, req.body);
+  app.patch("/api/sectors/:id", requireEditor("canEditSectors"), async (req, res) => {
+    const sector = await storage.updateSector(String(req.params.id), req.body);
     if (!sector) return res.status(404).json({ error: "Sector not found" });
     res.json(sector);
   });
 
-  app.delete("/api/sectors/:id", async (req, res) => {
-    await storage.deleteSector(req.params.id);
+  app.delete("/api/sectors/:id", requireEditor("canEditSectors"), async (req, res) => {
+    await storage.deleteSector(String(req.params.id));
     res.status(204).send();
   });
 
@@ -87,19 +108,19 @@ export async function registerRoutes(
     res.json(lanes);
   });
 
-  app.post("/api/lanes", async (req, res) => {
+  app.post("/api/lanes", requireEditor("canEditLanes"), async (req, res) => {
     const lane = await storage.createLane(req.body);
     res.status(201).json(lane);
   });
 
-  app.patch("/api/lanes/:id", async (req, res) => {
-    const lane = await storage.updateLane(req.params.id, req.body);
+  app.patch("/api/lanes/:id", requireEditor("canEditLanes"), async (req, res) => {
+    const lane = await storage.updateLane(String(req.params.id), req.body);
     if (!lane) return res.status(404).json({ error: "Lane not found" });
     res.json(lane);
   });
 
-  app.delete("/api/lanes/:id", async (req, res) => {
-    await storage.deleteLane(req.params.id);
+  app.delete("/api/lanes/:id", requireEditor("canEditLanes"), async (req, res) => {
+    await storage.deleteLane(String(req.params.id));
     res.status(204).send();
   });
 
@@ -109,19 +130,19 @@ export async function registerRoutes(
     res.json(fleets);
   });
 
-  app.post("/api/fleets", async (req, res) => {
+  app.post("/api/fleets", requireEditor("canEditFleets"), async (req, res) => {
     const fleet = await storage.createFleet(req.body);
     res.status(201).json(fleet);
   });
 
-  app.patch("/api/fleets/:id", async (req, res) => {
-    const fleet = await storage.updateFleet(req.params.id, req.body);
+  app.patch("/api/fleets/:id", requireEditor("canEditFleets"), async (req, res) => {
+    const fleet = await storage.updateFleet(String(req.params.id), req.body);
     if (!fleet) return res.status(404).json({ error: "Fleet not found" });
     res.json(fleet);
   });
 
-  app.delete("/api/fleets/:id", async (req, res) => {
-    await storage.deleteFleet(req.params.id);
+  app.delete("/api/fleets/:id", requireEditor("canEditFleets"), async (req, res) => {
+    await storage.deleteFleet(String(req.params.id));
     res.status(204).send();
   });
 
@@ -131,7 +152,7 @@ export async function registerRoutes(
     res.json(factionList);
   });
 
-  app.post("/api/factions", async (req, res) => {
+  app.post("/api/factions", requireEditor("canManageFactions"), async (req, res) => {
     const { name, color } = req.body;
     if (!name) return res.status(400).json({ error: "Name required" });
     const faction = await storage.createFaction({
@@ -142,18 +163,18 @@ export async function registerRoutes(
     res.status(201).json(faction);
   });
 
-  app.patch("/api/factions/:id", async (req, res) => {
-    const faction = await storage.updateFaction(req.params.id, req.body);
+  app.patch("/api/factions/:id", requireEditor("canManageFactions"), async (req, res) => {
+    const faction = await storage.updateFaction(String(req.params.id), req.body);
     if (!faction) return res.status(404).json({ error: "Faction not found" });
     res.json(faction);
   });
 
-  app.delete("/api/factions/:id", async (req, res) => {
+  app.delete("/api/factions/:id", requireEditor("canManageFactions"), async (req, res) => {
     const defaultIds = DEFAULT_FACTIONS.map(f => f.id);
-    if (defaultIds.includes(req.params.id)) {
+    if (defaultIds.includes(String(req.params.id))) {
       return res.status(400).json({ error: "Cannot delete a built-in faction" });
     }
-    await storage.deleteFaction(req.params.id);
+    await storage.deleteFaction(String(req.params.id));
     res.status(204).send();
   });
 
@@ -165,6 +186,31 @@ export async function registerRoutes(
     if (!user) return res.status(401).json({ error: "Invalid credentials" });
     const valid = await verifyPassword(password, user.passwordHash);
     if (!valid) return res.status(401).json({ error: "Invalid credentials" });
+    req.session.userId = user.id;
+    res.json({
+      id: user.id,
+      username: user.username,
+      isAdmin: user.isAdmin,
+      canEditPlanets: user.canEditPlanets,
+      canEditSectors: user.canEditSectors,
+      canEditLanes: user.canEditLanes,
+      canEditFleets: user.canEditFleets,
+      canManageFactions: user.canManageFactions,
+    });
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy(() => {
+      res.clearCookie("connect.sid");
+      res.json({ success: true });
+    });
+  });
+
+  app.get("/api/auth/me", async (req, res) => {
+    const userId = req.session?.userId;
+    if (!userId) return res.status(401).json({ error: "Not authenticated" });
+    const user = await storage.getUser(userId);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
     res.json({
       id: user.id,
       username: user.username,
@@ -245,7 +291,7 @@ export async function registerRoutes(
     if (!admin || !admin.isAdmin) return res.status(403).json({ error: "Admin access required" });
     const valid = await verifyPassword(adminPassword, admin.passwordHash);
     if (!valid) return res.status(403).json({ error: "Admin access required" });
-    const user = await storage.updateUser(req.params.id, { isAdmin, canEditPlanets, canEditSectors, canEditLanes, canEditFleets, canManageFactions });
+    const user = await storage.updateUser(String(req.params.id), { isAdmin, canEditPlanets, canEditSectors, canEditLanes, canEditFleets, canManageFactions });
     if (!user) return res.status(404).json({ error: "User not found" });
     res.json(serializeUser(user));
   });
@@ -256,8 +302,8 @@ export async function registerRoutes(
     if (!admin || !admin.isAdmin) return res.status(403).json({ error: "Admin access required" });
     const valid = await verifyPassword(adminPassword, admin.passwordHash);
     if (!valid) return res.status(403).json({ error: "Admin access required" });
-    if (req.params.id === admin.id) return res.status(400).json({ error: "Cannot delete your own account" });
-    await storage.deleteUser(req.params.id);
+    if (String(req.params.id) === admin.id) return res.status(400).json({ error: "Cannot delete your own account" });
+    await storage.deleteUser(String(req.params.id));
     res.status(204).send();
   });
 

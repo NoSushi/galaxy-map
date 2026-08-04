@@ -31,6 +31,15 @@ export interface Planet {
   warzoneBattlesLost?: number | null;
   warzoneObjectives?: { id: string; label: string; faction: string }[] | null;
   warzoneSystemLayout?: { bodies: SystemBodyData[] } | null;
+  warzoneForces?: ForceEntry[] | null;
+}
+
+export interface ForceEntry {
+  id: string;
+  faction: string;
+  ships: number;
+  fighters: number;
+  troops: number;
 }
 
 export interface SystemBodyData {

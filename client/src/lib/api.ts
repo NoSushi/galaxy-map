@@ -41,6 +41,7 @@ function mapPlanetFromApi(p: any): Planet {
     warzoneBattlesLost: p.warzoneBattlesLost ?? p.warzone_battles_lost ?? 0,
     warzoneObjectives: p.warzoneObjectives ?? p.warzone_objectives ?? [],
     warzoneSystemLayout: p.warzoneSystemLayout ?? p.warzone_system_layout ?? null,
+    warzoneForces: p.warzoneForces ?? p.warzone_forces ?? null,
   };
 }
 
@@ -72,6 +73,7 @@ function mapPlanetToApi(p: Planet): any {
     warzoneBattlesLost: p.warzoneBattlesLost ?? 0,
     warzoneObjectives: p.warzoneObjectives ?? [],
     warzoneSystemLayout: p.warzoneSystemLayout ?? null,
+    warzoneForces: p.warzoneForces ?? null,
   };
 }
 

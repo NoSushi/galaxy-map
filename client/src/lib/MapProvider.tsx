@@ -172,6 +172,12 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
       }
     };
     loadData();
+
+    // Restore login session (if any) from the server
+    fetch('/api/auth/me')
+      .then(res => res.ok ? res.json() : null)
+      .then(user => { if (user) setCurrentUser(user); })
+      .catch(() => {});
   }, []);
 
   // When edit mode is disabled, lock all planets

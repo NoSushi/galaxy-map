@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useLocation } from "wouter";
 import { MapProvider } from "@/lib/MapProvider";
 import { useMap } from "@/lib/data";
-import type { Planet, FactionInfo, Fleet, SystemBodyData } from "@/lib/data";
+import type { Planet, FactionInfo, Fleet, SystemBodyData, ForceEntry } from "@/lib/data";
 
 /* ─── Constants ─────────────────────────────────────────────────────────────── */
 const BLUE  = "#00aaff";
@@ -285,7 +285,7 @@ function FleetMarker({ fleet, selected, planetFaction, factions, onSelect }: {
 /* ─── Inner page ─────────────────────────────────────────────────────────── */
 function TheatreMapInner({ planetId }: { planetId: string }) {
   const [, navigate] = useLocation();
-  const { planets, fleets, factionList, currentUser, updatePlanet, sectors } = useMap();
+  const { planets, fleets, factionList, currentUser, updatePlanet, sectors, setCurrentUser } = useMap();
 
   const planet = planets.find(p => p.id === planetId);
   const isAdmin = !!(currentUser?.isAdmin || currentUser?.canEditPlanets);
@@ -295,9 +295,11 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
   const [battlesWon,  setBattlesWon]  = useState(0);
   const [battlesLost, setBattlesLost] = useState(0);
   const [objectives,  setObjectives]  = useState<{ id:string; label:string; faction:string }[]>([]);
-  const [editBattles, setEditBattles] = useState(false);
-  const [editingObj,  setEditingObj]  = useState<string|null>(null);
-  const seedRef = useRef(false);
+  const [editBattles,    setEditBattles]    = useState(false);
+  const [editingObj,     setEditingObj]     = useState<string|null>(null);
+  const [forces,         setForces]         = useState<ForceEntry[]>([]);
+  const [editingForceId, setEditingForceId] = useState<string|null>(null);
+  const seedRef = useRef<string | null>(null);
 
   /* ── System editor state ── */
   const [systemBodies, setSystemBodies] = useState<SystemBodyData[]>([]);
@@ -313,10 +315,14 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
   const dragRef = useRef<{ id: string; ox: number; oy: number } | null>(null);
   const svgRef  = useRef<SVGSVGElement>(null);
 
+  /* Keep a ref of latest bodies so drag-end can save without setState side effects */
+  const systemBodiesRef = useRef<SystemBodyData[]>([]);
+  useEffect(() => { systemBodiesRef.current = systemBodies; }, [systemBodies]);
+
   /* Seed once from planet */
   useEffect(() => {
-    if (!planet || seedRef.current) return;
-    seedRef.current = true;
+    if (!planet || seedRef.current === planet.id) return;
+    seedRef.current = planet.id;
     setBattleName(planet.warzoneBattleName || `Battle of ${planet.name}`);
     setBattlesWon(planet.warzoneBattlesWon ?? 0);
     setBattlesLost(planet.warzoneBattlesLost ?? 0);
@@ -332,12 +338,19 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
         ? planet.warzoneSystemLayout.bodies
         : defaultBodies(planet)
     );
+    setForces(planet.warzoneForces?.length
+      ? planet.warzoneForces
+      : [
+          { id:"force-1", faction: planet.faction,  ships:0, fighters:0, troops:0 },
+          { id:"force-2", faction: "Independent",   ships:0, fighters:0, troops:0 },
+        ]
+    );
   }, [planet]);
 
   /* Persist helper */
   const saveToDb = useCallback((updates: Partial<{
     battleName: string; battlesWon: number; battlesLost: number;
-    objectives: typeof objectives; bodies: SystemBodyData[];
+    objectives: typeof objectives; bodies: SystemBodyData[]; forces: ForceEntry[];
   }>) => {
     if (!planet) return;
     updatePlanet({
@@ -347,8 +360,15 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
       warzoneBattlesLost:   updates.battlesLost ?? battlesLost,
       warzoneObjectives:    updates.objectives  ?? objectives,
       warzoneSystemLayout:  { bodies: updates.bodies ?? systemBodies },
+      warzoneForces:        updates.forces ?? forces,
     });
-  }, [planet, battleName, battlesWon, battlesLost, objectives, systemBodies, updatePlanet]);
+  }, [planet, battleName, battlesWon, battlesLost, objectives, systemBodies, forces, updatePlanet]);
+
+  /* Logout */
+  async function logout() {
+    await fetch("/api/auth/logout", { method:"POST" }).catch(() => {});
+    setCurrentUser(null);
+  }
 
   /* ── Sector planets (for sector control only — not SVG) ── */
   const sectorPlanets = planet?.sectorId
@@ -390,13 +410,15 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
     const pt = svgPoint(e, svgRef.current);
     const nx = Math.max(20, Math.min(SVG_W - 20, pt.x - dragRef.current.ox));
     const ny = Math.max(20, Math.min(SVG_H - 20, pt.y - dragRef.current.oy));
-    setSystemBodies(bs => bs.map(b => b.id === dragRef.current!.id ? { ...b, x: nx, y: ny } : b));
+    const next = systemBodiesRef.current.map(b => b.id === dragRef.current!.id ? { ...b, x: nx, y: ny } : b);
+    systemBodiesRef.current = next;
+    setSystemBodies(next);
   }
 
   function handleSvgMouseUp() {
     if (!dragRef.current) return;
     dragRef.current = null;
-    setSystemBodies(bs => { saveToDb({ bodies: bs }); return bs; });
+    saveToDb({ bodies: systemBodiesRef.current });
   }
 
   function handleSvgClick(e: React.MouseEvent<SVGSVGElement>) {
@@ -505,10 +527,13 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
             ADMIN ACCESS
           </span>
           {isAdmin ? (
-            <span style={{ fontSize:7, color:BLUE, letterSpacing:2, fontFamily:"'Orbitron',monospace",
-              border:`1px solid ${BLUE}33`, padding:"2px 6px" }}>
-              ■ {currentUser!.username.toUpperCase()}
-            </span>
+            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+              <span style={{ fontSize:7, color:BLUE, letterSpacing:2, fontFamily:"'Orbitron',monospace",
+                border:`1px solid ${BLUE}33`, padding:"2px 6px" }}>
+                ■ {currentUser!.username.toUpperCase()}
+              </span>
+              <button onClick={logout} className="tm-btn tm-btn-red" title="Exit admin mode">✕</button>
+            </div>
           ) : (
             <button onClick={() => setShowLogin(true)} className="tm-btn">LOGIN</button>
           )}
@@ -656,6 +681,15 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
                 </div>
               )}
               <div>
+                <div style={{ fontSize:7, color:BLUE+"55", letterSpacing:1, fontFamily:"'Orbitron',monospace", marginBottom:2 }}>
+                  SIZE — {editingBody.size}px
+                </div>
+                <input type="range" min={editingBody.type==="asteroid_belt"?20:5} max={editingBody.type==="star"?80:editingBody.type==="asteroid_belt"?160:40}
+                  value={editingBody.size}
+                  onChange={e => updateBody(editingBody.id, { size: +e.target.value })}
+                  style={{ width:"100%", accentColor:BLUE, cursor:"pointer" }} />
+              </div>
+              <div>
                 <div style={{ fontSize:7, color:BLUE+"55", letterSpacing:1, fontFamily:"'Orbitron',monospace", marginBottom:2 }}>COLOR</div>
                 <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
                   {["#ffdd66","#c47a30","#9dd4f5","#9999aa","#887766","#88cc88","#cc8888","#aaaaff"].map(c => (
@@ -714,18 +748,21 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
             · WARZONE THEATER ·
           </span>
           <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:16 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-              <Dot color={BLUE} />
-              <span style={{ fontSize:8, color:BLUE+"aa", letterSpacing:2, fontFamily:"'Orbitron',monospace" }}>
-                {nearbyFleets.filter(f => f.faction===planet.faction).length} ALLIED
-              </span>
-            </div>
-            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-              <Dot color={RRED} />
-              <span style={{ fontSize:8, color:RRED+"aa", letterSpacing:2, fontFamily:"'Orbitron',monospace" }}>
-                {nearbyFleets.filter(f => f.faction!==planet.faction).length} HOSTILE
-              </span>
-            </div>
+            {forces.map(f => {
+              const fc = factionColor(f.faction, factionList);
+              const total = f.ships + f.fighters + f.troops;
+              return (
+                <div key={f.id} style={{ display:"flex", alignItems:"center", gap:5 }}>
+                  <div style={{ width:5, height:5, borderRadius:"50%", background:fc, boxShadow:`0 0 4px ${fc}` }} />
+                  <span style={{ fontSize:8, color:fc+"cc", letterSpacing:1, fontFamily:"'Orbitron',monospace" }}>
+                    {factionAbbr(f.faction)}
+                  </span>
+                  <span style={{ fontSize:8, color:fc+"88", letterSpacing:1, fontFamily:"'Orbitron',monospace" }}>
+                    {total > 0 ? `${f.ships}S ${f.fighters}F ${f.troops}T` : "—"}
+                  </span>
+                </div>
+              );
+            })}
             {isAdmin && (
               <span style={{ fontSize:7, color:BLUE, border:`1px solid ${BLUE}33`, padding:"2px 8px",
                 fontFamily:"'Orbitron',monospace", letterSpacing:1 }}>
@@ -766,14 +803,14 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
 
           {gridLines}
 
-          {/* Coordinate labels */}
+          {/* Coordinate labels — x-axis across top, y-axis down left (skip 0 to avoid overlap) */}
           {[0,1,2,3,4,5,6,7,8].map(i => (
-            <text key={i} x={i*100+4} y={14} fill={BLUE} fontSize={7} opacity={0.2} fontFamily="Orbitron,monospace">
+            <text key={`cx${i}`} x={i*100+4} y={14} fill={BLUE} fontSize={7} opacity={0.2} fontFamily="Orbitron,monospace">
               {String(i).padStart(2,"0")}
             </text>
           ))}
-          {[0,1,2,3,4,5].map(i => (
-            <text key={i} x={4} y={i*100+12} fill={BLUE} fontSize={7} opacity={0.2} fontFamily="Orbitron,monospace">
+          {[1,2,3,4,5].map(i => (
+            <text key={`cy${i}`} x={4} y={i*100+12} fill={BLUE} fontSize={7} opacity={0.2} fontFamily="Orbitron,monospace">
               {String(i).padStart(2,"0")}
             </text>
           ))}
@@ -905,66 +942,111 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
           </div>
         </Panel>
 
-        {/* Sector Control */}
-        <Panel label="SECTOR CONTROL" color={BLUE} style={{ margin:"10px 10px 0", flex:1, display:"flex", flexDirection:"column", minHeight:0 }}>
-          <div style={{ padding:"10px 10px 8px", flex:1, overflowY:"auto" }}>
-            {/* Warzone planet first */}
-            <div style={{ marginBottom:6, display:"flex", alignItems:"center", gap:6 }}>
-              <div style={{ width:4, height:4, borderRadius:"50%", flexShrink:0,
-                background:factionColor(planet.faction, factionList),
-                boxShadow:`0 0 5px ${factionColor(planet.faction, factionList)}` }} />
-              <span style={{ fontSize:8, color:LBLUE, flex:1, textTransform:"uppercase",
-                letterSpacing:0.5, fontWeight:700, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-                ★ {planet.name}
-              </span>
-              {isAdmin ? (
-                <select className="tm-select" style={{ width:70, flexShrink:0 }}
-                  value={planet.faction}
-                  onChange={e => updatePlanet({ ...planet, faction: e.target.value })}>
-                  {factionList.map(f => <option key={f.id} value={f.name}>{f.name}</option>)}
-                  <option value="Independent">Independent</option>
-                </select>
-              ) : (
-                <span style={{ fontSize:7, color:factionColor(planet.faction, factionList)+"cc",
-                  letterSpacing:1, fontFamily:"'Orbitron',monospace", flexShrink:0 }}>
-                  {factionAbbr(planet.faction)}
-                </span>
-              )}
+        {/* Estimated Forces */}
+        <Panel label="EST. FORCES" color={BLUE} style={{ margin:"10px 10px 0", flex:1, display:"flex", flexDirection:"column", minHeight:0 }}>
+          <div style={{ padding:"8px 10px 6px", flex:1, overflowY:"auto" }}>
+            {/* Column headers */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 30px 36px 36px 36px", gap:3,
+              marginBottom:4, paddingBottom:4, borderBottom:`1px solid ${BLUE}11` }}>
+              <div style={{ fontSize:6, color:BLUE+"33", letterSpacing:1, fontFamily:"'Orbitron',monospace" }}>FACTION</div>
+              {["SHIP","FGTR","TRPS"].map(h => (
+                <div key={h} style={{ fontSize:6, color:BLUE+"33", letterSpacing:1, fontFamily:"'Orbitron',monospace", textAlign:"center" }}>{h}</div>
+              ))}
+              <div/>
             </div>
 
-            {sectorPlanets.length > 0 && (
-              <div style={{ borderTop:`1px solid ${BLUE}11`, paddingTop:6, marginTop:2 }}>
-                {sectorPlanets.map(p => (
-                  <div key={p.id} style={{ marginBottom:6, display:"flex", alignItems:"center", gap:6 }}>
-                    <div style={{ width:4, height:4, borderRadius:"50%", flexShrink:0,
-                      background:factionColor(p.faction, factionList) }} />
-                    <span style={{ fontSize:8, color:"#7aaccc", flex:1, textTransform:"uppercase",
-                      letterSpacing:0.5, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-                      {p.name}
-                    </span>
-                    {isAdmin ? (
-                      <select className="tm-select" style={{ width:70, flexShrink:0 }}
-                        value={p.faction}
-                        onChange={e => updatePlanet({ ...p, faction: e.target.value })}>
+            {forces.map(entry => {
+              const fc = factionColor(entry.faction, factionList);
+              const isEditing = editingForceId === entry.id;
+              return (
+                <div key={entry.id} style={{ marginBottom:6 }}>
+                  {isEditing && isAdmin ? (
+                    <div style={{ display:"flex", flexDirection:"column", gap:4,
+                      background:`${BLUE}06`, border:`1px solid ${BLUE}22`, padding:"6px 6px" }}>
+                      <select className="tm-select" value={entry.faction}
+                        onChange={e => setForces(fs => fs.map(f => f.id===entry.id ? {...f, faction:e.target.value} : f))}>
                         {factionList.map(f => <option key={f.id} value={f.name}>{f.name}</option>)}
                         <option value="Independent">Independent</option>
+                        <option value="Unknown">Unknown</option>
                       </select>
-                    ) : (
-                      <span style={{ fontSize:7, color:factionColor(p.faction, factionList)+"cc",
-                        letterSpacing:1, fontFamily:"'Orbitron',monospace", flexShrink:0 }}>
-                        {factionAbbr(p.faction)}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+                      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:4 }}>
+                        {(["ships","fighters","troops"] as const).map(field => (
+                          <div key={field}>
+                            <div style={{ fontSize:6, color:fc+"66", fontFamily:"'Orbitron',monospace", letterSpacing:1, marginBottom:2, textTransform:"uppercase" }}>
+                              {field === "ships" ? "Ships" : field === "fighters" ? "Fgtrs" : "Troops"}
+                            </div>
+                            <input className="tm-input" type="number" min={0}
+                              value={entry[field]}
+                              onChange={e => setForces(fs => fs.map(f => f.id===entry.id ? {...f, [field]: Math.max(0, +e.target.value)} : f))} />
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display:"flex", gap:4 }}>
+                        <button className="tm-btn" style={{ flex:1 }}
+                          onClick={() => { setEditingForceId(null); saveToDb({ forces }); }}>
+                          CONFIRM
+                        </button>
+                        <button className="tm-btn tm-btn-red"
+                          onClick={() => { const upd=forces.filter(f=>f.id!==entry.id); setForces(upd); setEditingForceId(null); saveToDb({forces:upd}); }}>
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 30px 36px 36px 36px", gap:3,
+                      alignItems:"center", cursor: isAdmin?"pointer":"default",
+                      padding:"3px 0", borderBottom:`1px solid ${BLUE}08` }}
+                      onClick={() => isAdmin && setEditingForceId(entry.id)}>
+                      <div style={{ display:"flex", alignItems:"center", gap:4, minWidth:0 }}>
+                        <div style={{ width:5, height:5, borderRadius:"50%", background:fc, flexShrink:0, boxShadow:`0 0 4px ${fc}` }} />
+                        <span style={{ fontSize:8, color:fc+"cc", textTransform:"uppercase", letterSpacing:0.5,
+                          whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                          {entry.faction}
+                        </span>
+                      </div>
+                      {isAdmin && <span style={{ fontSize:8, color:BLUE+"33", textAlign:"center" }}>✎</span>}
+                      {(["ships","fighters","troops"] as const).map(field => (
+                        <div key={field} style={{ textAlign:"center" }}>
+                          <div style={{ fontSize:11, fontWeight:700, color: entry[field]>0 ? fc : BLUE+"22",
+                            fontFamily:"'Orbitron',monospace", lineHeight:1 }}>
+                            {entry[field] > 0 ? entry[field].toLocaleString() : "—"}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
 
-            {sectorPlanets.length===0 && (
-              <div style={{ fontSize:8, color:BLUE+"33", fontFamily:"'Orbitron',monospace",
-                letterSpacing:1, textAlign:"center", marginTop:8 }}>
-                NO SECTOR DATA
-              </div>
+            {/* Totals row */}
+            {forces.length > 1 && (() => {
+              const totShips    = forces.reduce((a,f)=>a+f.ships,0);
+              const totFighters = forces.reduce((a,f)=>a+f.fighters,0);
+              const totTroops   = forces.reduce((a,f)=>a+f.troops,0);
+              return (
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 30px 36px 36px 36px", gap:3,
+                  marginTop:4, paddingTop:4, borderTop:`1px solid ${BLUE}22` }}>
+                  <div style={{ fontSize:6, color:BLUE+"44", fontFamily:"'Orbitron',monospace", letterSpacing:1 }}>TOTAL</div>
+                  <div/>
+                  {[totShips, totFighters, totTroops].map((v,i) => (
+                    <div key={i} style={{ textAlign:"center", fontSize:9, fontWeight:700,
+                      color:BLUE+"88", fontFamily:"'Orbitron',monospace" }}>
+                      {v > 0 ? v.toLocaleString() : "—"}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
+            {isAdmin && (
+              <button className="tm-btn" style={{ width:"100%", marginTop:6 }} onClick={() => {
+                const newEntry: ForceEntry = { id:`force-${Date.now()}`, faction:"Independent", ships:0, fighters:0, troops:0 };
+                const upd = [...forces, newEntry];
+                setForces(upd);
+                setEditingForceId(newEntry.id);
+                saveToDb({ forces: upd });
+              }}>+ ADD FORCE ENTRY</button>
             )}
           </div>
         </Panel>
