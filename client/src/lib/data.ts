@@ -113,6 +113,8 @@ export interface Fleet {
   labelMode?: string | null;
   warzonePlanetId?: string | null;
   color?: string | null;
+  theatreX?: number | null;
+  theatreY?: number | null;
 }
 
 export interface FactionInfo {

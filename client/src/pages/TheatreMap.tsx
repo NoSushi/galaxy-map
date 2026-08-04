@@ -253,12 +253,14 @@ function BodyShape({ body, selected, factions, isAdmin, onSelect, onDragStart }:
 }
 
 /* ─── Fleet marker in SVG ────────────────────────────────────────────────── */
-function FleetMarker({ fleet, selected, planetFaction, factions, onSelect }: {
+function FleetMarker({ fleet, selected, planetFaction, factions, onSelect, onDragStart, draggable }: {
   fleet: Fleet & { svgX: number; svgY: number };
   selected: boolean;
   planetFaction: string;
   factions: FactionInfo[];
   onSelect: () => void;
+  onDragStart?: (e: React.MouseEvent) => void;
+  draggable?: boolean;
 }) {
   const fc = fleet.color || factionColor(fleet.faction, factions);
   const isAlly = fleet.faction === planetFaction;
@@ -266,7 +268,7 @@ function FleetMarker({ fleet, selected, planetFaction, factions, onSelect }: {
     ? `${fleet.svgX},${fleet.svgY-10} ${fleet.svgX-7},${fleet.svgY+7} ${fleet.svgX},${fleet.svgY+2} ${fleet.svgX+7},${fleet.svgY+7}`
     : `${fleet.svgX},${fleet.svgY+10} ${fleet.svgX-7},${fleet.svgY-7} ${fleet.svgX},${fleet.svgY-2} ${fleet.svgX+7},${fleet.svgY-7}`;
   return (
-    <g onClick={onSelect} style={{ cursor:"pointer" }}>
+    <g onClick={onSelect} onMouseDown={draggable ? onDragStart : undefined} style={{ cursor: draggable ? "grab" : "pointer" }}>
       {selected && <circle cx={fleet.svgX} cy={fleet.svgY} r={20}
         fill="none" stroke={fc} strokeWidth="1" strokeDasharray="3,2" opacity={0.6}>
         <animateTransform attributeName="transform" type="rotate"
@@ -313,7 +315,7 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
   const [tab, setTab] = useState<"bodies"|"fleets">("bodies");
 
   /* ── Drag state (ref to avoid re-renders mid-drag) ── */
-  const dragRef = useRef<{ id: string; ox: number; oy: number } | null>(null);
+  const dragRef = useRef<{ id: string; ox: number; oy: number; kind: "body" | "fleet" } | null>(null);
   const svgRef  = useRef<SVGSVGElement>(null);
 
   /* Keep a ref of latest bodies so drag-end can save without setState side effects */
@@ -388,6 +390,10 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
   /* ── Fleet SVG positions (orbiting the main planet body) ── */
   const mainBody = systemBodies.find(b => b.id === `body-${planetId}`);
   const fleetPositions = nearbyFleets.map((f, i) => {
+    // Fleets with a saved theatre position float freely; others get a default orbit slot
+    if (f.theatreX != null && f.theatreY != null) {
+      return { ...f, svgX: f.theatreX, svgY: f.theatreY };
+    }
     const ring  = Math.floor(i / 8); // 8 fleets per orbit ring, then step outward
     const angle = ((i % 8) / Math.min(Math.max(nearbyFleets.length - ring * 8, 1), 8)) * Math.PI * 2 - Math.PI / 2 + ring * 0.4;
     const dist  = 52 + (i % 2) * 28 + ring * 46;
@@ -408,7 +414,16 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
     const pt = svgPoint(e, svgRef.current);
     const body = systemBodies.find(b => b.id === id);
     if (!body) return;
-    dragRef.current = { id, ox: pt.x - body.x, oy: pt.y - body.y };
+    dragRef.current = { id, ox: pt.x - body.x, oy: pt.y - body.y, kind: "body" };
+  }
+
+  function handleFleetMouseDown(id: string, e: React.MouseEvent) {
+    if (!canFleet || !svgRef.current) return;
+    e.stopPropagation();
+    const pt = svgPoint(e, svgRef.current);
+    const fp = fleetPositions.find(f => f.id === id);
+    if (!fp) return;
+    dragRef.current = { id, ox: pt.x - fp.svgX, oy: pt.y - fp.svgY, kind: "fleet" };
   }
 
   function handleSvgMouseMove(e: React.MouseEvent<SVGSVGElement>) {
@@ -416,6 +431,11 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
     const pt = svgPoint(e, svgRef.current);
     const nx = Math.max(20, Math.min(SVG_W - 20, pt.x - dragRef.current.ox));
     const ny = Math.max(20, Math.min(SVG_H - 20, pt.y - dragRef.current.oy));
+    if (dragRef.current.kind === "fleet") {
+      const base = fleets.find(f => f.id === dragRef.current!.id);
+      if (base) updateFleet({ ...base, theatreX: Math.round(nx), theatreY: Math.round(ny) });
+      return;
+    }
     const next = systemBodiesRef.current.map(b => b.id === dragRef.current!.id ? { ...b, x: nx, y: ny } : b);
     systemBodiesRef.current = next;
     setSystemBodies(next);
@@ -423,8 +443,9 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
 
   function handleSvgMouseUp() {
     if (!dragRef.current) return;
+    const wasBody = dragRef.current.kind === "body";
     dragRef.current = null;
-    saveToDb({ bodies: systemBodiesRef.current });
+    if (wasBody) saveToDb({ bodies: systemBodiesRef.current });
   }
 
   function handleSvgClick(e: React.MouseEvent<SVGSVGElement>) {
@@ -901,6 +922,8 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
               planetFaction={planet.faction}
               factions={factionList}
               onSelect={() => { setSelectedId(selectedId===f.id?null:f.id); setTab("fleets"); setEditingBodyId(null); }}
+              draggable={canFleet}
+              onDragStart={e => handleFleetMouseDown(f.id, e)}
             />
           ))}
 

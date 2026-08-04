@@ -69,6 +69,8 @@ export const fleets = pgTable("fleets", {
   isCapitalShip: boolean("is_capital_ship").default(false),
   labelMode: text("label_mode").default("hover"),
   color: text("color"),
+  theatreX: integer("theatre_x"),
+  theatreY: integer("theatre_y"),
   warzonePlanetId: varchar("warzone_planet_id", { length: 64 }),
 });
 

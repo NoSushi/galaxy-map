@@ -126,6 +126,8 @@ function mapFleetFromApi(f: any): Fleet {
     labelMode: f.labelMode ?? f.label_mode ?? 'hover',
     warzonePlanetId: f.warzonePlanetId ?? f.warzone_planet_id ?? null,
     color: f.color ?? null,
+    theatreX: f.theatreX ?? f.theatre_x ?? null,
+    theatreY: f.theatreY ?? f.theatre_y ?? null,
   };
 }
 
@@ -143,6 +145,8 @@ function mapFleetToApi(f: Fleet): any {
     labelMode: f.labelMode ?? 'hover',
     warzonePlanetId: f.warzonePlanetId ?? null,
     color: f.color ?? null,
+    theatreX: f.theatreX ?? null,
+    theatreY: f.theatreY ?? null,
   };
 }
 
