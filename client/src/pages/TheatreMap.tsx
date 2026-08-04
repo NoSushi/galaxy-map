@@ -219,7 +219,7 @@ function BodyShape({ body, selected, factions, isAdmin, onSelect, onDragStart }:
         })}
       </>}
       {body.type === "star" && (
-        <ellipse cx={body.x} cy={body.y} rx={body.size * 2.2} ry={body.size * 2.2}>
+        <ellipse cx={body.x} cy={body.y} rx={body.size * 2.2} ry={body.size * 2.2} fill="url(#tstarG)">
           <animate attributeName="rx" values={`${body.size*2};${body.size*2.4};${body.size*2}`} dur="3s" repeatCount="indefinite"/>
           <animate attributeName="ry" values={`${body.size*2};${body.size*2.4};${body.size*2}`} dur="3s" repeatCount="indefinite"/>
           <animate attributeName="opacity" values="0.3;0.5;0.3" dur="3s" repeatCount="indefinite"/>
