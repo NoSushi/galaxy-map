@@ -54,7 +54,7 @@ export interface Settlement {
 export const SETTLEMENT_STATS = [
   { key: 'administration', label: 'Administration', tiers: ['Outpost Staff', 'Additional Outpost Staff', 'Town Hall', 'City Hall'] },
   { key: 'defenses', label: 'Defenses', tiers: ['Additional Defenses', 'Imperial Armory', 'Imperial Barracks', 'Imperial Garrison'] },
-  { key: 'communications', label: 'Communications', tiers: ['Comms Array', 'Improved Comms Network', 'Orbital Satellite', 'Planetary Comms Network'] },
+  { key: 'communications', label: 'Communications', tiers: ['Comms Array', 'Improved Comms Network', 'Orbital Satellite'] },
   { key: 'infrastructure', label: 'Infrastructure', tiers: ['Basic Resource Facilities', 'Improved Resource Facilities', 'Industrial Resource Facilities', 'Advanced Resource Facilities'] },
   { key: 'portSize', label: 'Port Size', tiers: ['Landing Pad', 'Landing Bays', 'Tradeport', 'Starport'] },
   { key: 'medical', label: 'Medical Facilities', tiers: ['Clinic', 'Improved Clinic', 'Hospital', 'Medical Center'] },

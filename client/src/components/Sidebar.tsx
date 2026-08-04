@@ -58,10 +58,10 @@ const getDefaultPlanetImage = (environment: string) => ENV_IMAGES[environment] |
 
 const SETTLEMENT_SIZES: SettlementSize[] = ['Outpost', 'Village', 'Town', 'City'];
 
-function TierBar({ value }: { value: number }) {
+function TierBar({ value, max = 4 }: { value: number; max?: number }) {
   return (
     <div className="flex gap-0.5">
-      {[1, 2, 3, 4].map(i => (
+      {Array.from({ length: max }, (_, idx) => idx + 1).map(i => (
         <div key={i} className={cn(
           "h-1.5 w-4 rounded-sm",
           i <= value ? "bg-primary" : "bg-white/10"
@@ -95,9 +95,9 @@ function SettlementCard({ s }: { s: Settlement }) {
             <div key={stat.key} className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <div className="text-[8px] uppercase text-primary/50 tracking-widest">{stat.label}</div>
-                <div className="text-[9px] text-foreground/80">{stat.tiers[Math.min(v, 4) - 1]}</div>
+                <div className="text-[9px] text-foreground/80">{stat.tiers[Math.min(v, stat.tiers.length) - 1]}</div>
               </div>
-              <TierBar value={v} />
+              <TierBar value={Math.min(v, stat.tiers.length)} max={stat.tiers.length} />
             </div>
           );
         })}
@@ -177,10 +177,10 @@ function SettlementsEditor({ planet }: { planet: Planet }) {
                   <div key={stat.key} className="space-y-0.5">
                     <div className="flex justify-between items-baseline">
                       <Label className="text-[9px] uppercase text-primary/70">{stat.label}</Label>
-                      <span className="text-[9px] text-foreground/70">{v > 0 ? stat.tiers[Math.min(v, 4) - 1] : 'None'}</span>
+                      <span className="text-[9px] text-foreground/70">{v > 0 ? stat.tiers[Math.min(v, stat.tiers.length) - 1] : 'None'}</span>
                     </div>
                     <input
-                      type="range" min={0} max={4} step={1} value={v}
+                      type="range" min={0} max={stat.tiers.length} step={1} value={Math.min(v, stat.tiers.length)}
                       onChange={e => patch(s.id, { [stat.key]: Number(e.target.value) } as Partial<Settlement>)}
                       className="w-full accent-[hsl(var(--primary))]"
                     />
