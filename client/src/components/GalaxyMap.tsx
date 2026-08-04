@@ -3,6 +3,7 @@ import { TransformWrapper, TransformComponent, ReactZoomPanPinchRef } from 'reac
 import { useMap, Planet, Fleet, HyperspaceLane, Sector } from '@/lib/data';
 import { polygonIntersection } from '@/lib/polygon-ops';
 import { cn } from '@/lib/utils';
+import { toast } from '@/hooks/use-toast';
 import { Crown, Ship, Plus, Pencil, AlertTriangle, GitMerge, X, Crosshair } from 'lucide-react';
 import { TargetingOverlay } from './TargetingOverlay';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
@@ -718,6 +719,30 @@ export const GalaxyMap = () => {
       setDrawingPoints([]);
       setDrawingMode(null);
       return;
+    }
+    // Fleet dropped: auto-assign to a warzone theatre if released on/near a warzone planet
+    if (draggingFleet) {
+      const fleet = fleets.find(f => f.id === draggingFleet);
+      if (fleet) {
+        const DROP_RADIUS = 60;
+        const warzone = planets.find(p =>
+          p.isWarzone && Math.hypot(fleet.x - p.x, fleet.y - p.y) < DROP_RADIUS
+        );
+        if (warzone && fleet.warzonePlanetId !== warzone.id) {
+          updateFleet({ ...fleet, warzonePlanetId: warzone.id });
+          toast({
+            title: "Fleet deployed to warzone",
+            description: `${fleet.name} joined the ${warzone.name} theatre.`,
+          });
+        } else if (!warzone && fleet.warzonePlanetId) {
+          const prev = planets.find(p => p.id === fleet.warzonePlanetId);
+          updateFleet({ ...fleet, warzonePlanetId: null });
+          toast({
+            title: "Fleet withdrawn",
+            description: `${fleet.name} left the ${prev?.name ?? "warzone"} theatre.`,
+          });
+        }
+      }
     }
     setDraggingPlanet(null);
     setDraggingSectorPoint(null);

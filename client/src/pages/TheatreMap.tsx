@@ -375,9 +375,12 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
     ? planets.filter(p => p.sectorId === planet.sectorId && p.id !== planet.id)
     : [];
 
-  /* ── Nearby fleets ── */
+  /* ── Theatre fleets: explicitly assigned to this warzone, plus unassigned nearby ones ── */
   const nearbyFleets = planet
-    ? fleets.filter(f => Math.hypot(f.x - planet.x, f.y - planet.y) < 600)
+    ? fleets.filter(f =>
+        f.warzonePlanetId === planet.id ||
+        (!f.warzonePlanetId && Math.hypot(f.x - planet.x, f.y - planet.y) < 600)
+      )
     : [];
 
   /* ── Fleet SVG positions (orbiting the main planet body) ── */

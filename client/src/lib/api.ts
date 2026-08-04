@@ -122,6 +122,7 @@ function mapFleetFromApi(f: any): Fleet {
     markerImage: f.markerImage ?? f.marker_image,
     isCapitalShip: f.isCapitalShip ?? f.is_capital_ship,
     labelMode: f.labelMode ?? f.label_mode ?? 'hover',
+    warzonePlanetId: f.warzonePlanetId ?? f.warzone_planet_id ?? null,
   };
 }
 
@@ -137,6 +138,7 @@ function mapFleetToApi(f: Fleet): any {
     markerImage: f.markerImage || null,
     isCapitalShip: f.isCapitalShip || false,
     labelMode: f.labelMode ?? 'hover',
+    warzonePlanetId: f.warzonePlanetId ?? null,
   };
 }
 

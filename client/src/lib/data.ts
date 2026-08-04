@@ -83,6 +83,7 @@ export interface Fleet {
   markerImage?: string | null;
   isCapitalShip?: boolean | null;
   labelMode?: string | null;
+  warzonePlanetId?: string | null;
 }
 
 export interface FactionInfo {
