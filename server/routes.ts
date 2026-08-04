@@ -9,7 +9,7 @@ declare module "express-session" {
   }
 }
 
-type Permission = "canEditPlanets" | "canEditSectors" | "canEditLanes" | "canEditFleets" | "canManageFactions";
+type Permission = "canEditPlanets" | "canEditSectors" | "canEditLanes" | "canEditFleets" | "canManageFactions" | "canEditSettlements";
 
 function requireEditor(permission: Permission): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction) => {
@@ -69,8 +69,21 @@ export async function registerRoutes(
     res.status(201).json(planet);
   });
 
-  app.patch("/api/planets/:id", requireEditor("canEditPlanets"), async (req, res) => {
-    const planet = await storage.updatePlanet(String(req.params.id), req.body);
+  // Planet editors can change anything. Settlement administrators (canEditSettlements)
+  // may PATCH a planet only when the payload touches nothing but `settlements`.
+  app.patch("/api/planets/:id", async (req, res) => {
+    const userId = req.session?.userId;
+    if (!userId) return res.status(401).json({ error: "Authentication required" });
+    const user = await storage.getUser(userId);
+    if (!user) return res.status(401).json({ error: "Authentication required" });
+    const { id: _ignoredId, ...body } = req.body; // never allow primary-key mutation
+    const keys = Object.keys(body);
+    const settlementsOnly = keys.length > 0 && keys.every(k => k === "settlements");
+    const allowed = user.isAdmin || user.canEditPlanets || (user.canEditSettlements && settlementsOnly);
+    if (!allowed) return res.status(403).json({ error: "Permission denied" });
+    // Settlement administrators can persist nothing but the settlements field
+    const patch = (user.isAdmin || user.canEditPlanets) ? body : { settlements: body.settlements };
+    const planet = await storage.updatePlanet(String(req.params.id), patch);
     if (!planet) return res.status(404).json({ error: "Planet not found" });
     res.json(planet);
   });
@@ -196,6 +209,7 @@ export async function registerRoutes(
       canEditLanes: user.canEditLanes,
       canEditFleets: user.canEditFleets,
       canManageFactions: user.canManageFactions,
+      canEditSettlements: user.canEditSettlements,
     });
   });
 
@@ -220,6 +234,7 @@ export async function registerRoutes(
       canEditLanes: user.canEditLanes,
       canEditFleets: user.canEditFleets,
       canManageFactions: user.canManageFactions,
+      canEditSettlements: user.canEditSettlements,
     });
   });
 
@@ -248,6 +263,7 @@ export async function registerRoutes(
       canEditLanes: u.canEditLanes,
       canEditFleets: u.canEditFleets,
       canManageFactions: u.canManageFactions,
+      canEditSettlements: u.canEditSettlements,
     };
   }
 
@@ -262,7 +278,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/admin/users", async (req, res) => {
-    const { adminUsername, adminPassword, username, password, isAdmin, canEditPlanets, canEditSectors, canEditLanes, canEditFleets, canManageFactions } = req.body;
+    const { adminUsername, adminPassword, username, password, isAdmin, canEditPlanets, canEditSectors, canEditLanes, canEditFleets, canManageFactions, canEditSettlements } = req.body;
     const admin = await storage.getUserByUsername(adminUsername);
     if (!admin || !admin.isAdmin) return res.status(403).json({ error: "Admin access required" });
     const valid = await verifyPassword(adminPassword, admin.passwordHash);
@@ -281,17 +297,18 @@ export async function registerRoutes(
       canEditLanes: canEditLanes || false,
       canEditFleets: canEditFleets || false,
       canManageFactions: canManageFactions || false,
+      canEditSettlements: canEditSettlements || false,
     });
     res.status(201).json(serializeUser(user));
   });
 
   app.patch("/api/admin/users/:id", async (req, res) => {
-    const { adminUsername, adminPassword, isAdmin, canEditPlanets, canEditSectors, canEditLanes, canEditFleets, canManageFactions } = req.body;
+    const { adminUsername, adminPassword, isAdmin, canEditPlanets, canEditSectors, canEditLanes, canEditFleets, canManageFactions, canEditSettlements } = req.body;
     const admin = await storage.getUserByUsername(adminUsername);
     if (!admin || !admin.isAdmin) return res.status(403).json({ error: "Admin access required" });
     const valid = await verifyPassword(adminPassword, admin.passwordHash);
     if (!valid) return res.status(403).json({ error: "Admin access required" });
-    const user = await storage.updateUser(String(req.params.id), { isAdmin, canEditPlanets, canEditSectors, canEditLanes, canEditFleets, canManageFactions });
+    const user = await storage.updateUser(String(req.params.id), { isAdmin, canEditPlanets, canEditSectors, canEditLanes, canEditFleets, canManageFactions, canEditSettlements });
     if (!user) return res.status(404).json({ error: "User not found" });
     res.json(serializeUser(user));
   });

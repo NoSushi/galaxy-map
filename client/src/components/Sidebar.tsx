@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
-import { useMap, Planet, Sector, HyperspaceLane, Fleet, FactionInfo } from '@/lib/data';
-import { X, Globe, Map, Route, Edit2, Plus, Settings2, Search, Ship, Crown, Trash2, Lock, Unlock, Move, Eye, EyeOff, Layers2, Swords, ExternalLink } from 'lucide-react';
+import { useMap, Planet, Sector, HyperspaceLane, Fleet, FactionInfo, Settlement, SettlementSize, SETTLEMENT_STATS } from '@/lib/data';
+import { X, Globe, Map, Route, Edit2, Plus, Settings2, Search, Ship, Crown, Trash2, Lock, Unlock, Move, Eye, EyeOff, Layers2, Swords, ExternalLink, Building2, Shield, ShieldOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -53,6 +53,159 @@ const ENV_IMAGES: Record<string, string> = {
 };
 
 const getDefaultPlanetImage = (environment: string) => ENV_IMAGES[environment] || '/planet-desert.webp';
+
+// ─── Major Settlements ────────────────────────────────────────────────────────
+
+const SETTLEMENT_SIZES: SettlementSize[] = ['Outpost', 'Village', 'Town', 'City'];
+
+function TierBar({ value }: { value: number }) {
+  return (
+    <div className="flex gap-0.5">
+      {[1, 2, 3, 4].map(i => (
+        <div key={i} className={cn(
+          "h-1.5 w-4 rounded-sm",
+          i <= value ? "bg-primary" : "bg-white/10"
+        )} />
+      ))}
+    </div>
+  );
+}
+
+function SettlementCard({ s }: { s: Settlement }) {
+  return (
+    <div className="p-2.5 rounded border border-white/10 bg-white/5 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Building2 className="w-3.5 h-3.5 text-primary shrink-0" />
+          <span className="text-[11px] font-display font-bold text-foreground uppercase tracking-wider truncate">{s.name}</span>
+        </div>
+        <span className="text-[8px] bg-primary/15 text-primary px-1.5 py-0.5 rounded uppercase font-bold shrink-0">{s.size}</span>
+      </div>
+      {s.exports && (
+        <div className="flex justify-between gap-2 text-[9px]">
+          <span className="uppercase text-primary/50 tracking-widest shrink-0">Major Exports</span>
+          <span className="text-foreground/80 text-right">{s.exports}</span>
+        </div>
+      )}
+      <div className="space-y-1.5 pt-0.5">
+        {SETTLEMENT_STATS.map(stat => {
+          const v = (s as any)[stat.key] as number;
+          if (!v || v <= 0) return null;
+          return (
+            <div key={stat.key} className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-[8px] uppercase text-primary/50 tracking-widest">{stat.label}</div>
+                <div className="text-[9px] text-foreground/80">{stat.tiers[Math.min(v, 4) - 1]}</div>
+              </div>
+              <TierBar value={v} />
+            </div>
+          );
+        })}
+      </div>
+      <div className={cn(
+        "flex items-center gap-1.5 pt-1 border-t border-white/5 text-[9px] uppercase tracking-widest font-bold",
+        s.shieldGenerator ? "text-green-400" : "text-muted-foreground"
+      )}>
+        {s.shieldGenerator ? <Shield className="w-3 h-3" /> : <ShieldOff className="w-3 h-3" />}
+        {s.shieldGenerator ? 'Shield Generator Active' : 'No Shield Generator'}
+      </div>
+    </div>
+  );
+}
+
+function SettlementsEditor({ planet }: { planet: Planet }) {
+  const { updatePlanet } = useMap();
+  const settlements = planet.settlements || [];
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  const save = (next: Settlement[]) => updatePlanet({ ...planet, settlements: next }, { settlements: next });
+  const patch = (id: string, upd: Partial<Settlement>) =>
+    save(settlements.map(s => s.id === id ? { ...s, ...upd } : s));
+
+  const addSettlement = () => {
+    const s: Settlement = {
+      id: `stl-${Date.now()}`, name: 'New Settlement', size: 'Outpost', exports: '',
+      administration: 0, defenses: 0, communications: 0, infrastructure: 0, portSize: 0, medical: 0,
+      shieldGenerator: false,
+    };
+    save([...settlements, s]);
+    setOpenId(s.id);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="text-[10px] uppercase text-primary/70">Major Settlements</Label>
+        <Button variant="ghost" size="sm" onClick={addSettlement} className="h-6 text-[9px] text-primary hover:bg-primary/10 gap-1">
+          <Plus className="w-3 h-3" /> ADD
+        </Button>
+      </div>
+      {settlements.length === 0 && (
+        <p className="text-[9px] text-muted-foreground italic">No major settlements recorded.</p>
+      )}
+      {settlements.map(s => (
+        <div key={s.id} className="rounded border border-white/10 bg-white/5 overflow-hidden">
+          <button
+            className="w-full flex items-center justify-between p-2 text-left hover:bg-white/5"
+            onClick={() => setOpenId(openId === s.id ? null : s.id)}
+          >
+            <span className="text-[10px] font-display font-bold uppercase tracking-wider truncate">{s.name}</span>
+            <span className="text-[8px] bg-primary/15 text-primary px-1.5 py-0.5 rounded uppercase font-bold shrink-0">{s.size}</span>
+          </button>
+          {openId === s.id && (
+            <div className="p-2 pt-0 space-y-2.5">
+              <div className="space-y-1">
+                <Label className="text-[9px] uppercase text-primary/70">Settlement Name</Label>
+                <Input value={s.name} onChange={e => patch(s.id, { name: e.target.value })} className="bg-black/60 border-primary/20 h-7 text-xs" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[9px] uppercase text-primary/70">Settlement Size</Label>
+                <Select value={s.size} onValueChange={(v: SettlementSize) => patch(s.id, { size: v })}>
+                  <SelectTrigger className="bg-black/60 border-primary/20 h-7 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {SETTLEMENT_SIZES.map(sz => <SelectItem key={sz} value={sz}>{sz}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[9px] uppercase text-primary/70">Major Exports</Label>
+                <Input value={s.exports} onChange={e => patch(s.id, { exports: e.target.value })} className="bg-black/60 border-primary/20 h-7 text-xs" placeholder="e.g. Tibanna gas, durasteel" />
+              </div>
+              {SETTLEMENT_STATS.map(stat => {
+                const v = (s as any)[stat.key] as number;
+                return (
+                  <div key={stat.key} className="space-y-0.5">
+                    <div className="flex justify-between items-baseline">
+                      <Label className="text-[9px] uppercase text-primary/70">{stat.label}</Label>
+                      <span className="text-[9px] text-foreground/70">{v > 0 ? stat.tiers[Math.min(v, 4) - 1] : 'None'}</span>
+                    </div>
+                    <input
+                      type="range" min={0} max={4} step={1} value={v}
+                      onChange={e => patch(s.id, { [stat.key]: Number(e.target.value) } as Partial<Settlement>)}
+                      className="w-full accent-[hsl(var(--primary))]"
+                    />
+                  </div>
+                );
+              })}
+              <div className="flex items-center justify-between p-2 bg-white/5 rounded border border-white/10">
+                <div className="flex items-center gap-2">
+                  <Shield className={cn("w-3.5 h-3.5", s.shieldGenerator ? "text-green-400" : "text-muted-foreground")} />
+                  <Label className="text-xs">Shield Generator</Label>
+                </div>
+                <Switch checked={s.shieldGenerator} onCheckedChange={c => patch(s.id, { shieldGenerator: c })} />
+              </div>
+              <Button variant="ghost" size="sm"
+                onClick={() => save(settlements.filter(x => x.id !== s.id))}
+                className="w-full h-6 text-[9px] text-destructive hover:text-destructive/80 hover:bg-destructive/10 gap-1">
+                <Trash2 className="w-3 h-3" /> DELETE SETTLEMENT
+              </Button>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 const pointInPolygon = (x: number, y: number, polygon: [number, number][]): boolean => {
   let inside = false;
@@ -129,12 +282,26 @@ export const Sidebar = () => {
 };
 
 const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: Planet, editMode: boolean, sectors: Sector[], lanes: HyperspaceLane[], planets: Planet[] }) => {
-  const { updatePlanet, deletePlanet, setSelectedPlanet, unlockedPlanetIds, unlockPlanet, lockPlanet } = useMap();
+  const { updatePlanet, deletePlanet, setSelectedPlanet, unlockedPlanetIds, unlockPlanet, lockPlanet, currentUser } = useMap();
   const sector = sectors.find(s => s.id === planet.sectorId);
   const connectedLanes = lanes.filter(l => l.planetIds.includes(planet.id));
   const isUnlocked = unlockedPlanetIds.has(planet.id);
+  const canFullEdit = !!(currentUser?.isAdmin || currentUser?.canEditPlanets);
+  const canEditSettlements = canFullEdit || !!currentUser?.canEditSettlements;
 
-  if (editMode) {
+  // Settlement administrators see ONLY the settlements editor in edit mode
+  if (editMode && !canFullEdit && canEditSettlements) {
+    return (
+      <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-300">
+        <div className="flex justify-between items-center">
+          <Label className="text-[10px] uppercase text-primary/70">{planet.name} — Settlements</Label>
+        </div>
+        <SettlementsEditor planet={planet} />
+      </div>
+    );
+  }
+
+  if (editMode && canFullEdit) {
     return (
       <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-300">
         <div className="flex justify-between items-center">
@@ -316,6 +483,8 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
           <Label className="text-[10px] uppercase text-primary/70">Description</Label>
           <textarea className="w-full min-h-[80px] p-2 rounded bg-black/60 border border-primary/20 text-xs text-foreground/80" value={planet.description} onChange={e => updatePlanet({...planet, description: e.target.value})} />
         </div>
+
+        <SettlementsEditor planet={planet} />
       </div>
     );
   }
@@ -356,6 +525,15 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
         {planet.population && <DataRow label="Citizenry" value={planet.population} />}
       </div>
 
+      {(planet.settlements?.length ?? 0) > 0 && (
+        <div className="space-y-2">
+          <h3 className="font-display text-[10px] text-primary/60 uppercase tracking-[0.2em]">Major Settlements</h3>
+          <div className="space-y-2">
+            {planet.settlements!.map(s => <SettlementCard key={s.id} s={s} />)}
+          </div>
+        </div>
+      )}
+
       <div className="space-y-2">
         <h3 className="font-display text-[10px] text-primary/60 uppercase tracking-[0.2em]">Databank Record</h3>
         <p className="text-xs leading-relaxed text-foreground/70 italic">"{planet.description}"</p>
@@ -385,12 +563,12 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
 };
 
 const SectorDetails = ({ sector, editMode, planets }: { sector: Sector, editMode: boolean, planets: Planet[] }) => {
-  const { updateSector, deleteSector } = useMap();
+  const { updateSector, deleteSector, currentUser } = useMap();
   const sectorPlanets = planets.filter(p => 
     p.sectorId === sector.id || (sector.points.length >= 3 && pointInPolygon(p.x, p.y, sector.points))
   );
 
-  if (editMode) {
+  if (editMode && (currentUser?.isAdmin || currentUser?.canEditSectors)) {
     return (
       <div className="space-y-4">
         <div className="flex justify-between items-center">
@@ -460,7 +638,7 @@ const SectorDetails = ({ sector, editMode, planets }: { sector: Sector, editMode
 
 const LaneDetails = ({ lane, editMode, planets }: { lane: HyperspaceLane, editMode: boolean, planets: Planet[] }) => {
   const [lanePlanetSearch, setLanePlanetSearch] = useState('');
-  const { updateLane, deleteLane, setSelectedPlanet, setSelectedLane } = useMap();
+  const { updateLane, deleteLane, setSelectedPlanet, setSelectedLane, currentUser } = useMap();
   const p1 = planets.find(p => p.id === lane.planetIds[0]);
   const p2 = planets.find(p => p.id === lane.planetIds[1]);
   const isLoop = lane.planetIds.length >= 2 && lane.planetIds[0] === lane.planetIds[1];
@@ -529,7 +707,7 @@ const LaneDetails = ({ lane, editMode, planets }: { lane: HyperspaceLane, editMo
     updateLane({ ...lane, planetIds: newPlanetIds });
   };
 
-  if (editMode) {
+  if (editMode && (currentUser?.isAdmin || currentUser?.canEditLanes)) {
     return (
       <div className="space-y-4">
         <div className="flex justify-between items-center">
@@ -663,8 +841,8 @@ const LaneDetails = ({ lane, editMode, planets }: { lane: HyperspaceLane, editMo
 };
 
 const FleetDetails = ({ fleet, editMode }: { fleet: Fleet, editMode: boolean }) => {
-  const { updateFleet, deleteFleet } = useMap();
-  if (editMode) {
+  const { updateFleet, deleteFleet, currentUser } = useMap();
+  if (editMode && (currentUser?.isAdmin || currentUser?.canEditFleets)) {
     return (
       <div className="space-y-4">
         <div className="flex justify-between items-center">

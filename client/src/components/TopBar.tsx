@@ -128,9 +128,9 @@ export const TopBar = () => {
   const [searchOpen, setSearchOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  type AdminUser = { id: string; username: string; isAdmin: boolean; canEditPlanets: boolean; canEditSectors: boolean; canEditLanes: boolean; canEditFleets: boolean; canManageFactions: boolean; };
-  type Perms = { isAdmin: boolean; canEditPlanets: boolean; canEditSectors: boolean; canEditLanes: boolean; canEditFleets: boolean; canManageFactions: boolean; };
-  const emptyPerms: Perms = { isAdmin: false, canEditPlanets: false, canEditSectors: false, canEditLanes: false, canEditFleets: false, canManageFactions: false };
+  type AdminUser = { id: string; username: string; isAdmin: boolean; canEditPlanets: boolean; canEditSectors: boolean; canEditLanes: boolean; canEditFleets: boolean; canManageFactions: boolean; canEditSettlements: boolean; };
+  type Perms = { isAdmin: boolean; canEditPlanets: boolean; canEditSectors: boolean; canEditLanes: boolean; canEditFleets: boolean; canManageFactions: boolean; canEditSettlements: boolean; };
+  const emptyPerms: Perms = { isAdmin: false, canEditPlanets: false, canEditSectors: false, canEditLanes: false, canEditFleets: false, canManageFactions: false, canEditSettlements: false };
 
   // Admin panel state
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
@@ -298,6 +298,7 @@ export const TopBar = () => {
   const handleAdminToggle = () => {
     if (editMode) {
       setEditMode(false);
+      fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
       setCurrentUser(null);
     } else {
       setIsLoginDialogOpen(true);
@@ -356,7 +357,7 @@ export const TopBar = () => {
 
   const startEditUser = (u: AdminUser) => {
     setEditingUserId(u.id);
-    setEditingUserPerms({ isAdmin: u.isAdmin, canEditPlanets: u.canEditPlanets, canEditSectors: u.canEditSectors, canEditLanes: u.canEditLanes, canEditFleets: u.canEditFleets, canManageFactions: u.canManageFactions });
+    setEditingUserPerms({ isAdmin: u.isAdmin, canEditPlanets: u.canEditPlanets, canEditSectors: u.canEditSectors, canEditLanes: u.canEditLanes, canEditFleets: u.canEditFleets, canManageFactions: u.canManageFactions, canEditSettlements: u.canEditSettlements });
     setAdminError('');
   };
 
@@ -555,7 +556,7 @@ export const TopBar = () => {
           </div>
 
           {/* Edit toolbar — icons-only on sm, labels on lg+ */}
-          {editMode && (currentUser?.isAdmin || currentUser?.canEditPlanets || currentUser?.canEditSectors || currentUser?.canEditFleets || currentUser?.canEditLanes) && (
+          {editMode && (currentUser?.isAdmin || currentUser?.canEditPlanets || currentUser?.canEditSectors || currentUser?.canEditFleets || currentUser?.canEditLanes || currentUser?.canEditSettlements) && (
             <div className="hidden sm:flex gap-0.5 bg-primary/5 p-0.5 rounded-md border border-primary/10 shrink-0">
               {(currentUser?.isAdmin || currentUser?.canEditPlanets) && (
                 <Button variant="ghost" size="sm" onClick={handleCreatePlanet} className="h-7 lg:h-8 text-[9px] font-display text-primary hover:bg-primary/20 px-2 gap-1">
@@ -688,7 +689,7 @@ export const TopBar = () => {
             </div>
 
             {/* Edit toolbar on mobile */}
-            {editMode && (currentUser?.isAdmin || currentUser?.canEditPlanets || currentUser?.canEditSectors || currentUser?.canEditFleets || currentUser?.canEditLanes) && (
+            {editMode && (currentUser?.isAdmin || currentUser?.canEditPlanets || currentUser?.canEditSectors || currentUser?.canEditFleets || currentUser?.canEditLanes || currentUser?.canEditSettlements) && (
               <div className="flex items-center gap-1 flex-wrap">
                 <span className="text-[9px] uppercase text-primary/50 font-bold tracking-widest w-14 shrink-0">Add</span>
                 {(currentUser?.isAdmin || currentUser?.canEditPlanets) && <Button variant="ghost" size="sm" onClick={() => { handleCreatePlanet(); setMobileMenuOpen(false); }} className="h-8 text-[9px] font-display text-primary hover:bg-primary/20 gap-1 px-2"><Plus className="w-3 h-3" /> Planet</Button>}
@@ -881,6 +882,7 @@ export const TopBar = () => {
                             ['canEditLanes', 'Edit Lanes'],
                             ['canEditFleets', 'Edit Fleets'],
                             ['canManageFactions', 'Manage Factions'],
+                            ['canEditSettlements', 'Administrator (Settlements)'],
                           ] as [keyof Perms, string][]).map(([key, label]) => (
                             <div key={key} className="flex items-center gap-1.5">
                               <Switch
@@ -911,6 +913,7 @@ export const TopBar = () => {
                               {u.canEditLanes && <span className="text-[7px] bg-yellow-500/15 text-yellow-400 px-1 py-0.5 rounded uppercase font-bold">Lanes</span>}
                               {u.canEditFleets && <span className="text-[7px] bg-orange-500/15 text-orange-400 px-1 py-0.5 rounded uppercase font-bold">Fleets</span>}
                               {u.canManageFactions && <span className="text-[7px] bg-purple-500/15 text-purple-400 px-1 py-0.5 rounded uppercase font-bold">Factions</span>}
+                              {u.canEditSettlements && <span className="text-[7px] bg-cyan-500/15 text-cyan-400 px-1 py-0.5 rounded uppercase font-bold">Settlements</span>}
                             </div>
                           )}
                         </div>
@@ -943,6 +946,7 @@ export const TopBar = () => {
                     ['canEditLanes', 'Edit Lanes'],
                     ['canEditFleets', 'Edit Fleets'],
                     ['canManageFactions', 'Manage Factions'],
+                            ['canEditSettlements', 'Administrator (Settlements)'],
                   ] as [keyof Perms, string][]).map(([key, label]) => (
                     <div key={key} className="flex items-center gap-1.5">
                       <Switch

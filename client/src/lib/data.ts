@@ -32,7 +32,35 @@ export interface Planet {
   warzoneObjectives?: { id: string; label: string; faction: string }[] | null;
   warzoneSystemLayout?: { bodies: SystemBodyData[] } | null;
   warzoneForces?: ForceEntry[] | null;
+  settlements?: Settlement[] | null;
 }
+
+export type SettlementSize = 'Outpost' | 'Village' | 'Town' | 'City';
+
+export interface Settlement {
+  id: string;
+  name: string;
+  size: SettlementSize;
+  exports: string;
+  administration: number;
+  defenses: number;
+  communications: number;
+  infrastructure: number;
+  portSize: number;
+  medical: number;
+  shieldGenerator: boolean;
+}
+
+export const SETTLEMENT_STATS = [
+  { key: 'administration', label: 'Administration', tiers: ['Outpost Staff', 'Additional Outpost Staff', 'Town Hall', 'City Hall'] },
+  { key: 'defenses', label: 'Defenses', tiers: ['Additional Defenses', 'Imperial Armory', 'Imperial Barracks', 'Imperial Garrison'] },
+  { key: 'communications', label: 'Communications', tiers: ['Comms Array', 'Improved Comms Network', 'Orbital Satellite', 'Planetary Comms Network'] },
+  { key: 'infrastructure', label: 'Infrastructure', tiers: ['Basic Resource Facilities', 'Improved Resource Facilities', 'Industrial Resource Facilities', 'Advanced Resource Facilities'] },
+  { key: 'portSize', label: 'Port Size', tiers: ['Landing Pad', 'Landing Bays', 'Tradeport', 'Starport'] },
+  { key: 'medical', label: 'Medical Facilities', tiers: ['Clinic', 'Improved Clinic', 'Hospital', 'Medical Center'] },
+] as const;
+
+export type SettlementStatKey = typeof SETTLEMENT_STATS[number]['key'];
 
 export interface ForceEntry {
   id: string;
@@ -102,6 +130,7 @@ export interface AuthUser {
   canEditLanes: boolean;
   canEditFleets: boolean;
   canManageFactions: boolean;
+  canEditSettlements: boolean;
 }
 
 export interface MapContextType {

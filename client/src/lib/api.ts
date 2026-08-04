@@ -42,6 +42,7 @@ function mapPlanetFromApi(p: any): Planet {
     warzoneObjectives: p.warzoneObjectives ?? p.warzone_objectives ?? [],
     warzoneSystemLayout: p.warzoneSystemLayout ?? p.warzone_system_layout ?? null,
     warzoneForces: p.warzoneForces ?? p.warzone_forces ?? null,
+    settlements: p.settlements ?? null,
   };
 }
 
@@ -74,6 +75,7 @@ function mapPlanetToApi(p: Planet): any {
     warzoneObjectives: p.warzoneObjectives ?? [],
     warzoneSystemLayout: p.warzoneSystemLayout ?? null,
     warzoneForces: p.warzoneForces ?? null,
+    settlements: p.settlements ?? null,
   };
 }
 
@@ -203,6 +205,7 @@ export interface UserPermissions {
   canEditLanes: boolean;
   canEditFleets: boolean;
   canManageFactions: boolean;
+  canEditSettlements: boolean;
 }
 
 export const adminApi = {

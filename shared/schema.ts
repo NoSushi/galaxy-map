@@ -30,6 +30,12 @@ export const planets = pgTable("planets", {
   warzoneObjectives: jsonb("warzone_objectives").$type<{ id: string; label: string; faction: string }[]>(),
   warzoneSystemLayout: jsonb("warzone_system_layout").$type<{ bodies: { id: string; type: string; name: string; x: number; y: number; size: number; color: string; faction?: string }[] }>(),
   warzoneForces: jsonb("warzone_forces").$type<{ id: string; faction: string; ships: number; fighters: number; troops: number }[]>(),
+  settlements: jsonb("settlements").$type<{
+    id: string; name: string; size: string; exports: string;
+    administration: number; defenses: number; communications: number;
+    infrastructure: number; portSize: number; medical: number;
+    shieldGenerator: boolean;
+  }[]>(),
 });
 
 export const sectors = pgTable("sectors", {
@@ -81,6 +87,7 @@ export const users = pgTable("users", {
   canEditLanes: boolean("can_edit_lanes").notNull().default(false),
   canEditFleets: boolean("can_edit_fleets").notNull().default(false),
   canManageFactions: boolean("can_manage_factions").notNull().default(false),
+  canEditSettlements: boolean("can_edit_settlements").notNull().default(false),
 });
 
 export const insertPlanetSchema = createInsertSchema(planets);
