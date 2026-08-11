@@ -8,6 +8,7 @@ const settlementSchema = z.object({
   id: z.string().min(1).max(64),
   name: z.string().max(200),
   size: z.enum(["Outpost", "Village", "Town", "City"]),
+  settlementType: z.string().max(200).optional(),
   holder: z.string().max(200).optional(),
   exports: z.string().max(500),
   administration: z.number().int().min(0).max(4),
