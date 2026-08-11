@@ -71,6 +71,7 @@ export const fleets = pgTable("fleets", {
   color: text("color"),
   theatreX: integer("theatre_x"),
   theatreY: integer("theatre_y"),
+  theatreOnly: boolean("theatre_only").default(false),
   warzonePlanetId: varchar("warzone_planet_id", { length: 64 }),
 });
 

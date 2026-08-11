@@ -115,6 +115,7 @@ export interface Fleet {
   color?: string | null;
   theatreX?: number | null;
   theatreY?: number | null;
+  theatreOnly?: boolean;
 }
 
 export interface FactionInfo {

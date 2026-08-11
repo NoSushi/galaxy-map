@@ -165,7 +165,7 @@ export const TopBar = () => {
       .slice(0, 7)
       .map(p => ({ type: 'planet' as const, item: p }));
     const fleetMatches = fleets
-      .filter(f => f.name.toLowerCase().includes(q))
+      .filter(f => !f.theatreOnly && f.name.toLowerCase().includes(q))
       .slice(0, 5)
       .map(f => ({ type: 'fleet' as const, item: f }));
     return [...planetMatches, ...fleetMatches].slice(0, 12);

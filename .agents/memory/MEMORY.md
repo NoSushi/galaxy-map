@@ -1,1 +1,2 @@
 - [Absolute-positioned sibling overlapping fixed header](absolute-sibling-vs-fixed-header.md) — top-0 absolute panels ignore parent padding-top and can render under a higher z-index top bar.
+- [Custom DB schema drift](custom-db-schema-drift.md) — live CUSTOM_DATABASE_URL DB can lose migrated columns; diff information_schema vs shared/schema.ts and re-add all gaps, ws constructor required.

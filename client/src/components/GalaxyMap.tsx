@@ -366,6 +366,7 @@ export const GalaxyMap = () => {
 
   useEffect(() => {
     if (!targetedFleet) return;
+    if (targetedFleet.theatreOnly) { setTargetedFleet(null); return; }
     const timer = flyToTarget(targetedFleet.x, targetedFleet.y, targetedFleet.name, 'fleet');
     return () => { if (timer) clearTimeout(timer); };
   }, [targetedFleet]);
@@ -508,7 +509,7 @@ export const GalaxyMap = () => {
   // Viewport-culled collections for rendering
   const filteredFleets = useMemo(() => {
     const { minX, minY, maxX, maxY } = visibleBounds;
-    return fleets.filter(f => f.x >= minX && f.x <= maxX && f.y >= minY && f.y <= maxY);
+    return fleets.filter(f => !f.theatreOnly && f.x >= minX && f.x <= maxX && f.y >= minY && f.y <= maxY);
   }, [fleets, visibleBounds]);
 
   const filteredLanes = useMemo(() => {

@@ -696,6 +696,7 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
                   isCapitalShip: false,
                   labelMode: "hover",
                   warzonePlanetId: planet.id,
+                  theatreOnly: true,
                   color: null,
                 };
                 addFleet(newFleet);

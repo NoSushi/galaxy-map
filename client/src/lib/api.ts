@@ -128,6 +128,7 @@ function mapFleetFromApi(f: any): Fleet {
     color: f.color ?? null,
     theatreX: f.theatreX ?? f.theatre_x ?? null,
     theatreY: f.theatreY ?? f.theatre_y ?? null,
+    theatreOnly: f.theatreOnly ?? f.theatre_only ?? false,
   };
 }
 
@@ -147,6 +148,7 @@ function mapFleetToApi(f: Fleet): any {
     color: f.color ?? null,
     theatreX: f.theatreX ?? null,
     theatreY: f.theatreY ?? null,
+    theatreOnly: f.theatreOnly ?? false,
   };
 }
 
