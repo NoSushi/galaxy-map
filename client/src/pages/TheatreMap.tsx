@@ -641,7 +641,7 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
                     {factionAbbr(b.faction)}
                   </div>
                 )}
-                {isAdmin && isSel && !isMainPlanetBody(b.id) && (
+                {isAdmin && isSel && b.id !== "star-main" && (
                   <button onClick={e => { e.stopPropagation(); setEditingBodyId(editingBodyId===b.id?null:b.id); }}
                     style={{ fontSize:8, color:BLUE+"66", background:"none", border:`1px solid ${BLUE}22`,
                       padding:"1px 5px", cursor:"pointer", fontFamily:"'Orbitron',monospace", flexShrink:0 }}>
@@ -708,6 +708,26 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
         </div>
 
         {/* Body editor pane */}
+        {editingBody && editingBody.id === `body-${planetId}` && (
+          <div style={{ borderTop:`1px solid ${BLUE}22`, padding:"10px 12px", background:"#000d1a", flexShrink:0 }}>
+            <div style={{ fontSize:7, color:BLUE+"44", letterSpacing:2,
+              fontFamily:"'Orbitron',monospace", marginBottom:6 }}>
+              EDIT // {planet.name.toUpperCase()} · ALIGNMENT
+            </div>
+            <div>
+              <div style={{ fontSize:7, color:BLUE+"55", letterSpacing:1, fontFamily:"'Orbitron',monospace", marginBottom:2 }}>FACTION</div>
+              <select className="tm-select" value={planet.faction}
+                onChange={e => {
+                  const v = e.target.value;
+                  updatePlanet({ ...planet, faction: v }, { faction: v });
+                  updateBody(editingBody.id, { faction: v });
+                }}>
+                {factionList.map(f => <option key={f.id} value={f.name}>{f.name}</option>)}
+                {!factionList.some(f => f.name === "Independent") && <option value="Independent">Independent</option>}
+              </select>
+            </div>
+          </div>
+        )}
         {editingBody && !isMainPlanetBody(editingBody.id) && (
           <div style={{ borderTop:`1px solid ${BLUE}22`, padding:"10px 12px", background:"#000d1a", flexShrink:0 }}>
             <div style={{ fontSize:7, color:BLUE+"44", letterSpacing:2,
@@ -1044,13 +1064,13 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
         </Panel>
 
         {/* Estimated Forces */}
-        <Panel label="EST. FORCES (MIL)" color={BLUE} style={{ margin:"10px 10px 0", flex:1, display:"flex", flexDirection:"column", minHeight:0 }}>
+        <Panel label="EST. FORCES" color={BLUE} style={{ margin:"10px 10px 0", flex:1, display:"flex", flexDirection:"column", minHeight:0 }}>
           <div style={{ padding:"8px 10px 6px", flex:1, overflowY:"auto" }}>
             {/* Column headers */}
             <div style={{ display:"grid", gridTemplateColumns:"1fr 30px 36px 36px 36px", gap:3,
               marginBottom:4, paddingBottom:4, borderBottom:`1px solid ${BLUE}11` }}>
               <div style={{ fontSize:6, color:BLUE+"33", letterSpacing:1, fontFamily:"'Orbitron',monospace" }}>FACTION</div>
-              {["SHIP","FGTR","TRPS"].map(h => (
+              {["SHIP","FGTR","TRPS (MIL)"].map(h => (
                 <div key={h} style={{ fontSize:6, color:BLUE+"33", letterSpacing:1, fontFamily:"'Orbitron',monospace", textAlign:"center" }}>{h}</div>
               ))}
               <div/>
@@ -1074,7 +1094,7 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
                         {(["ships","fighters","troops"] as const).map(field => (
                           <div key={field}>
                             <div style={{ fontSize:6, color:fc+"66", fontFamily:"'Orbitron',monospace", letterSpacing:1, marginBottom:2, textTransform:"uppercase" }}>
-                              {field === "ships" ? "Ships (mil)" : field === "fighters" ? "Fgtrs (mil)" : "Troops (mil)"}
+                              {field === "ships" ? "Ships" : field === "fighters" ? "Fgtrs" : "Troops (mil)"}
                             </div>
                             <input className="tm-input" type="number" min={0}
                               value={entry[field]}
