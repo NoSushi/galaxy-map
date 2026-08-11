@@ -2,6 +2,23 @@ import type { Express, Request, Response, NextFunction, RequestHandler } from "e
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { hashPassword, verifyPassword } from "./auth";
+import { z } from "zod";
+
+const settlementSchema = z.object({
+  id: z.string().min(1).max(64),
+  name: z.string().max(200),
+  size: z.enum(["Outpost", "Village", "Town", "City"]),
+  holder: z.string().max(200).optional(),
+  exports: z.string().max(500),
+  administration: z.number().int().min(0).max(4),
+  defenses: z.number().int().min(0).max(4),
+  communications: z.number().int().min(0).max(4),
+  infrastructure: z.number().int().min(0).max(4),
+  portSize: z.number().int().min(0).max(4),
+  medical: z.number().int().min(0).max(4),
+  shieldGenerator: z.boolean(),
+});
+const settlementsSchema = z.array(settlementSchema).max(50).nullable();
 
 declare module "express-session" {
   interface SessionData {
@@ -65,6 +82,11 @@ export async function registerRoutes(
   });
 
   app.post("/api/planets", requireEditor("canEditPlanets"), async (req, res) => {
+    if (req.body.settlements !== undefined) {
+      const parsed = settlementsSchema.safeParse(req.body.settlements);
+      if (!parsed.success) return res.status(400).json({ error: "Invalid settlements payload" });
+      req.body.settlements = parsed.data;
+    }
     const planet = await storage.createPlanet(req.body);
     res.status(201).json(planet);
   });
@@ -81,6 +103,11 @@ export async function registerRoutes(
     const settlementsOnly = keys.length > 0 && keys.every(k => k === "settlements");
     const allowed = user.isAdmin || user.canEditPlanets || (user.canEditSettlements && settlementsOnly);
     if (!allowed) return res.status(403).json({ error: "Permission denied" });
+    if (body.settlements !== undefined) {
+      const parsed = settlementsSchema.safeParse(body.settlements);
+      if (!parsed.success) return res.status(400).json({ error: "Invalid settlements payload" });
+      body.settlements = parsed.data;
+    }
     // Settlement administrators can persist nothing but the settlements field
     const patch = (user.isAdmin || user.canEditPlanets) ? body : { settlements: body.settlements };
     const planet = await storage.updatePlanet(String(req.params.id), patch);

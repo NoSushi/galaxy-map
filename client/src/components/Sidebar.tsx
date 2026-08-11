@@ -81,6 +81,12 @@ function SettlementCard({ s }: { s: Settlement }) {
         </div>
         <span className="text-[8px] bg-primary/15 text-primary px-1.5 py-0.5 rounded uppercase font-bold shrink-0">{s.size}</span>
       </div>
+      {s.holder && (
+        <div className="flex justify-between gap-2 text-[9px]">
+          <span className="uppercase text-primary/50 tracking-widest shrink-0">Settlement Holder</span>
+          <span className="text-foreground/80 text-right">{s.holder}</span>
+        </div>
+      )}
       {s.exports && (
         <div className="flex justify-between gap-2 text-[9px]">
           <span className="uppercase text-primary/50 tracking-widest shrink-0">Major Exports</span>
@@ -166,6 +172,10 @@ function SettlementsEditor({ planet }: { planet: Planet }) {
                     {SETTLEMENT_SIZES.map(sz => <SelectItem key={sz} value={sz}>{sz}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[9px] uppercase text-primary/70">Settlement Holder</Label>
+                <Input value={s.holder || ''} onChange={e => patch(s.id, { holder: e.target.value })} className="bg-black/60 border-primary/20 h-7 text-xs" placeholder="Who runs this settlement" />
               </div>
               <div className="space-y-1">
                 <Label className="text-[9px] uppercase text-primary/70">Major Exports</Label>

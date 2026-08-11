@@ -41,6 +41,7 @@ export interface Settlement {
   id: string;
   name: string;
   size: SettlementSize;
+  holder?: string;
   exports: string;
   administration: number;
   defenses: number;

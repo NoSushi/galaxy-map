@@ -31,7 +31,7 @@ export const planets = pgTable("planets", {
   warzoneSystemLayout: jsonb("warzone_system_layout").$type<{ bodies: { id: string; type: string; name: string; x: number; y: number; size: number; color: string; faction?: string }[] }>(),
   warzoneForces: jsonb("warzone_forces").$type<{ id: string; faction: string; ships: number; fighters: number; troops: number }[]>(),
   settlements: jsonb("settlements").$type<{
-    id: string; name: string; size: string; exports: string;
+    id: string; name: string; size: string; holder?: string; exports: string;
     administration: number; defenses: number; communications: number;
     infrastructure: number; portSize: number; medical: number;
     shieldGenerator: boolean;
