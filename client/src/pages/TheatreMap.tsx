@@ -1044,7 +1044,7 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
         </Panel>
 
         {/* Estimated Forces */}
-        <Panel label="EST. FORCES" color={BLUE} style={{ margin:"10px 10px 0", flex:1, display:"flex", flexDirection:"column", minHeight:0 }}>
+        <Panel label="EST. FORCES (MIL)" color={BLUE} style={{ margin:"10px 10px 0", flex:1, display:"flex", flexDirection:"column", minHeight:0 }}>
           <div style={{ padding:"8px 10px 6px", flex:1, overflowY:"auto" }}>
             {/* Column headers */}
             <div style={{ display:"grid", gridTemplateColumns:"1fr 30px 36px 36px 36px", gap:3,
@@ -1074,7 +1074,7 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
                         {(["ships","fighters","troops"] as const).map(field => (
                           <div key={field}>
                             <div style={{ fontSize:6, color:fc+"66", fontFamily:"'Orbitron',monospace", letterSpacing:1, marginBottom:2, textTransform:"uppercase" }}>
-                              {field === "ships" ? "Ships" : field === "fighters" ? "Fgtrs" : "Troops"}
+                              {field === "ships" ? "Ships (mil)" : field === "fighters" ? "Fgtrs (mil)" : "Troops (mil)"}
                             </div>
                             <input className="tm-input" type="number" min={0}
                               value={entry[field]}
