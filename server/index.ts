@@ -1,6 +1,9 @@
 import express, { type Request, Response, NextFunction } from "express";
 import compression from "compression";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import ws from "ws";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
@@ -9,7 +12,11 @@ const app = express();
 const httpServer = createServer(app);
 
 app.set("trust proxy", 1);
+neonConfig.webSocketConstructor = ws;
+const sessionPool = new Pool({ connectionString: process.env.CUSTOM_DATABASE_URL || process.env.DATABASE_URL });
+const PgSession = connectPgSimple(session);
 app.use(session({
+  store: new PgSession({ pool: sessionPool as any, tableName: "session", createTableIfMissing: true }),
   secret: process.env.SESSION_SECRET || "dev-only-secret",
   resave: false,
   saveUninitialized: false,

@@ -10,6 +10,7 @@ import {
 } from './data';
 import { planetApi, sectorApi, laneApi, fleetApi, factionApi } from './api';
 import { polygonDifference, polygonArea } from './polygon-ops';
+import { toast } from '@/hooks/use-toast';
 
 // ─── Polygon helpers ──────────────────────────────────────────────────────────
 
@@ -190,7 +191,14 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
   const debouncedApiCall = useCallback((key: string, fn: () => Promise<any>, delay = 300) => {
     if (updateTimers.current[key]) clearTimeout(updateTimers.current[key]);
     updateTimers.current[key] = setTimeout(() => {
-      fn().catch(err => console.error('API update failed:', err));
+      fn().catch(err => {
+        console.error('API update failed:', err);
+        toast({
+          variant: 'destructive',
+          title: 'Save failed',
+          description: 'Your last change was NOT saved. You may have been logged out — please log in again.',
+        });
+      });
     }, delay);
   }, []);
 
