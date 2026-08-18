@@ -22,8 +22,11 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    // The Replit preview runs the app in a cross-site iframe: the session
+    // cookie must be SameSite=None (+ Secure over https) or browsers drop it
+    // and every authenticated request silently fails.
+    secure: "auto",
+    sameSite: "none",
     maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
   },
 }));
