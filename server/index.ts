@@ -22,11 +22,14 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
-    // The Replit preview runs the app in a cross-site iframe: the session
-    // cookie must be SameSite=None (+ Secure over https) or browsers drop it
-    // and every authenticated request silently fails.
+    // On Replit the preview runs the app in a cross-site iframe, so the
+    // cookie must be SameSite=None + Secure or browsers drop it. On external
+    // hosting the site is visited directly (same-site), where Lax is correct
+    // and works even if the host's proxy doesn't forward the https protocol
+    // (SameSite=None REQUIRES the Secure flag, which "auto" only sets when
+    // the proxy forwards X-Forwarded-Proto: https).
     secure: "auto",
-    sameSite: "none",
+    sameSite: process.env.REPL_ID ? "none" : "lax",
     maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
   },
 }));
