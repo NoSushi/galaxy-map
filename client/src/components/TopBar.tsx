@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { useMap, Planet, Sector, Fleet, FactionInfo } from '@/lib/data';
-import { Search, Map as MapIcon, Route, Orbit, Edit2, Edit3, Settings, LogOut, Hexagon, Plus, Lock, Ship, Compass, Layers, Users, Shield, Trash2, Key, UserPlus } from 'lucide-react';
+import { Search, Map as MapIcon, Route, Orbit, Edit2, Edit3, Settings, LogOut, Hexagon, Plus, Lock, Ship, Compass, Layers, Users, Shield, Trash2, Key, UserPlus, MessageSquareWarning } from 'lucide-react';
 import { Input } from './ui/input';
 import { Switch } from './ui/switch';
 import { Label } from './ui/label';
@@ -602,6 +602,18 @@ export const TopBar = () => {
             <span className="hidden lg:inline text-[9px]">TRAVEL</span>
           </Button>
 
+          <Button asChild variant="outline" size="sm" className="hidden sm:flex border-primary/30 text-primary hover:bg-primary/10 gap-1.5 font-display tracking-widest h-8 lg:h-9 px-2 lg:px-3 shrink-0">
+            <a
+              href="https://docs.google.com/forms/d/1b6GWHz5w3yWBdKMmHJRKN3IUmpFtjWjUI1VXj7XvJpw/edit#response=ACYDBNivu_-3LfSgR9q3loUfv3zRcckd-_-phVcBw0-2WCq8yqmTxpALmhlxm2QNuLqpQSg"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Report a bug or make a suggestion"
+            >
+              <MessageSquareWarning className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden lg:inline text-[9px]">BUGS / SUGGESTIONS</span>
+            </a>
+          </Button>
+
           {/* Admin utility buttons (passwd / admin panel) */}
           {editMode && currentUser && (
             <div className="hidden sm:flex gap-1 shrink-0">
@@ -673,6 +685,15 @@ export const TopBar = () => {
             <div className="flex items-center gap-2 flex-wrap">
               <Button variant="outline" size="sm" onClick={() => { setIsTravelTimeOpen(true); setMobileMenuOpen(false); }} className="border-primary/30 text-primary hover:bg-primary/10 gap-1.5 h-8 text-[9px] font-display tracking-widest">
                 <Compass className="w-3.5 h-3.5" /> TRAVEL
+              </Button>
+              <Button asChild variant="outline" size="sm" className="border-primary/30 text-primary hover:bg-primary/10 gap-1.5 h-8 text-[9px] font-display tracking-widest">
+                <a
+                  href="https://docs.google.com/forms/d/1b6GWHz5w3yWBdKMmHJRKN3IUmpFtjWjUI1VXj7XvJpw/edit#response=ACYDBNivu_-3LfSgR9q3loUfv3zRcckd-_-phVcBw0-2WCq8yqmTxpALmhlxm2QNuLqpQSg"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <MessageSquareWarning className="w-3.5 h-3.5" /> BUGS / SUGGESTIONS
+                </a>
               </Button>
               {editMode && currentUser && (
                 <>
