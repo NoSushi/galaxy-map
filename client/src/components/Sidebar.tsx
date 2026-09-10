@@ -37,22 +37,26 @@ function TheatreButton({ planetId, variant = "inline" }: { planetId: string; var
 }
 
 const ENV_IMAGES: Record<string, string> = {
-  'Desert': '/planet-desert.webp',
-  'Forest': '/planet-forest.webp',
-  'City': '/planet-city.webp',
-  'Volcanic': '/planet-desert.webp',
-  'Icy': '/planet-desert.webp',
-  'Arid': '/planet-desert.webp',
-  'Barren': '/planet-desert.webp',
-  'Oceanic': '/planet-forest.webp',
-  'Swamp': '/planet-forest.webp',
-  'Tropical': '/planet-forest.webp',
-  'Gaseous': '/planet-desert.webp',
-  'Mountainous': '/planet-desert.webp',
-  'Unknown': '/planet-desert.webp',
+  'Desert': '/planet-environments/desert.jpg',
+  'Forest': '/planet-environments/forest.jpg',
+  'City': '/planet-environments/city.jpg',
+  'Volcanic': '/planet-environments/volcanic.jpg',
+  'Icy': '/planet-environments/ice.jpg',
+  'Ice': '/planet-environments/ice.jpg',
+  'Arid': '/planet-environments/arid.jpg',
+  'Barren': '/planet-environments/default.jpg',
+  'Oceanic': '/planet-environments/ocean.jpg',
+  'Ocean': '/planet-environments/ocean.jpg',
+  'Swamp': '/planet-environments/swamp.jpg',
+  'Tropical': '/planet-environments/tropical.jpg',
+  'Gaseous': '/planet-environments/gas.png',
+  'Gas': '/planet-environments/gas.png',
+  'Mountainous': '/planet-environments/mountainous.jpg',
+  'Unknown': '/planet-environments/default.jpg',
 };
 
-const getDefaultPlanetImage = (environment: string) => ENV_IMAGES[environment] || '/planet-desert.webp';
+const DEFAULT_PLANET_IMAGE = '/planet-environments/default.jpg';
+const getDefaultPlanetImage = (environment: string) => ENV_IMAGES[environment] || DEFAULT_PLANET_IMAGE;
 
 // ─── Major Settlements ────────────────────────────────────────────────────────
 
@@ -513,7 +517,16 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
     <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
       <div className="relative group">
         <div className="aspect-square rounded border border-primary/30 glow-border bg-black/80 overflow-hidden">
-          <img src={planet.image || getDefaultPlanetImage(planet.environment)} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity mix-blend-screen" />
+          <img
+            src={planet.image || getDefaultPlanetImage(planet.environment)}
+            className={cn(
+              "w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity mix-blend-screen",
+              !planet.image && getDefaultPlanetImage(planet.environment) === DEFAULT_PLANET_IMAGE && "planet-hologram"
+            )}
+          />
+          {!planet.image && getDefaultPlanetImage(planet.environment) === DEFAULT_PLANET_IMAGE && (
+            <div className="absolute inset-0 pointer-events-none planet-hologram-lines" />
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
           <div className="absolute bottom-3 left-3">
             <h1 className="text-2xl font-display font-black text-white glow-text uppercase leading-none tracking-tighter">{planet.name}</h1>
