@@ -214,6 +214,7 @@ export interface UserPermissions {
   canEditFleets: boolean;
   canManageFactions: boolean;
   canEditSettlements: boolean;
+  canEditWarzones: boolean;
 }
 
 export const adminApi = {

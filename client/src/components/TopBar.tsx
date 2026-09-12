@@ -128,9 +128,9 @@ export const TopBar = () => {
   const [searchOpen, setSearchOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  type AdminUser = { id: string; username: string; isAdmin: boolean; canEditPlanets: boolean; canEditSectors: boolean; canEditLanes: boolean; canEditFleets: boolean; canManageFactions: boolean; canEditSettlements: boolean; };
-  type Perms = { isAdmin: boolean; canEditPlanets: boolean; canEditSectors: boolean; canEditLanes: boolean; canEditFleets: boolean; canManageFactions: boolean; canEditSettlements: boolean; };
-  const emptyPerms: Perms = { isAdmin: false, canEditPlanets: false, canEditSectors: false, canEditLanes: false, canEditFleets: false, canManageFactions: false, canEditSettlements: false };
+  type AdminUser = { id: string; username: string; isAdmin: boolean; canEditPlanets: boolean; canEditSectors: boolean; canEditLanes: boolean; canEditFleets: boolean; canManageFactions: boolean; canEditSettlements: boolean; canEditWarzones: boolean; };
+  type Perms = { isAdmin: boolean; canEditPlanets: boolean; canEditSectors: boolean; canEditLanes: boolean; canEditFleets: boolean; canManageFactions: boolean; canEditSettlements: boolean; canEditWarzones: boolean; };
+  const emptyPerms: Perms = { isAdmin: false, canEditPlanets: false, canEditSectors: false, canEditLanes: false, canEditFleets: false, canManageFactions: false, canEditSettlements: false, canEditWarzones: false };
 
   // Admin panel state
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
@@ -357,7 +357,7 @@ export const TopBar = () => {
 
   const startEditUser = (u: AdminUser) => {
     setEditingUserId(u.id);
-    setEditingUserPerms({ isAdmin: u.isAdmin, canEditPlanets: u.canEditPlanets, canEditSectors: u.canEditSectors, canEditLanes: u.canEditLanes, canEditFleets: u.canEditFleets, canManageFactions: u.canManageFactions, canEditSettlements: u.canEditSettlements });
+    setEditingUserPerms({ isAdmin: u.isAdmin, canEditPlanets: u.canEditPlanets, canEditSectors: u.canEditSectors, canEditLanes: u.canEditLanes, canEditFleets: u.canEditFleets, canManageFactions: u.canManageFactions, canEditSettlements: u.canEditSettlements, canEditWarzones: u.canEditWarzones });
     setAdminError('');
   };
 
@@ -904,6 +904,7 @@ export const TopBar = () => {
                             ['canEditFleets', 'Edit Fleets'],
                             ['canManageFactions', 'Manage Factions'],
                             ['canEditSettlements', 'Administrator (Settlements)'],
+                            ['canEditWarzones', 'Administrator (Warzones)'],
                           ] as [keyof Perms, string][]).map(([key, label]) => (
                             <div key={key} className="flex items-center gap-1.5">
                               <Switch
@@ -935,6 +936,7 @@ export const TopBar = () => {
                               {u.canEditFleets && <span className="text-[7px] bg-orange-500/15 text-orange-400 px-1 py-0.5 rounded uppercase font-bold">Fleets</span>}
                               {u.canManageFactions && <span className="text-[7px] bg-purple-500/15 text-purple-400 px-1 py-0.5 rounded uppercase font-bold">Factions</span>}
                               {u.canEditSettlements && <span className="text-[7px] bg-cyan-500/15 text-cyan-400 px-1 py-0.5 rounded uppercase font-bold">Settlements</span>}
+                              {u.canEditWarzones && <span className="text-[7px] bg-red-500/15 text-red-400 px-1 py-0.5 rounded uppercase font-bold">Warzones</span>}
                             </div>
                           )}
                         </div>
@@ -968,6 +970,7 @@ export const TopBar = () => {
                     ['canEditFleets', 'Edit Fleets'],
                     ['canManageFactions', 'Manage Factions'],
                             ['canEditSettlements', 'Administrator (Settlements)'],
+                    ['canEditWarzones', 'Administrator (Warzones)'],
                   ] as [keyof Perms, string][]).map(([key, label]) => (
                     <div key={key} className="flex items-center gap-1.5">
                       <Switch

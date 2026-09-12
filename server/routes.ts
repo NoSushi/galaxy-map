@@ -27,7 +27,7 @@ declare module "express-session" {
   }
 }
 
-type Permission = "canEditPlanets" | "canEditSectors" | "canEditLanes" | "canEditFleets" | "canManageFactions" | "canEditSettlements";
+type Permission = "canEditPlanets" | "canEditSectors" | "canEditLanes" | "canEditFleets" | "canManageFactions" | "canEditSettlements" | "canEditWarzones";
 
 function requireEditor(permission: Permission): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction) => {
@@ -102,7 +102,20 @@ export async function registerRoutes(
     const { id: _ignoredId, ...body } = req.body; // never allow primary-key mutation
     const keys = Object.keys(body);
     const settlementsOnly = keys.length > 0 && keys.every(k => k === "settlements");
-    const allowed = user.isAdmin || user.canEditPlanets || (user.canEditSettlements && settlementsOnly);
+    const warzoneToggleOnly = keys.length > 0 && keys.every(k => k === "isWarzone");
+    const warzoneContentFields = new Set([
+      "warzoneBattleName", "warzoneBattlesWon", "warzoneBattlesLost",
+      "warzoneObjectives", "warzoneSystemLayout", "warzoneForces",
+    ]);
+    const warzoneContentOnly = keys.length > 0 && keys.every(k => warzoneContentFields.has(k));
+    const targetPlanet = (user.canEditWarzones && (warzoneToggleOnly || warzoneContentOnly))
+      ? await storage.getPlanet(String(req.params.id))
+      : undefined;
+    const canEditWarzoneContent = !!(user.canEditWarzones && warzoneContentOnly && targetPlanet?.isWarzone);
+    const allowed = user.isAdmin || user.canEditPlanets ||
+      (user.canEditSettlements && settlementsOnly) ||
+      (user.canEditWarzones && warzoneToggleOnly) ||
+      canEditWarzoneContent;
     if (!allowed) return res.status(403).json({ error: "Permission denied" });
     if (body.settlements !== undefined) {
       const parsed = settlementsSchema.safeParse(body.settlements);
@@ -110,7 +123,13 @@ export async function registerRoutes(
       body.settlements = parsed.data;
     }
     // Settlement administrators can persist nothing but the settlements field
-    const patch = (user.isAdmin || user.canEditPlanets) ? body : { settlements: body.settlements };
+    const patch = (user.isAdmin || user.canEditPlanets)
+      ? body
+      : settlementsOnly
+        ? { settlements: body.settlements }
+        : warzoneToggleOnly
+          ? { isWarzone: body.isWarzone }
+          : body;
     const planet = await storage.updatePlanet(String(req.params.id), patch);
     if (!planet) return res.status(404).json({ error: "Planet not found" });
     res.json(planet);
@@ -171,18 +190,74 @@ export async function registerRoutes(
     res.json(fleets);
   });
 
-  app.post("/api/fleets", requireEditor("canEditFleets"), async (req, res) => {
+  app.post("/api/fleets", async (req, res) => {
+    const userId = req.session?.userId;
+    const user = userId ? await storage.getUser(userId) : undefined;
+    if (!user) return res.status(401).json({ error: "Authentication required" });
+
+    if (!user.isAdmin && !user.canEditFleets) {
+      if (!user.canEditWarzones) return res.status(403).json({ error: "Permission denied" });
+      const theatre = req.body.warzonePlanetId
+        ? await storage.getPlanet(String(req.body.warzonePlanetId))
+        : undefined;
+      if (!theatre?.isWarzone) return res.status(403).json({ error: "A warzone theatre is required" });
+      const fleet = await storage.createFleet({
+        ...req.body,
+        x: theatre.x,
+        y: theatre.y,
+        warzonePlanetId: theatre.id,
+        theatreOnly: true,
+      });
+      return res.status(201).json(fleet);
+    }
+
     const fleet = await storage.createFleet(req.body);
     res.status(201).json(fleet);
   });
 
-  app.patch("/api/fleets/:id", requireEditor("canEditFleets"), async (req, res) => {
-    const fleet = await storage.updateFleet(String(req.params.id), req.body);
+  app.patch("/api/fleets/:id", async (req, res) => {
+    const userId = req.session?.userId;
+    const user = userId ? await storage.getUser(userId) : undefined;
+    if (!user) return res.status(401).json({ error: "Authentication required" });
+
+    let patch = req.body;
+    if (!user.isAdmin && !user.canEditFleets) {
+      const existing = await storage.getFleet(String(req.params.id));
+      const theatreId = existing?.warzonePlanetId;
+      const theatre = theatreId ? await storage.getPlanet(theatreId) : undefined;
+      if (!user.canEditWarzones || !existing || !theatre?.isWarzone ||
+          req.body.warzonePlanetId !== theatre.id) {
+        return res.status(403).json({ error: "Permission denied" });
+      }
+      const theatreFleetFields = [
+        "name", "faction", "description", "markerImage", "isCapitalShip",
+        "labelMode", "color", "theatreX", "theatreY",
+      ];
+      patch = Object.fromEntries(
+        theatreFleetFields
+          .filter(key => Object.prototype.hasOwnProperty.call(req.body, key))
+          .map(key => [key, req.body[key]])
+      );
+    }
+
+    const fleet = await storage.updateFleet(String(req.params.id), patch);
     if (!fleet) return res.status(404).json({ error: "Fleet not found" });
     res.json(fleet);
   });
 
-  app.delete("/api/fleets/:id", requireEditor("canEditFleets"), async (req, res) => {
+  app.delete("/api/fleets/:id", async (req, res) => {
+    const userId = req.session?.userId;
+    const user = userId ? await storage.getUser(userId) : undefined;
+    if (!user) return res.status(401).json({ error: "Authentication required" });
+    if (!user.isAdmin && !user.canEditFleets) {
+      const existing = await storage.getFleet(String(req.params.id));
+      const theatre = existing?.warzonePlanetId
+        ? await storage.getPlanet(existing.warzonePlanetId)
+        : undefined;
+      if (!user.canEditWarzones || !existing || !theatre?.isWarzone) {
+        return res.status(403).json({ error: "Permission denied" });
+      }
+    }
     await storage.deleteFleet(String(req.params.id));
     res.status(204).send();
   });
@@ -238,6 +313,7 @@ export async function registerRoutes(
       canEditFleets: user.canEditFleets,
       canManageFactions: user.canManageFactions,
       canEditSettlements: user.canEditSettlements,
+      canEditWarzones: user.canEditWarzones,
     });
   });
 
@@ -263,6 +339,7 @@ export async function registerRoutes(
       canEditFleets: user.canEditFleets,
       canManageFactions: user.canManageFactions,
       canEditSettlements: user.canEditSettlements,
+      canEditWarzones: user.canEditWarzones,
     });
   });
 
@@ -292,6 +369,7 @@ export async function registerRoutes(
       canEditFleets: u.canEditFleets,
       canManageFactions: u.canManageFactions,
       canEditSettlements: u.canEditSettlements,
+      canEditWarzones: u.canEditWarzones,
     };
   }
 
@@ -306,7 +384,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/admin/users", async (req, res) => {
-    const { adminUsername, adminPassword, username, password, isAdmin, canEditPlanets, canEditSectors, canEditLanes, canEditFleets, canManageFactions, canEditSettlements } = req.body;
+    const { adminUsername, adminPassword, username, password, isAdmin, canEditPlanets, canEditSectors, canEditLanes, canEditFleets, canManageFactions, canEditSettlements, canEditWarzones } = req.body;
     const admin = await storage.getUserByUsername(adminUsername);
     if (!admin || !admin.isAdmin) return res.status(403).json({ error: "Admin access required" });
     const valid = await verifyPassword(adminPassword, admin.passwordHash);
@@ -326,17 +404,18 @@ export async function registerRoutes(
       canEditFleets: canEditFleets || false,
       canManageFactions: canManageFactions || false,
       canEditSettlements: canEditSettlements || false,
+      canEditWarzones: canEditWarzones || false,
     });
     res.status(201).json(serializeUser(user));
   });
 
   app.patch("/api/admin/users/:id", async (req, res) => {
-    const { adminUsername, adminPassword, isAdmin, canEditPlanets, canEditSectors, canEditLanes, canEditFleets, canManageFactions, canEditSettlements } = req.body;
+    const { adminUsername, adminPassword, isAdmin, canEditPlanets, canEditSectors, canEditLanes, canEditFleets, canManageFactions, canEditSettlements, canEditWarzones } = req.body;
     const admin = await storage.getUserByUsername(adminUsername);
     if (!admin || !admin.isAdmin) return res.status(403).json({ error: "Admin access required" });
     const valid = await verifyPassword(adminPassword, admin.passwordHash);
     if (!valid) return res.status(403).json({ error: "Admin access required" });
-    const user = await storage.updateUser(String(req.params.id), { isAdmin, canEditPlanets, canEditSectors, canEditLanes, canEditFleets, canManageFactions, canEditSettlements });
+    const user = await storage.updateUser(String(req.params.id), { isAdmin, canEditPlanets, canEditSectors, canEditLanes, canEditFleets, canManageFactions, canEditSettlements, canEditWarzones });
     if (!user) return res.status(404).json({ error: "User not found" });
     res.json(serializeUser(user));
   });

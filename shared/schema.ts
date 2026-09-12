@@ -92,6 +92,7 @@ export const users = pgTable("users", {
   canEditFleets: boolean("can_edit_fleets").notNull().default(false),
   canManageFactions: boolean("can_manage_factions").notNull().default(false),
   canEditSettlements: boolean("can_edit_settlements").notNull().default(false),
+  canEditWarzones: boolean("can_edit_warzones").notNull().default(false),
 });
 
 export const insertPlanetSchema = createInsertSchema(planets);

@@ -312,6 +312,30 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
   const isUnlocked = unlockedPlanetIds.has(planet.id);
   const canFullEdit = !!(currentUser?.isAdmin || currentUser?.canEditPlanets);
   const canEditSettlements = canFullEdit || !!currentUser?.canEditSettlements;
+  const canEditWarzones = canFullEdit || !!currentUser?.canEditWarzones;
+
+  // Warzone administrators can only toggle a theatre from the galaxy sidebar.
+  // Their theatre content is edited from the dedicated theatre screen.
+  if (editMode && !canFullEdit && currentUser?.canEditWarzones) {
+    return (
+      <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-300">
+        <div className="flex justify-between items-center">
+          <Label className="text-[10px] uppercase text-primary/70">{planet.name} — Warzone</Label>
+        </div>
+        <div className={cn("flex items-center justify-between p-2 rounded border", planet.isWarzone ? "bg-red-950/30 border-destructive/50" : "bg-white/5 border-white/10")}>
+          <div className="flex items-center gap-2">
+            <Swords className={cn("w-3.5 h-3.5", planet.isWarzone ? "text-destructive" : "text-muted-foreground")} />
+            <div>
+              <Label htmlFor="is-warzone" className="text-xs">Active Warzone</Label>
+              <p className="text-[9px] text-muted-foreground">Enables System Theatre Map</p>
+            </div>
+          </div>
+          <Switch checked={planet.isWarzone || false} onCheckedChange={c => updatePlanet({...planet, isWarzone: c})} id="is-warzone" />
+        </div>
+        {planet.isWarzone && <TheatreButton planetId={planet.id} variant="panel" />}
+      </div>
+    );
+  }
 
   // Settlement administrators see ONLY the settlements editor in edit mode
   if (editMode && !canFullEdit && canEditSettlements) {

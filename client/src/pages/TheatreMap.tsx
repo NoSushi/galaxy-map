@@ -290,8 +290,10 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
   const { planets, fleets, factionList, currentUser, updatePlanet, sectors, setCurrentUser, addFleet, updateFleet, deleteFleet } = useMap();
 
   const planet = planets.find(p => p.id === planetId);
-  const isAdmin = !!(currentUser?.isAdmin || currentUser?.canEditPlanets);
-  const canFleet = !!(currentUser?.isAdmin || currentUser?.canEditFleets);
+  const isAdmin = !!(currentUser?.isAdmin || currentUser?.canEditPlanets ||
+    (currentUser?.canEditWarzones && planet?.isWarzone));
+  const canFleet = !!(currentUser?.isAdmin || currentUser?.canEditFleets ||
+    (currentUser?.canEditWarzones && planet?.isWarzone));
 
   /* ── Warzone editable fields ── */
   const [battleName,  setBattleName]  = useState("");

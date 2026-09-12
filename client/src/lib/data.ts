@@ -137,6 +137,7 @@ export interface AuthUser {
   canEditFleets: boolean;
   canManageFactions: boolean;
   canEditSettlements: boolean;
+  canEditWarzones: boolean;
 }
 
 export interface MapContextType {
