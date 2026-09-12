@@ -379,11 +379,11 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
     ? planets.filter(p => p.sectorId === planet.sectorId && p.id !== planet.id)
     : [];
 
-  /* ── Theatre fleets: explicitly assigned to this warzone, plus unassigned nearby ones ── */
+  /* ── Theatre fleets: only fleets explicitly assigned to this warzone ──
+     Creating a warzone must not pull nearby galaxy fleets into its theatre. */
   const nearbyFleets = planet
     ? fleets.filter(f =>
-        f.warzonePlanetId === planet.id ||
-        (!f.warzonePlanetId && Math.hypot(f.x - planet.x, f.y - planet.y) < 600)
+        f.warzonePlanetId === planet.id
       )
     : [];
 
