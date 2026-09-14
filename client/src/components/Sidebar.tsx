@@ -9,6 +9,7 @@ import { Button } from './ui/button';
 import { Switch } from './ui/switch';
 import { Checkbox } from './ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { toast } from '@/hooks/use-toast';
 
 function TheatreButton({ planetId, variant = "inline" }: { planetId: string; variant?: "inline" | "panel" }) {
   const [, navigate] = useLocation();
@@ -279,7 +280,7 @@ const BulkPlanetDetails = ({ selectedIds, planets, sectors, editMode }: { select
   const apply = () => {
     const defaults: Record<string, string | boolean> = {
       faction: factionList[0]?.name ?? 'Independent',
-      sectorId: '__none__',
+      sectorId: '',
       environment: 'Unknown',
       labelMode: 'normal',
       habitable: false,
@@ -292,7 +293,21 @@ const BulkPlanetDetails = ({ selectedIds, planets, sectors, editMode }: { select
         .map(field => [field, values[field] ?? defaults[field]])
     ) as Partial<Planet>;
     if (enabled.sectorId) {
-      changes.sectorId = values.sectorId === '__none__' ? null : String(values.sectorId ?? '__none__');
+      const sectorName = String(values.sectorId ?? '').trim();
+      if (!sectorName) {
+        changes.sectorId = null;
+      } else {
+        const matchingSector = sectors.find(sector => sector.name.trim().toLowerCase() === sectorName.toLowerCase());
+        if (!matchingSector) {
+          toast({
+            variant: 'destructive',
+            title: 'Sector not found',
+            description: `No sector named "${sectorName}" exists. Enter an existing sector name or leave the field blank to clear it.`,
+          });
+          return;
+        }
+        changes.sectorId = matchingSector.id;
+      }
     }
     if (!canEdit || selected.length === 0 || Object.keys(changes).length === 0) return;
     selected.forEach(planet => updatePlanet({ ...planet, ...changes }, changes));
@@ -337,13 +352,12 @@ const BulkPlanetDetails = ({ selectedIds, planets, sectors, editMode }: { select
           Sector
         </label>
         {enabled.sectorId && (
-          <Select value={String(values.sectorId ?? '__none__')} onValueChange={value => setField('sectorId', value)}>
-            <SelectTrigger className="bg-black/60 border-primary/20 h-8 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">No sector</SelectItem>
-              {sectors.map(sector => <SelectItem key={sector.id} value={sector.id}>{sector.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <Input
+            value={String(values.sectorId ?? '')}
+            onChange={event => setField('sectorId', event.target.value)}
+            placeholder="Type an existing sector name"
+            className="bg-black/60 border-primary/20 h-8 text-xs"
+          />
         )}
 
         <label className="flex items-center gap-2 text-[10px] uppercase text-primary/70">
