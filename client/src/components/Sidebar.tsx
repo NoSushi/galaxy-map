@@ -264,7 +264,7 @@ const BULK_LABEL_MODES = [
   { value: 'hover', label: 'On hover' },
 ];
 
-const BulkPlanetDetails = ({ selectedIds, planets, editMode }: { selectedIds: string[]; planets: Planet[]; editMode: boolean }) => {
+const BulkPlanetDetails = ({ selectedIds, planets, sectors, editMode }: { selectedIds: string[]; planets: Planet[]; sectors: Sector[]; editMode: boolean }) => {
   const { updatePlanet, currentUser, factionList } = useMap();
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
   const [values, setValues] = useState<Record<string, string | boolean>>({});
@@ -279,6 +279,7 @@ const BulkPlanetDetails = ({ selectedIds, planets, editMode }: { selectedIds: st
   const apply = () => {
     const defaults: Record<string, string | boolean> = {
       faction: factionList[0]?.name ?? 'Independent',
+      sectorId: '__none__',
       environment: 'Unknown',
       labelMode: 'normal',
       habitable: false,
@@ -290,6 +291,9 @@ const BulkPlanetDetails = ({ selectedIds, planets, editMode }: { selectedIds: st
         .filter(field => enabled[field])
         .map(field => [field, values[field] ?? defaults[field]])
     ) as Partial<Planet>;
+    if (enabled.sectorId) {
+      changes.sectorId = values.sectorId === '__none__' ? null : String(values.sectorId ?? '__none__');
+    }
     if (!canEdit || selected.length === 0 || Object.keys(changes).length === 0) return;
     selected.forEach(planet => updatePlanet({ ...planet, ...changes }, changes));
   };
@@ -325,6 +329,20 @@ const BulkPlanetDetails = ({ selectedIds, planets, editMode }: { selectedIds: st
           <Select value={String(values.faction ?? factionList[0]?.name ?? '')} onValueChange={value => setField('faction', value)}>
             <SelectTrigger className="bg-black/60 border-primary/20 h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>{factionList.map(f => <SelectItem key={f.id} value={f.name}>{f.name}</SelectItem>)}</SelectContent>
+          </Select>
+        )}
+
+        <label className="flex items-center gap-2 text-[10px] uppercase text-primary/70">
+          <Checkbox checked={!!enabled.sectorId} onCheckedChange={checked => setEnabled(p => ({ ...p, sectorId: checked === true }))} />
+          Sector
+        </label>
+        {enabled.sectorId && (
+          <Select value={String(values.sectorId ?? '__none__')} onValueChange={value => setField('sectorId', value)}>
+            <SelectTrigger className="bg-black/60 border-primary/20 h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">No sector</SelectItem>
+              {sectors.map(sector => <SelectItem key={sector.id} value={sector.id}>{sector.name}</SelectItem>)}
+            </SelectContent>
           </Select>
         )}
 
@@ -424,7 +442,7 @@ export const Sidebar = () => {
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 custom-scrollbar bg-black/20">
-        {isBulkSelection && <BulkPlanetDetails selectedIds={selectedPlanetIds} planets={planets} editMode={editMode} />}
+        {isBulkSelection && <BulkPlanetDetails selectedIds={selectedPlanetIds} planets={planets} sectors={sectors} editMode={editMode} />}
         {!isBulkSelection && selectedPlanet && <PlanetDetails planet={selectedPlanet} editMode={editMode} sectors={sectors} lanes={lanes} planets={planets} />}
         {selectedSector && <SectorDetails sector={selectedSector} editMode={editMode} planets={planets} />}
         {selectedLane && <LaneDetails lane={selectedLane} editMode={editMode} planets={planets} />}
