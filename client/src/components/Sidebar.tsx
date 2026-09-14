@@ -7,6 +7,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Button } from './ui/button';
 import { Switch } from './ui/switch';
+import { Checkbox } from './ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 function TheatreButton({ planetId, variant = "inline" }: { planetId: string; variant?: "inline" | "panel" }) {
@@ -256,9 +257,133 @@ const FactionSelect = ({ value, onChange }: { value: string; onChange: (v: strin
   );
 };
 
+const BULK_ENVIRONMENTS = ['Desert', 'Forest', 'City', 'Volcanic', 'Icy', 'Arid', 'Barren', 'Oceanic', 'Swamp', 'Tropical', 'Gaseous', 'Mountainous', 'Unknown'];
+const BULK_LABEL_MODES = [
+  { value: 'normal', label: 'Normal' },
+  { value: 'top', label: 'Always visible' },
+  { value: 'hover', label: 'On hover' },
+];
+
+const BulkPlanetDetails = ({ selectedIds, planets, editMode }: { selectedIds: string[]; planets: Planet[]; editMode: boolean }) => {
+  const { updatePlanet, currentUser, factionList } = useMap();
+  const [enabled, setEnabled] = useState<Record<string, boolean>>({});
+  const [values, setValues] = useState<Record<string, string | boolean>>({});
+  const selected = planets.filter(p => selectedIds.includes(p.id));
+  const canEdit = !!(currentUser?.isAdmin || currentUser?.canEditPlanets);
+
+  const setField = (field: string, value: string | boolean) => {
+    setEnabled(prev => ({ ...prev, [field]: true }));
+    setValues(prev => ({ ...prev, [field]: value }));
+  };
+
+  const apply = () => {
+    const defaults: Record<string, string | boolean> = {
+      faction: factionList[0]?.name ?? 'Independent',
+      environment: 'Unknown',
+      labelMode: 'normal',
+      habitable: false,
+      travelable: true,
+      isWarzone: false,
+    };
+    const changes = Object.fromEntries(
+      Object.keys(enabled)
+        .filter(field => enabled[field])
+        .map(field => [field, values[field] ?? defaults[field]])
+    ) as Partial<Planet>;
+    if (!canEdit || selected.length === 0 || Object.keys(changes).length === 0) return;
+    selected.forEach(planet => updatePlanet({ ...planet, ...changes }, changes));
+  };
+
+  return (
+    <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-300">
+      <div className="p-3 bg-primary/10 rounded border border-primary/30">
+        <div className="text-sm font-display font-bold text-primary uppercase tracking-wider">
+          {selected.length} Planets Selected
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-1">
+          Click a field to include it, then apply the change to every selected planet.
+        </p>
+      </div>
+
+      {!editMode && (
+        <div className="text-[10px] text-muted-foreground border border-white/10 rounded p-2">
+          Enable edit mode to apply bulk changes.
+        </div>
+      )}
+      {editMode && !canEdit && (
+        <div className="text-[10px] text-destructive border border-destructive/30 rounded p-2">
+          Your account does not have permission to bulk-edit planets.
+        </div>
+      )}
+
+      <div className="space-y-3">
+        <label className="flex items-center gap-2 text-[10px] uppercase text-primary/70">
+          <Checkbox checked={!!enabled.faction} onCheckedChange={checked => setEnabled(p => ({ ...p, faction: checked === true }))} />
+          Political affiliation
+        </label>
+        {enabled.faction && (
+          <Select value={String(values.faction ?? factionList[0]?.name ?? '')} onValueChange={value => setField('faction', value)}>
+            <SelectTrigger className="bg-black/60 border-primary/20 h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>{factionList.map(f => <SelectItem key={f.id} value={f.name}>{f.name}</SelectItem>)}</SelectContent>
+          </Select>
+        )}
+
+        <label className="flex items-center gap-2 text-[10px] uppercase text-primary/70">
+          <Checkbox checked={!!enabled.environment} onCheckedChange={checked => setEnabled(p => ({ ...p, environment: checked === true }))} />
+          Environment
+        </label>
+        {enabled.environment && (
+          <Select value={String(values.environment ?? 'Unknown')} onValueChange={value => setField('environment', value)}>
+            <SelectTrigger className="bg-black/60 border-primary/20 h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>{BULK_ENVIRONMENTS.map(environment => <SelectItem key={environment} value={environment}>{environment}</SelectItem>)}</SelectContent>
+          </Select>
+        )}
+
+        <label className="flex items-center gap-2 text-[10px] uppercase text-primary/70">
+          <Checkbox checked={!!enabled.labelMode} onCheckedChange={checked => setEnabled(p => ({ ...p, labelMode: checked === true }))} />
+          Label visibility
+        </label>
+        {enabled.labelMode && (
+          <Select value={String(values.labelMode ?? 'normal')} onValueChange={value => setField('labelMode', value)}>
+            <SelectTrigger className="bg-black/60 border-primary/20 h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>{BULK_LABEL_MODES.map(mode => <SelectItem key={mode.value} value={mode.value}>{mode.label}</SelectItem>)}</SelectContent>
+          </Select>
+        )}
+
+        {[
+          ['habitable', 'Habitable'],
+          ['travelable', 'Travelable'],
+          ['isWarzone', 'Active warzone'],
+        ].map(([field, label]) => (
+          <div key={field} className="flex items-center justify-between p-2 bg-white/5 rounded border border-white/10">
+            <label className="flex items-center gap-2 text-xs">
+              <Checkbox checked={!!enabled[field]} onCheckedChange={checked => setEnabled(p => ({ ...p, [field]: checked === true }))} />
+              {label}
+            </label>
+            {enabled[field] && (
+              <Switch
+                checked={Boolean(values[field] ?? (field === 'travelable'))}
+                onCheckedChange={value => setField(field, value)}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+
+      <Button
+        onClick={apply}
+        disabled={!editMode || !canEdit || selected.length === 0 || !Object.values(enabled).some(Boolean)}
+        className="w-full uppercase tracking-widest text-[10px]"
+      >
+        Apply to {selected.length} planets
+      </Button>
+    </div>
+  );
+};
+
 export const Sidebar = () => {
   const { 
-    selectedPlanet, setSelectedPlanet,
+    selectedPlanet, selectedPlanetIds, setSelectedPlanet, setPlanetSelection,
     selectedSector, setSelectedSector,
     selectedLane, setSelectedLane,
     selectedFleet, setSelectedFleet,
@@ -267,13 +392,15 @@ export const Sidebar = () => {
   } = useMap();
 
   const closePanel = () => {
+    setPlanetSelection([]);
     setSelectedPlanet(null);
     setSelectedSector(null);
     setSelectedLane(null);
     setSelectedFleet(null);
   };
 
-  const isOpen = selectedPlanet || selectedSector || selectedLane || selectedFleet;
+  const isBulkSelection = selectedPlanetIds.length > 1;
+  const isOpen = isBulkSelection || selectedPlanet || selectedSector || selectedLane || selectedFleet;
 
   if (!isOpen) return null;
 
@@ -285,7 +412,8 @@ export const Sidebar = () => {
     )}>
       <div className="p-4 border-b border-primary/20 flex justify-between items-center bg-black/40">
         <h2 className="text-lg font-display text-primary glow-text flex items-center gap-2 uppercase tracking-tighter">
-          {selectedPlanet && <><Globe className="w-4 h-4" /> System Hub</>}
+          {isBulkSelection && <><Globe className="w-4 h-4" /> Bulk Planet Edit</>}
+          {!isBulkSelection && selectedPlanet && <><Globe className="w-4 h-4" /> System Hub</>}
           {selectedSector && <><Map className="w-4 h-4" /> Sector Nav</>}
           {selectedLane && <><Route className="w-4 h-4" /> Hyperroute</>}
           {selectedFleet && <><Ship className="w-4 h-4" /> Fleet Command</>}
@@ -296,7 +424,8 @@ export const Sidebar = () => {
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 custom-scrollbar bg-black/20">
-        {selectedPlanet && <PlanetDetails planet={selectedPlanet} editMode={editMode} sectors={sectors} lanes={lanes} planets={planets} />}
+        {isBulkSelection && <BulkPlanetDetails selectedIds={selectedPlanetIds} planets={planets} editMode={editMode} />}
+        {!isBulkSelection && selectedPlanet && <PlanetDetails planet={selectedPlanet} editMode={editMode} sectors={sectors} lanes={lanes} planets={planets} />}
         {selectedSector && <SectorDetails sector={selectedSector} editMode={editMode} planets={planets} />}
         {selectedLane && <LaneDetails lane={selectedLane} editMode={editMode} planets={planets} />}
         {selectedFleet && <FleetDetails fleet={selectedFleet} editMode={editMode} />}

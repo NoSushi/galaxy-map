@@ -69,7 +69,8 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [selectedPlanet, setSelectedPlanet] = useState<Planet | null>(null);
+  const [selectedPlanet, setSelectedPlanetState] = useState<Planet | null>(null);
+  const [selectedPlanetIds, setSelectedPlanetIds] = useState<string[]>([]);
   const [selectedSector, setSelectedSector] = useState<Sector | null>(null);
   const [selectedLane, setSelectedLane] = useState<HyperspaceLane | null>(null);
   const [selectedFleet, setSelectedFleet] = useState<Fleet | null>(null);
@@ -106,6 +107,29 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
   });
 
   const updateTimers = useRef<Record<string, NodeJS.Timeout>>({});
+
+  const setSelectedPlanet = useCallback((planet: Planet | null) => {
+    setSelectedPlanetState(planet);
+    setSelectedPlanetIds(planet ? [planet.id] : []);
+  }, []);
+
+  const setPlanetSelection = useCallback((ids: string[], primaryId?: string) => {
+    const uniqueIds = [...new Set(ids)];
+    setSelectedPlanetIds(uniqueIds);
+    const primary = planets.find(p => p.id === (primaryId ?? uniqueIds[0]));
+    setSelectedPlanetState(primary ?? null);
+  }, [planets]);
+
+  const togglePlanetSelection = useCallback((planet: Planet) => {
+    setSelectedPlanetIds(prev => {
+      const next = prev.includes(planet.id)
+        ? prev.filter(id => id !== planet.id)
+        : [...prev, planet.id];
+      const primary = planets.find(p => p.id === (next[next.length - 1] ?? ''));
+      setSelectedPlanetState(primary ?? null);
+      return next;
+    });
+  }, [planets]);
 
   // ─── Session cache helpers ────────────────────────────────────────────────
   const CACHE_VERSION = 'v1';
@@ -281,7 +305,7 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
       diff = { ...updatedPlanet };
     }
     setPlanets(prev => prev.map(p => p.id === updatedPlanet.id ? updatedPlanet : p));
-    if (selectedPlanet?.id === updatedPlanet.id) setSelectedPlanet(updatedPlanet);
+    if (selectedPlanet?.id === updatedPlanet.id) setSelectedPlanetState(updatedPlanet);
     if (Object.keys(diff).length > 0) {
       const id = updatedPlanet.id;
       pendingPlanetChanges.current[id] = { ...pendingPlanetChanges.current[id], ...diff };
@@ -321,7 +345,7 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
     }));
     if (selectedPlanet) {
       const updated = toUpdate.find(u => u.id === selectedPlanet.id);
-      if (updated) setSelectedPlanet(updated);
+      if (updated) setSelectedPlanetState(updated);
     }
     for (const planet of toUpdate) {
       debouncedApiCall(`planet-faction-${planet.id}`, () => planetApi.update(planet.id, { faction: planet.faction }));
@@ -509,6 +533,7 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
       factionList,
       currentUser,
       selectedPlanet,
+      selectedPlanetIds,
       selectedSector,
       selectedLane,
       selectedFleet,
@@ -530,6 +555,8 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
       setFactionList,
       setCurrentUser,
       setSelectedPlanet,
+      setPlanetSelection,
+      togglePlanetSelection,
       setSelectedSector,
       setSelectedLane,
       setSelectedFleet,

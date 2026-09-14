@@ -148,6 +148,7 @@ export interface MapContextType {
   factionList: FactionInfo[];
   currentUser: AuthUser | null;
   selectedPlanet: Planet | null;
+  selectedPlanetIds: string[];
   selectedSector: Sector | null;
   selectedLane: HyperspaceLane | null;
   selectedFleet: Fleet | null;
@@ -173,6 +174,8 @@ export interface MapContextType {
   setFactionList: (factions: FactionInfo[]) => void;
   setCurrentUser: (user: AuthUser | null) => void;
   setSelectedPlanet: (planet: Planet | null) => void;
+  setPlanetSelection: (ids: string[], primaryId?: string) => void;
+  togglePlanetSelection: (planet: Planet) => void;
   setSelectedSector: (sector: Sector | null) => void;
   setSelectedLane: (lane: HyperspaceLane | null) => void;
   setSelectedFleet: (fleet: Fleet | null) => void;
