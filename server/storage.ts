@@ -1,12 +1,13 @@
 import { eq } from "drizzle-orm";
 import { db } from "./db";
 import {
-  planets, sectors, hyperspaceLanes, fleets, factions, users,
+  planets, sectors, hyperspaceLanes, fleets, factions, mapOverlays, users,
   type Planet, type InsertPlanet,
   type Sector, type InsertSector,
   type HyperspaceLane, type InsertLane,
   type Fleet, type InsertFleet,
   type Faction, type InsertFaction,
+  type MapOverlay, type InsertMapOverlay,
   type User, type InsertUser,
 } from "@shared/schema";
 
@@ -40,6 +41,11 @@ export interface IStorage {
   createFaction(faction: InsertFaction): Promise<Faction>;
   updateFaction(id: string, faction: Partial<InsertFaction>): Promise<Faction | undefined>;
   deleteFaction(id: string): Promise<void>;
+
+  getAllMapOverlays(): Promise<MapOverlay[]>;
+  createMapOverlay(overlay: InsertMapOverlay): Promise<MapOverlay>;
+  updateMapOverlay(id: string, overlay: Partial<InsertMapOverlay>): Promise<MapOverlay | undefined>;
+  deleteMapOverlay(id: string): Promise<void>;
 
   getAllUsers(): Promise<User[]>;
   getUser(id: string): Promise<User | undefined>;
@@ -147,6 +153,21 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteFaction(id: string): Promise<void> {
     await db.delete(factions).where(eq(factions.id, id));
+  }
+
+  async getAllMapOverlays(): Promise<MapOverlay[]> {
+    return db.select().from(mapOverlays);
+  }
+  async createMapOverlay(overlay: InsertMapOverlay): Promise<MapOverlay> {
+    const [created] = await db.insert(mapOverlays).values(overlay).returning();
+    return created;
+  }
+  async updateMapOverlay(id: string, data: Partial<InsertMapOverlay>): Promise<MapOverlay | undefined> {
+    const [updated] = await db.update(mapOverlays).set(data).where(eq(mapOverlays.id, id)).returning();
+    return updated;
+  }
+  async deleteMapOverlay(id: string): Promise<void> {
+    await db.delete(mapOverlays).where(eq(mapOverlays.id, id));
   }
 
   async getAllUsers(): Promise<User[]> {

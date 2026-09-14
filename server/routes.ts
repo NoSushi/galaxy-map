@@ -294,6 +294,63 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // --- Map overlays ---
+  app.get("/api/overlays", async (_req, res) => {
+    res.json(await storage.getAllMapOverlays());
+  });
+
+  app.post("/api/overlays", requireEditor("canEditPlanets"), async (req, res) => {
+    const { id, name, imageData, x, y, width, height, opacity } = req.body;
+    if (!id || !name || typeof imageData !== "string" || !imageData.startsWith("data:image/")) {
+      return res.status(400).json({ error: "A name and image upload are required" });
+    }
+    if (imageData.length > 12_000_000) {
+      return res.status(413).json({ error: "Overlay image is too large" });
+    }
+    const overlay = await storage.createMapOverlay({
+      id: String(id),
+      name: String(name).slice(0, 120),
+      imageData,
+      x: Number.isFinite(x) ? Math.round(x) : 0,
+      y: Number.isFinite(y) ? Math.round(y) : 0,
+      width: Number.isFinite(width) ? Math.max(100, Math.round(width)) : 5000,
+      height: Number.isFinite(height) ? Math.max(100, Math.round(height)) : 5000,
+      opacity: Number.isFinite(opacity) ? Math.max(0, Math.min(100, Math.round(opacity))) : 50,
+    });
+    res.status(201).json(overlay);
+  });
+
+  app.patch("/api/overlays/:id", requireEditor("canEditPlanets"), async (req, res) => {
+    const patch: Record<string, unknown> = {};
+    for (const key of ["name", "x", "y", "width", "height", "opacity"]) {
+      if (Object.prototype.hasOwnProperty.call(req.body, key)) patch[key] = req.body[key];
+    }
+    if (typeof req.body.imageData === "string") {
+      if (!req.body.imageData.startsWith("data:image/") || req.body.imageData.length > 12_000_000) {
+        return res.status(400).json({ error: "Invalid overlay image" });
+      }
+      patch.imageData = req.body.imageData;
+    }
+    if (typeof patch.name === "string") patch.name = patch.name.slice(0, 120);
+    for (const key of ["x", "y", "width", "height", "opacity"]) {
+      if (key in patch) {
+        const value = Number(patch[key]);
+        if (!Number.isFinite(value)) return res.status(400).json({ error: `Invalid overlay ${key}` });
+        patch[key] = key === "opacity"
+          ? Math.max(0, Math.min(100, Math.round(value)))
+          : Math.round(value);
+      }
+    }
+    const overlay = await storage.updateMapOverlay(String(req.params.id), patch);
+    if (!overlay) return res.status(404).json({ error: "Overlay not found" });
+    res.json(overlay);
+  });
+
+  app.delete("/api/overlays/:id", requireEditor("canEditPlanets"), async (req, res) => {
+    await storage.deleteMapOverlay(String(req.params.id));
+    res.status(204).send();
+  });
+
   // --- Auth ---
   app.post("/api/auth/login", async (req, res) => {
     const { username, password } = req.body;

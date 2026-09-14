@@ -126,6 +126,17 @@ export interface FactionInfo {
   color: string;
 }
 
+export interface MapOverlay {
+  id: string;
+  name: string;
+  imageData: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  opacity: number;
+}
+
 export interface AuthUser {
   id: string;
   username: string;
@@ -146,6 +157,7 @@ export interface MapContextType {
   lanes: HyperspaceLane[];
   fleets: Fleet[];
   factionList: FactionInfo[];
+  overlays: MapOverlay[];
   currentUser: AuthUser | null;
   selectedPlanet: Planet | null;
   selectedPlanetIds: string[];
@@ -172,6 +184,7 @@ export interface MapContextType {
   setLanes: (lanes: HyperspaceLane[]) => void;
   setFleets: (fleets: Fleet[]) => void;
   setFactionList: (factions: FactionInfo[]) => void;
+  setOverlays: (overlays: MapOverlay[]) => void;
   setCurrentUser: (user: AuthUser | null) => void;
   setSelectedPlanet: (planet: Planet | null) => void;
   setPlanetSelection: (ids: string[], primaryId?: string) => void;
@@ -205,6 +218,9 @@ export interface MapContextType {
   addFaction: (name: string, color: string) => Promise<void>;
   updateFaction: (id: string, data: Partial<FactionInfo>) => Promise<void>;
   deleteFaction: (id: string) => Promise<void>;
+  addOverlay: (overlay: MapOverlay) => Promise<void>;
+  updateOverlay: (overlay: MapOverlay) => Promise<void>;
+  deleteOverlay: (id: string) => Promise<void>;
   unlockPlanet: (id: string) => void;
   lockPlanet: (id: string) => void;
   getViewportCenter: () => { x: number; y: number };

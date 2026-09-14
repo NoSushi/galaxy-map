@@ -6,9 +6,10 @@ import {
   HyperspaceLane,
   Fleet,
   FactionInfo,
+  MapOverlay,
   AuthUser,
 } from './data';
-import { planetApi, sectorApi, laneApi, fleetApi, factionApi } from './api';
+import { planetApi, sectorApi, laneApi, fleetApi, factionApi, overlayApi } from './api';
 import { polygonDifference, polygonArea } from './polygon-ops';
 import { toast } from '@/hooks/use-toast';
 
@@ -66,6 +67,7 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
   const [lanes, setLanes] = useState<HyperspaceLane[]>([]);
   const [fleets, setFleets] = useState<Fleet[]>([]);
   const [factionList, setFactionList] = useState<FactionInfo[]>([]);
+  const [overlays, setOverlays] = useState<MapOverlay[]>([]);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -180,14 +182,16 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
         setIsLoading(false); // map ready even if secondary data still loading
 
         // ── Phase 3: secondary data in background ─────────────────────────
-        const [freshSectors, freshLanes, freshFleets] = await Promise.all([
+        const [freshSectors, freshLanes, freshFleets, freshOverlays] = await Promise.all([
           sectorApi.getAll(),
           laneApi.getAll(),
           fleetApi.getAll(),
+          overlayApi.getAll(),
         ]);
         setSectors(freshSectors);
         setLanes(freshLanes);
         setFleets(freshFleets);
+        setOverlays(freshOverlays);
         writeCache('sectors', freshSectors);
         writeCache('lanes', freshLanes);
         writeCache('fleets', freshFleets);
@@ -524,6 +528,29 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
     setFactionList(prev => prev.filter(f => f.id !== id));
   };
 
+  const addOverlay = async (overlay: MapOverlay) => {
+    const created = await overlayApi.create(overlay);
+    setOverlays(prev => [...prev, created]);
+  };
+
+  const updateOverlay = async (overlay: MapOverlay) => {
+    setOverlays(prev => prev.map(item => item.id === overlay.id ? overlay : item));
+    try {
+      const updated = await overlayApi.update(overlay);
+      setOverlays(prev => prev.map(item => item.id === updated.id ? updated : item));
+    } catch (err) {
+      console.error('Failed to update overlay:', err);
+      const fresh = await overlayApi.getAll();
+      setOverlays(fresh);
+      throw err;
+    }
+  };
+
+  const deleteOverlay = async (id: string) => {
+    await overlayApi.delete(id);
+    setOverlays(prev => prev.filter(item => item.id !== id));
+  };
+
   return (
     <MapContext.Provider value={{
       planets,
@@ -531,6 +558,7 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
       lanes,
       fleets,
       factionList,
+      overlays,
       currentUser,
       selectedPlanet,
       selectedPlanetIds,
@@ -553,6 +581,7 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
       setLanes,
       setFleets,
       setFactionList,
+      setOverlays,
       setCurrentUser,
       setSelectedPlanet,
       setPlanetSelection,
@@ -586,6 +615,9 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
       addFaction,
       updateFaction,
       deleteFaction,
+      addOverlay,
+      updateOverlay,
+      deleteOverlay,
       unlockPlanet,
       lockPlanet,
       getViewportCenter,

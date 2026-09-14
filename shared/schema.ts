@@ -81,6 +81,17 @@ export const factions = pgTable("factions", {
   color: text("color").notNull().default("0 50% 50%"),
 });
 
+export const mapOverlays = pgTable("map_overlays", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  name: text("name").notNull(),
+  imageData: text("image_data").notNull(),
+  x: integer("x").notNull().default(0),
+  y: integer("y").notNull().default(0),
+  width: integer("width").notNull().default(5000),
+  height: integer("height").notNull().default(5000),
+  opacity: integer("opacity").notNull().default(50),
+});
+
 export const users = pgTable("users", {
   id: varchar("id", { length: 64 }).primaryKey(),
   username: text("username").notNull().unique(),
@@ -100,6 +111,7 @@ export const insertSectorSchema = createInsertSchema(sectors);
 export const insertLaneSchema = createInsertSchema(hyperspaceLanes);
 export const insertFleetSchema = createInsertSchema(fleets);
 export const insertFactionSchema = createInsertSchema(factions);
+export const insertMapOverlaySchema = createInsertSchema(mapOverlays);
 export const insertUserSchema = createInsertSchema(users);
 
 export type Planet = typeof planets.$inferSelect;
@@ -112,5 +124,7 @@ export type Fleet = typeof fleets.$inferSelect;
 export type InsertFleet = z.infer<typeof insertFleetSchema>;
 export type Faction = typeof factions.$inferSelect;
 export type InsertFaction = z.infer<typeof insertFactionSchema>;
+export type MapOverlay = typeof mapOverlays.$inferSelect;
+export type InsertMapOverlay = z.infer<typeof insertMapOverlaySchema>;
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;

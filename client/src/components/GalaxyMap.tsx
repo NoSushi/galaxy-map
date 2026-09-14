@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { Crown, Ship, Plus, Pencil, AlertTriangle, GitMerge, X, Crosshair } from 'lucide-react';
 import { TargetingOverlay } from './TargetingOverlay';
+import { MapOverlayManager } from './MapOverlayManager';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
@@ -222,8 +223,8 @@ const PlanetMarker = React.memo<PlanetMarkerProps>(({
 export const GalaxyMap = () => {
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
   const { 
-    planets, sectors, lanes, fleets, factionList,
-    showLanes, showSectors, showLabels, showOverlay,
+    planets, sectors, lanes, fleets, factionList, overlays, currentUser,
+    showLanes, showSectors, showLabels, showOverlay, setShowOverlay,
     selectedPlanet, selectedPlanetIds, setSelectedPlanet, setPlanetSelection, togglePlanetSelection,
     selectedSector, setSelectedSector,
     selectedLane, setSelectedLane,
@@ -235,7 +236,7 @@ export const GalaxyMap = () => {
     setGetViewportCenter,
     targetedPlanet, setTargetedPlanet,
     targetedFleet, setTargetedFleet,
-    unlockedPlanetIds, lockPlanet,
+    unlockedPlanetIds, lockPlanet, addOverlay, updateOverlay, deleteOverlay,
   } = useMap();
 
   const mapWidth = 5000;
@@ -246,12 +247,34 @@ export const GalaxyMap = () => {
   const [draggingFleet, setDraggingFleet] = useState<string | null>(null);
   const [draggingLanePoint, setDraggingLanePoint] = useState<{laneId: string, pointIndex: number} | null>(null);
   const [sectorSnapPoint, setSectorSnapPoint] = useState<[number, number] | null>(null);
+  const [activeOverlayId, setActiveOverlayId] = useState<string | null>(null);
+  const [overlayTransformMode, setOverlayTransformMode] = useState(false);
+  const [overlayGesture, setOverlayGesture] = useState<{
+    type: 'move' | 'resize';
+    startX: number;
+    startY: number;
+    origin: import('@/lib/data').MapOverlay;
+  } | null>(null);
+  const [overlayPreview, setOverlayPreview] = useState<import('@/lib/data').MapOverlay | null>(null);
   const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
   const selectionBaseRef = useRef<string[]>([]);
   const planetMouseDownRef = useRef(false);
   const selectionJustCompletedRef = useRef(false);
 
   const SECTOR_SNAP_RADIUS = 45;
+  const activeOverlay = overlayPreview?.id === activeOverlayId
+    ? overlayPreview
+    : overlays.find(overlay => overlay.id === activeOverlayId) ?? null;
+  const canManageOverlays = !!(currentUser?.isAdmin || currentUser?.canEditPlanets);
+
+  useEffect(() => {
+    if (!activeOverlayId || !overlays.some(overlay => overlay.id === activeOverlayId)) {
+      setActiveOverlayId(overlays[0]?.id ?? null);
+    }
+    if (overlayPreview && !overlays.some(overlay => overlay.id === overlayPreview.id)) {
+      setOverlayPreview(null);
+    }
+  }, [activeOverlayId, overlays, overlayPreview]);
 
   const closestPointOnSegment = (px: number, py: number, ax: number, ay: number, bx: number, by: number): [number, number] => {
     const abx = bx - ax, aby = by - ay;
@@ -585,6 +608,83 @@ export const GalaxyMap = () => {
     return { x, y };
   };
 
+  const patchActiveOverlay = (patch: Partial<import('@/lib/data').MapOverlay>) => {
+    if (!activeOverlay || !canManageOverlays) return;
+    const next = { ...activeOverlay, ...patch };
+    setOverlayPreview(next);
+    updateOverlay(next).catch(() => {
+      setOverlayPreview(null);
+      toast({
+        variant: 'destructive',
+        title: 'Overlay save failed',
+        description: 'The overlay change could not be saved.',
+      });
+    });
+  };
+
+  const beginOverlayGesture = (e: React.MouseEvent, type: 'move' | 'resize') => {
+    if (!activeOverlay || !overlayTransformMode || !canManageOverlays) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const { x, y } = getMapCoords(e);
+    setOverlayPreview(activeOverlay);
+    setOverlayGesture({ type, startX: x, startY: y, origin: activeOverlay });
+  };
+
+  const finishOverlayGesture = () => {
+    if (!overlayGesture) return;
+    const finalOverlay = overlayPreview;
+    setOverlayGesture(null);
+    setOverlayPreview(null);
+    if (finalOverlay) {
+      updateOverlay(finalOverlay).catch(() => {
+        toast({
+          variant: 'destructive',
+          title: 'Overlay save failed',
+          description: 'The overlay position could not be saved.',
+        });
+      });
+    }
+  };
+
+  const handleOverlayUpload = (name: string, imageData: string) => {
+    const id = `overlay-${Date.now()}`;
+    const overlay = {
+      id,
+      name,
+      imageData,
+      x: 0,
+      y: 0,
+      width: mapWidth,
+      height: mapHeight,
+      opacity: 50,
+    };
+    addOverlay(overlay).then(() => {
+      setActiveOverlayId(id);
+      setShowOverlay(true);
+    }).catch(() => {
+      toast({
+        variant: 'destructive',
+        title: 'Overlay upload failed',
+        description: 'The overlay image could not be saved.',
+      });
+    });
+  };
+
+  const handleOverlayDelete = () => {
+    if (!activeOverlay) return;
+    deleteOverlay(activeOverlay.id).then(() => {
+      setOverlayPreview(null);
+      setActiveOverlayId(null);
+    }).catch(() => {
+      toast({
+        variant: 'destructive',
+        title: 'Overlay delete failed',
+        description: 'The overlay could not be deleted.',
+      });
+    });
+  };
+
   const isInLaneCreation = laneDrawMode || laneDrawStartPlanet !== null || isLaneDrawing;
   const isInSectorCreation = sectorDrawMode || isSectorDrawing;
   const isInAnyDrawCreation = isInLaneCreation || isInSectorCreation;
@@ -635,6 +735,19 @@ export const GalaxyMap = () => {
           setDrawingPoints(prev => [...prev, [x, y]]);
         }
       }
+      return;
+    }
+    if (overlayGesture && activeOverlay) {
+      const dx = x - overlayGesture.startX;
+      const dy = y - overlayGesture.startY;
+      const next = overlayGesture.type === 'move'
+        ? { ...overlayGesture.origin, x: overlayGesture.origin.x + dx, y: overlayGesture.origin.y + dy }
+        : {
+            ...overlayGesture.origin,
+            width: Math.max(100, overlayGesture.origin.width + dx),
+            height: Math.max(100, overlayGesture.origin.height + dy),
+          };
+      setOverlayPreview(next);
       return;
     }
 
@@ -728,6 +841,10 @@ export const GalaxyMap = () => {
       setIsDrawing(false);
       setDrawingPoints([]);
       setDrawingMode(null);
+      return;
+    }
+    if (overlayGesture) {
+      finishOverlayGesture();
       return;
     }
     if (selectionBox) {
@@ -1127,6 +1244,24 @@ export const GalaxyMap = () => {
           CTRL/CMD-CLICK TO ADD · DRAG MAP TO SELECT MULTIPLE
         </div>
       )}
+      {editMode && canManageOverlays && (
+        <MapOverlayManager
+          overlays={overlays}
+          activeOverlayId={activeOverlayId}
+          activeOverlay={activeOverlay}
+          transformMode={overlayTransformMode}
+          canManage={canManageOverlays}
+          onSelect={id => {
+            setActiveOverlayId(id);
+            setOverlayPreview(null);
+          }}
+          onUpload={handleOverlayUpload}
+          onPatch={patchActiveOverlay}
+          onDelete={handleOverlayDelete}
+          onReset={() => patchActiveOverlay({ x: 0, y: 0, width: mapWidth, height: mapHeight })}
+          onToggleTransformMode={() => setOverlayTransformMode(prev => !prev)}
+        />
+      )}
       
       <TransformWrapper
         ref={transformRef}
@@ -1256,22 +1391,37 @@ export const GalaxyMap = () => {
                     WebkitMask: 'radial-gradient(ellipse at center, black 40%, transparent 85%)',
                   }}
                 />
-                {showOverlay && editMode && (
+                {showOverlay && activeOverlay && (
                   <div
-                    className="absolute pointer-events-none"
+                    className="absolute"
                     style={{
-                      left: `${pad}px`,
-                      top: `${pad}px`,
-                      width: `${mapWidth}px`,
-                      height: `${mapHeight}px`,
-                      backgroundImage: `url('/reference-map.webp')`,
-                      backgroundSize: '100% 100%',
-                      backgroundRepeat: 'no-repeat',
-                      backgroundPosition: 'center',
-                      opacity: 0.5,
+                      left: `${activeOverlay.x + pad}px`,
+                      top: `${activeOverlay.y + pad}px`,
+                      width: `${activeOverlay.width}px`,
+                      height: `${activeOverlay.height}px`,
                       zIndex: 5,
+                      pointerEvents: overlayTransformMode && canManageOverlays ? 'auto' : 'none',
+                      cursor: overlayTransformMode && canManageOverlays ? 'move' : 'default',
                     }}
-                  />
+                    onMouseDown={e => beginOverlayGesture(e, 'move')}
+                  >
+                    <img
+                      src={activeOverlay.imageData}
+                      alt={activeOverlay.name}
+                      draggable={false}
+                      className="w-full h-full object-fill select-none"
+                      style={{ opacity: activeOverlay.opacity / 100, pointerEvents: 'none' }}
+                    />
+                    {overlayTransformMode && canManageOverlays && (
+                      <>
+                        <div className="absolute inset-0 border-2 border-primary border-dashed pointer-events-none" />
+                        <div
+                          className="absolute -right-2 -bottom-2 w-5 h-5 rounded-sm bg-primary border-2 border-background cursor-nwse-resize"
+                          onMouseDown={e => beginOverlayGesture(e, 'resize')}
+                        />
+                      </>
+                    )}
+                  </div>
                 )}
                 
                 <svg 

@@ -1,4 +1,4 @@
-import type { Planet, Sector, HyperspaceLane, Fleet, FactionInfo } from './data';
+import type { Planet, Sector, HyperspaceLane, Fleet, FactionInfo, MapOverlay } from './data';
 
 const api = async (url: string, options?: RequestInit) => {
   const res = await fetch(url, {
@@ -197,6 +197,15 @@ export const factionApi = {
   create: async (name: string, color: string): Promise<FactionInfo> => api('/api/factions', { method: 'POST', body: JSON.stringify({ name, color }) }),
   update: async (id: string, data: Partial<FactionInfo>): Promise<FactionInfo> => api(`/api/factions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   delete: async (id: string): Promise<void> => { await api(`/api/factions/${id}`, { method: 'DELETE' }); },
+};
+
+export const overlayApi = {
+  getAll: async (): Promise<MapOverlay[]> => await api('/api/overlays'),
+  create: async (overlay: MapOverlay): Promise<MapOverlay> =>
+    await api('/api/overlays', { method: 'POST', body: JSON.stringify(overlay) }),
+  update: async (overlay: MapOverlay): Promise<MapOverlay> =>
+    await api(`/api/overlays/${overlay.id}`, { method: 'PATCH', body: JSON.stringify(overlay) }),
+  delete: async (id: string): Promise<void> => { await api(`/api/overlays/${id}`, { method: 'DELETE' }); },
 };
 
 export const authApi = {
