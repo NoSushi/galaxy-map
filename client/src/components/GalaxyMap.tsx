@@ -662,11 +662,11 @@ export const GalaxyMap = () => {
     addOverlay(overlay).then(() => {
       setActiveOverlayId(id);
       setShowOverlay(true);
-    }).catch(() => {
+    }).catch((error: unknown) => {
       toast({
         variant: 'destructive',
         title: 'Overlay upload failed',
-        description: 'The overlay image could not be saved.',
+        description: error instanceof Error ? error.message : 'The overlay image could not be saved.',
       });
     });
   };

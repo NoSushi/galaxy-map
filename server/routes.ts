@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { hashPassword, verifyPassword } from "./auth";
 import { z } from "zod";
+import { convertImageToWebP, ImageConversionError } from "./image-conversion";
 
 const settlementSchema = z.object({
   id: z.string().min(1).max(64),
@@ -307,10 +308,17 @@ export async function registerRoutes(
     if (imageData.length > 12_000_000) {
       return res.status(413).json({ error: "Overlay image is too large" });
     }
+    let convertedImage: string;
+    try {
+      convertedImage = await convertImageToWebP(imageData);
+    } catch (error) {
+      if (error instanceof ImageConversionError) return res.status(error.status).json({ error: error.message });
+      throw error;
+    }
     const overlay = await storage.createMapOverlay({
       id: String(id),
       name: String(name).slice(0, 120),
-      imageData,
+      imageData: convertedImage,
       x: Number.isFinite(x) ? Math.round(x) : 0,
       y: Number.isFinite(y) ? Math.round(y) : 0,
       width: Number.isFinite(width) ? Math.max(100, Math.round(width)) : 5000,
@@ -329,7 +337,17 @@ export async function registerRoutes(
       if (!req.body.imageData.startsWith("data:image/") || req.body.imageData.length > 12_000_000) {
         return res.status(400).json({ error: "Invalid overlay image" });
       }
-      patch.imageData = req.body.imageData;
+      // Ordinary edits send the existing image too; do not recompress it.
+      const existing = await storage.getMapOverlay(String(req.params.id));
+      if (!existing) return res.status(404).json({ error: "Overlay not found" });
+      if (existing.imageData !== req.body.imageData) {
+        try {
+          patch.imageData = await convertImageToWebP(req.body.imageData);
+        } catch (error) {
+          if (error instanceof ImageConversionError) return res.status(error.status).json({ error: error.message });
+          throw error;
+        }
+      }
     }
     if (typeof patch.name === "string") patch.name = patch.name.slice(0, 120);
     for (const key of ["x", "y", "width", "height", "opacity"]) {

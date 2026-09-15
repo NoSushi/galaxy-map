@@ -53,11 +53,11 @@ export const MapOverlayManager = ({
         >
           <Upload className="w-3 h-3 mr-1" /> Upload
         </Button>
-        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+        <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleFile} />
       </div>
 
       {overlays.length === 0 ? (
-        <p className="text-foreground/50 leading-tight">Upload a reference image to position it over the galaxy map.</p>
+        <p className="text-foreground/50 leading-tight">Upload a PNG, JPEG, or WebP reference image to position it over the galaxy map.</p>
       ) : (
         <>
           <select

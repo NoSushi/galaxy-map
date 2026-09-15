@@ -43,6 +43,7 @@ export interface IStorage {
   deleteFaction(id: string): Promise<void>;
 
   getAllMapOverlays(): Promise<MapOverlay[]>;
+  getMapOverlay(id: string): Promise<MapOverlay | undefined>;
   createMapOverlay(overlay: InsertMapOverlay): Promise<MapOverlay>;
   updateMapOverlay(id: string, overlay: Partial<InsertMapOverlay>): Promise<MapOverlay | undefined>;
   deleteMapOverlay(id: string): Promise<void>;
@@ -157,6 +158,10 @@ export class DatabaseStorage implements IStorage {
 
   async getAllMapOverlays(): Promise<MapOverlay[]> {
     return db.select().from(mapOverlays);
+  }
+  async getMapOverlay(id: string): Promise<MapOverlay | undefined> {
+    const [overlay] = await db.select().from(mapOverlays).where(eq(mapOverlays.id, id));
+    return overlay;
   }
   async createMapOverlay(overlay: InsertMapOverlay): Promise<MapOverlay> {
     const [created] = await db.insert(mapOverlays).values(overlay).returning();
