@@ -669,8 +669,8 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
         )}
 
         <div className="space-y-1">
-          <Label className="text-[10px] uppercase text-primary/70">Oversector</Label>
-          <Input value={planet.oversector || ''} onChange={e => updatePlanet({...planet, oversector: e.target.value})} className="bg-black/60 border-primary/20 h-8 text-xs" placeholder="e.g. Oversector Outer" />
+          <Label className="text-[10px] uppercase text-primary/70">Region</Label>
+          <Input value={planet.oversector || ''} onChange={e => updatePlanet({...planet, oversector: e.target.value})} className="bg-black/60 border-primary/20 h-8 text-xs" placeholder="e.g. Outer Region" />
         </div>
 
         <div className="space-y-1">
@@ -739,7 +739,7 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
         <DataRow label="Political Affiliation" value={planet.faction} valueClass={planet.faction === 'Empire' ? 'text-destructive' : 'text-primary'} />
         <DataRow label="Primary Biome" value={planet.environment} />
         <DataRow label="Habitable" value={planet.habitable ? 'Yes' : 'No'} valueClass={planet.habitable ? 'text-green-400' : 'text-red-400'} />
-        {planet.oversector && <DataRow label="Oversector" value={planet.oversector} />}
+        {planet.oversector && <DataRow label="Region" value={planet.oversector} />}
         {planet.population && <DataRow label="Citizenry" value={planet.population} />}
       </div>
 

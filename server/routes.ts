@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { hashPassword, verifyPassword } from "./auth";
 import { z } from "zod";
 import { convertImageToWebP, ImageConversionError } from "./image-conversion";
+import { getRegionImportPreview, applyRegionImport } from "./region-import";
 
 const settlementSchema = z.object({
   id: z.string().min(1).max(64),
@@ -296,6 +297,17 @@ export async function registerRoutes(
   });
 
   // --- Map overlays ---
+  app.get("/api/region-import", requireEditor("canEditPlanets"), async (_req, res) => {
+    res.json(await getRegionImportPreview());
+  });
+
+  app.post("/api/region-import", requireEditor("canEditPlanets"), async (req, res) => {
+    if (req.body?.confirm !== true) {
+      return res.status(400).json({ error: "Confirm the region import before applying it" });
+    }
+    res.json(await applyRegionImport());
+  });
+
   app.get("/api/overlays", async (_req, res) => {
     res.json(await storage.getAllMapOverlays());
   });

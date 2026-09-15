@@ -3,6 +3,7 @@ import { Layers, Maximize2, Move, RotateCcw, Trash2, Upload } from 'lucide-react
 import { MapOverlay } from '@/lib/data';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
+import { RegionImportPanel } from './RegionImportPanel';
 
 interface Props {
   overlays: MapOverlay[];
@@ -40,8 +41,8 @@ export const MapOverlayManager = ({
 
   return (
     <div className="absolute top-4 right-4 z-30 w-64 glass-panel rounded-md border border-primary/30 p-3 text-[10px] font-display">
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <div className="flex items-center gap-1.5 text-primary uppercase tracking-widest">
+      <div className="flex items-center justify-between gap-1 mb-2">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 text-primary uppercase tracking-widest">
           <Layers className="w-3.5 h-3.5" /> Map overlays
         </div>
         <Button
@@ -53,6 +54,7 @@ export const MapOverlayManager = ({
         >
           <Upload className="w-3 h-3 mr-1" /> Upload
         </Button>
+        <RegionImportPanel canManage={canManage} />
         <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleFile} />
       </div>
 

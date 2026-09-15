@@ -265,6 +265,16 @@ export const GalaxyMap = () => {
   const canManageOverlays = !!(currentUser?.isAdmin || currentUser?.canEditPlanets);
 
   useEffect(() => {
+    try {
+      if (sessionStorage.getItem('swmap_open_region_reference') &&
+          overlays.some(overlay => overlay.id === 'galactic-regions-reference')) {
+        setActiveOverlayId('galactic-regions-reference');
+        setOverlayPreview(null);
+        setShowOverlay(true);
+        sessionStorage.removeItem('swmap_open_region_reference');
+        return;
+      }
+    } catch { /* Browser storage is optional. */ }
     if (!activeOverlayId || !overlays.some(overlay => overlay.id === activeOverlayId)) {
       setActiveOverlayId(overlays[0]?.id ?? null);
     }
