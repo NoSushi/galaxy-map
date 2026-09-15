@@ -5,6 +5,7 @@ import { hashPassword, verifyPassword } from "./auth";
 import { z } from "zod";
 import { convertImageToWebP, ImageConversionError } from "./image-conversion";
 import { getRegionImportPreview, applyRegionImport } from "./region-import";
+import { getAppendixPreview, applyAppendixRegions } from "./appendix-import";
 
 const settlementSchema = z.object({
   id: z.string().min(1).max(64),
@@ -297,6 +298,16 @@ export async function registerRoutes(
   });
 
   // --- Map overlays ---
+  app.get("/api/appendix-regions", requireEditor("canEditPlanets"), async (_req, res) => {
+    res.json(await getAppendixPreview());
+  });
+  app.post("/api/appendix-regions", requireEditor("canEditPlanets"), async (req, res) => {
+    if (req.body?.confirm !== true) {
+      return res.status(400).json({ error: "Confirm the appendix region changes before applying them" });
+    }
+    res.json(await applyAppendixRegions());
+  });
+
   app.get("/api/region-import", requireEditor("canEditPlanets"), async (_req, res) => {
     res.json(await getRegionImportPreview());
   });

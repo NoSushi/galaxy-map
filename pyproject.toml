@@ -1,0 +1,8 @@
+[project]
+name = "repl-nix-workspace"
+version = "0.1.0"
+description = "Offline PDF appendix extraction tools for the galaxy map"
+requires-python = ">=3.13"
+dependencies = [
+    "pymupdf>=1.28.2",
+]

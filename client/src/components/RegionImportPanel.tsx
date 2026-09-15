@@ -118,10 +118,10 @@ export const RegionImportPanel = ({ canManage }: RegionImportPanelProps) => {
         className="h-6 shrink-0 px-1.5 text-[9px] text-primary hover:bg-primary/15"
         onClick={openDialog}
         disabled={loading || applying}
-        title="Preview and import map regions"
-        aria-label="Preview and import map regions"
+        title="Preview and import map rings"
+        aria-label="Preview and import map rings"
       >
-        <MapPinned className="w-3 h-3 mr-1" /> Regions
+        <MapPinned className="w-3 h-3 mr-1" /> Map rings
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
