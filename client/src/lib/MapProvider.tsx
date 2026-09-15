@@ -109,10 +109,6 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
   });
 
   const updateTimers = useRef<Record<string, NodeJS.Timeout>>({});
-  // Overlay edits can be triggered by the panel and by a map gesture nearly
-  // simultaneously.  Serialize requests per overlay so an older response
-  // cannot win the race and overwrite a newer transform.
-  const overlayUpdateQueues = useRef<Record<string, Promise<void>>>({});
 
   const setSelectedPlanet = useCallback((planet: Planet | null) => {
     setSelectedPlanetState(planet);
@@ -120,7 +116,7 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const setPlanetSelection = useCallback((ids: string[], primaryId?: string) => {
-    const uniqueIds = Array.from(new Set(ids));
+    const uniqueIds = [...new Set(ids)];
     setSelectedPlanetIds(uniqueIds);
     const primary = planets.find(p => p.id === (primaryId ?? uniqueIds[0]));
     setSelectedPlanetState(primary ?? null);
@@ -222,11 +218,6 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
         }));
       } catch (err) {
         console.error('Failed to load map data:', err);
-        toast({
-          variant: 'destructive',
-          title: 'Unable to load map data',
-          description: 'The map could not be loaded. Please try refreshing later.',
-        });
         setIsLoading(false);
       }
     };
@@ -565,41 +556,18 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
 
   const updateOverlay = async (overlay: MapOverlay) => {
     setOverlays(prev => prev.map(item => item.id === overlay.id ? overlay : item));
-    const id = overlay.id;
-    const previous = overlayUpdateQueues.current[id] ?? Promise.resolve();
-    const request = previous
-      .catch(() => undefined)
-      .then(async () => {
-        try {
-          const updated = await overlayApi.update(overlay);
-          setOverlays(prev => prev.map(item => item.id === updated.id ? updated : item));
-        } catch (err) {
-          console.error('Failed to update overlay:', err);
-          // Restore the server's current value for callers that do not keep a
-          // local draft, while still allowing the queued newer edit to run.
-          try {
-            const fresh = await overlayApi.getAll();
-            setOverlays(fresh);
-          } catch (refreshErr) {
-            console.error('Failed to refresh overlays after save failure:', refreshErr);
-          }
-          throw err;
-        }
-      });
-    const tracked = request.catch(() => undefined);
-    overlayUpdateQueues.current[id] = tracked;
     try {
-      await request;
-    } finally {
-      if (overlayUpdateQueues.current[id] === tracked) {
-        delete overlayUpdateQueues.current[id];
-      }
+      const updated = await overlayApi.update(overlay);
+      setOverlays(prev => prev.map(item => item.id === updated.id ? updated : item));
+    } catch (err) {
+      console.error('Failed to update overlay:', err);
+      const fresh = await overlayApi.getAll();
+      setOverlays(fresh);
+      throw err;
     }
   };
 
   const deleteOverlay = async (id: string) => {
-    // Do not let a delete race an in-flight transform/name save.
-    await overlayUpdateQueues.current[id];
     await overlayApi.delete(id);
     setOverlays(prev => prev.filter(item => item.id !== id));
   };

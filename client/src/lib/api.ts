@@ -203,21 +203,8 @@ export const overlayApi = {
   getAll: async (): Promise<MapOverlay[]> => await api('/api/overlays'),
   create: async (overlay: MapOverlay): Promise<MapOverlay> =>
     await api('/api/overlays', { method: 'POST', body: JSON.stringify(overlay) }),
-  // Overlay images are immutable after upload.  Keeping the image out of every
-  // transform/name PATCH is important both for payload size and so that two
-  // quick edits cannot accidentally overwrite a newer image with a stale one.
   update: async (overlay: MapOverlay): Promise<MapOverlay> =>
-    await api(`/api/overlays/${overlay.id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({
-        name: overlay.name,
-        x: overlay.x,
-        y: overlay.y,
-        width: overlay.width,
-        height: overlay.height,
-        opacity: overlay.opacity,
-      }),
-    }),
+    await api(`/api/overlays/${overlay.id}`, { method: 'PATCH', body: JSON.stringify(overlay) }),
   delete: async (id: string): Promise<void> => { await api(`/api/overlays/${id}`, { method: 'DELETE' }); },
 };
 
