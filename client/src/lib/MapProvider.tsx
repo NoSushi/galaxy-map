@@ -182,19 +182,40 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
         setIsLoading(false); // map ready even if secondary data still loading
 
         // ── Phase 3: secondary data in background ─────────────────────────
-        const [freshSectors, freshLanes, freshFleets, freshOverlays] = await Promise.all([
-          sectorApi.getAll(),
-          laneApi.getAll(),
-          fleetApi.getAll(),
-          overlayApi.getAll(),
-        ]);
-        setSectors(freshSectors);
-        setLanes(freshLanes);
-        setFleets(freshFleets);
-        setOverlays(freshOverlays);
-        writeCache('sectors', freshSectors);
-        writeCache('lanes', freshLanes);
-        writeCache('fleets', freshFleets);
+        // Commit each layer independently: optional overlay failures must never
+        // prevent successful sector, lane, or fleet requests from rendering.
+        const layers = [
+          { name: 'sectors', load: async () => {
+            const data = await sectorApi.getAll();
+            setSectors(data);
+            writeCache('sectors', data);
+          } },
+          { name: 'lanes', load: async () => {
+            const data = await laneApi.getAll();
+            setLanes(data);
+            writeCache('lanes', data);
+          } },
+          { name: 'fleets', load: async () => {
+            const data = await fleetApi.getAll();
+            setFleets(data);
+            writeCache('fleets', data);
+          } },
+          { name: 'overlays', load: async () => {
+            setOverlays(await overlayApi.getAll());
+          } },
+        ];
+        await Promise.all(layers.map(async layer => {
+          try {
+            await layer.load();
+          } catch (err) {
+            console.error(`Failed to load ${layer.name}:`, err);
+            toast({
+              variant: 'destructive',
+              title: `Unable to load ${layer.name}`,
+              description: 'Other map layers remain available. Please try refreshing later.',
+            });
+          }
+        }));
       } catch (err) {
         console.error('Failed to load map data:', err);
         setIsLoading(false);
