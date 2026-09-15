@@ -18,7 +18,9 @@ interface AppendixRegionCandidate {
   region: string;
   sourceName: string;
   sourceRegion: string;
-  page: number;
+  page: number | null;
+  source: 'pdf' | 'rings';
+  ringRegion: string | null;
 }
 
 interface AppendixRegionReviewItem {
@@ -38,6 +40,8 @@ interface AppendixRegionPreview {
   filled: number;
   corrected: number;
   sourceEntries: number;
+  pdfUpdates: number;
+  ringUpdates: number;
 }
 
 interface AppendixRegionImportPanelProps {
@@ -65,7 +69,7 @@ export const AppendixRegionImportPanel = ({ canManage }: AppendixRegionImportPan
     setError(null);
     setConfirmed(false);
     try {
-      const response = await fetch('/api/appendix-regions', {
+      const response = await fetch('/api/combined-regions', {
         headers: { Accept: 'application/json' },
       });
       if (!response.ok) {
@@ -89,7 +93,7 @@ export const AppendixRegionImportPanel = ({ canManage }: AppendixRegionImportPan
     setApplying(true);
     setError(null);
     try {
-      const response = await fetch('/api/appendix-regions', {
+      const response = await fetch('/api/combined-regions', {
         method: 'POST',
         headers: {
           Accept: 'application/json',
@@ -115,26 +119,26 @@ export const AppendixRegionImportPanel = ({ canManage }: AppendixRegionImportPan
         className="h-6 w-full justify-start px-1.5 text-[9px] text-primary hover:bg-primary/15"
         onClick={openDialog}
         disabled={loading || applying}
-        title="Preview and import regions from the Appendix PDF"
-        aria-label="Preview and import regions from the Appendix PDF"
+        title="Combine map rings and PDF regions, with PDF priority"
+        aria-label="Preview combined region import"
       >
-        <FileText className="mr-1.5 h-3 w-3" /> Appendix PDF · exact-name region import
+        <FileText className="mr-1.5 h-3 w-3" /> Combined regions · rings + PDF
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="glass-panel-primary border-primary/30 bg-[#05080f]/95 backdrop-blur-3xl max-h-[90vh] overflow-y-auto p-4 sm:max-w-3xl sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-primary font-display font-black text-base tracking-[0.14em] uppercase">
-              <BookOpen className="h-4 w-4" /> Appendix region authority
+              <BookOpen className="h-4 w-4" /> Combined region import
             </DialogTitle>
             <DialogDescription className="text-primary/60 text-[10px] leading-relaxed uppercase tracking-wider">
-              The Appendix table is authoritative. Exact planet names only — no fuzzy matching, coordinate guessing, or visual ring interpretation.
+              Map rings fill blanks; exact-name PDF matches take priority and may correct existing regions. PDF grid coordinates are ignored. Missing or ambiguous PDF matches use safe ring fills only.
             </DialogDescription>
           </DialogHeader>
 
           {loading && (
             <div className="flex items-center justify-center gap-2 py-8 text-primary text-[10px] uppercase tracking-widest">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading Appendix preview
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading combined preview
             </div>
           )}
 
@@ -157,6 +161,7 @@ export const AppendixRegionImportPanel = ({ canManage }: AppendixRegionImportPan
 
           {preview && !loading && (
             <div className="space-y-3 text-[10px]">
+              <p className="text-primary">Final updates: {preview.pdfUpdates} from PDF · {preview.ringUpdates} from map rings. Each planet is updated at most once.</p>
               <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5">
                 <div className="rounded border border-primary/20 bg-primary/10 p-2">
                   <div className="text-[8px] uppercase tracking-wider text-primary/60">Source rows</div>
@@ -182,7 +187,7 @@ export const AppendixRegionImportPanel = ({ canManage }: AppendixRegionImportPan
 
               <div className="grid grid-cols-2 gap-1.5 text-[9px] sm:grid-cols-3">
                 <div className="rounded border border-white/10 bg-black/20 p-2">
-                  <span className="text-foreground/50">Appendix total</span>
+                  <span className="text-foreground/50">Existing planets</span>
                   <strong className="ml-1 text-foreground/80">{preview.total}</strong>
                 </div>
                 <div className="rounded border border-white/10 bg-black/20 p-2">
@@ -197,8 +202,8 @@ export const AppendixRegionImportPanel = ({ canManage }: AppendixRegionImportPan
 
               <section className="rounded border border-primary/15 bg-black/20 p-2">
                 <div className="mb-1.5 flex items-center justify-between gap-2">
-                  <h3 className="text-[9px] font-bold uppercase tracking-widest text-primary">Appendix region counts</h3>
-                  <span className="text-[8px] text-foreground/40">Exact-name matches</span>
+                  <h3 className="text-[9px] font-bold uppercase tracking-widest text-primary">Final region counts</h3>
+                  <span className="text-[8px] text-foreground/40">PDF overrides rings</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {Object.entries(preview.counts).length > 0 ? (
@@ -208,7 +213,7 @@ export const AppendixRegionImportPanel = ({ canManage }: AppendixRegionImportPan
                       </span>
                     ))
                   ) : (
-                    <span className="text-[9px] text-foreground/50">No Appendix region counts returned.</span>
+                    <span className="text-[9px] text-foreground/50">No region changes needed.</span>
                   )}
                 </div>
               </section>
@@ -217,13 +222,13 @@ export const AppendixRegionImportPanel = ({ canManage }: AppendixRegionImportPan
                 <section className="rounded border border-white/10 bg-black/20 p-2">
                   <div className="mb-1.5 flex items-center justify-between gap-2">
                     <h3 className="text-[9px] font-bold uppercase tracking-widest text-primary">Preview assignments</h3>
-                    <span className="text-[8px] text-foreground/40">PDF source shown per row</span>
+                    <span className="text-[8px] text-foreground/40">Final source shown per row</span>
                   </div>
                   <div className="max-h-48 overflow-y-auto pr-1 custom-scrollbar">
                     <div className="grid grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)_minmax(0,1.2fr)_auto] gap-2 border-b border-primary/15 pb-1 text-[8px] uppercase tracking-wider text-foreground/40">
                       <span>Planet</span>
                       <span>Region</span>
-                      <span>Appendix source</span>
+                      <span>Source</span>
                       <span>Action</span>
                     </div>
                     <div className="space-y-1">
@@ -236,7 +241,10 @@ export const AppendixRegionImportPanel = ({ canManage }: AppendixRegionImportPan
                           </span>
                           <span className="min-w-0 truncate text-foreground/60" title={`${candidate.sourceName} · ${candidate.sourceRegion}`}>
                             {candidate.sourceName} · {candidate.sourceRegion}
-                            <span className="ml-1 text-primary/70">(p. {candidate.page})</span>
+                            {candidate.page !== null && <span className="ml-1 text-primary/70">(PDF p. {candidate.page})</span>}
+                            {candidate.source === 'pdf' && candidate.ringRegion && candidate.ringRegion !== candidate.region && (
+                              <span className="block whitespace-normal text-amber-300/80">Overrides ring suggestion: {candidate.ringRegion}</span>
+                            )}
                           </span>
                           <span className={`whitespace-nowrap ${candidate.previous ? 'text-amber-300' : 'text-green-300'}`}>
                             {candidate.previous ? 'Correct' : 'Fill'}
@@ -269,12 +277,12 @@ export const AppendixRegionImportPanel = ({ canManage }: AppendixRegionImportPan
               </section>
 
               <div className="rounded border border-primary/20 bg-primary/5 p-2 text-[9px] leading-relaxed text-foreground/70">
-                Applying uses the Appendix table as the source of truth. It may fill blank values and correct existing region values, but it will not create planets, change positions or sectors, or install, reset, or modify any overlay.
+                Applying combines both sources in one operation. Rings only fill blank values; PDF matches take priority, including corrections. It will not create planets, change positions or sectors, or install, reset, or modify any overlay.
               </div>
 
               <label className="flex items-start gap-2 rounded border border-amber-400/40 bg-amber-400/10 p-2 text-[10px] leading-relaxed text-foreground/90">
                 <Checkbox checked={confirmed} onCheckedChange={checked => setConfirmed(checked === true)} className="mt-0.5" />
-                <span>I confirm that Appendix authority may change existing region values, as well as fill blank values. No planets, positions, sectors, or overlays will be changed.</span>
+                <span>I confirm the combined changes: rings fill blanks and PDF matches take priority over rings and existing regions. No planets will be created; positions, sectors, and overlays stay unchanged.</span>
               </label>
             </div>
           )}
@@ -296,7 +304,7 @@ export const AppendixRegionImportPanel = ({ canManage }: AppendixRegionImportPan
               disabled={!preview || loading || applying || !confirmed}
             >
               {applying ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-              {applying ? 'Applying…' : 'Apply Appendix regions'}
+              {applying ? 'Applying…' : 'Apply combined regions'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -298,6 +298,18 @@ export async function registerRoutes(
   });
 
   // --- Map overlays ---
+  app.get("/api/combined-regions", requireEditor("canEditPlanets"), async (_req, res) => {
+    const { getCombinedPreview } = await import("./appendix-import");
+    res.json(await getCombinedPreview());
+  });
+  app.post("/api/combined-regions", requireEditor("canEditPlanets"), async (req, res) => {
+    if (req.body?.confirm !== true) {
+      return res.status(400).json({ error: "Confirm the combined region changes before applying them" });
+    }
+    const { applyCombinedRegions } = await import("./appendix-import");
+    res.json(await applyCombinedRegions());
+  });
+
   app.get("/api/appendix-regions", requireEditor("canEditPlanets"), async (_req, res) => {
     res.json(await getAppendixPreview());
   });
