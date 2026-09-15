@@ -42,6 +42,9 @@ declare module "http" {
 
 app.use(compression());
 
+// Base64 adds ~33% to an 8 MB upload. Keep the higher limit isolated
+// to overlays rather than allowing large payloads on all map routes.
+app.use("/api/overlays", express.json({ limit: "12mb" }));
 app.use(
   express.json({
     verify: (req, _res, buf) => {
@@ -78,7 +81,7 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
+      if (capturedJsonResponse && !path.startsWith("/api/overlays")) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 

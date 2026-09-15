@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { TransformWrapper, TransformComponent, ReactZoomPanPinchRef } from 'react-zoom-pan-pinch';
-import { useMap, Planet, Fleet, HyperspaceLane, Sector } from '@/lib/data';
+import { useMap, Planet, Fleet, HyperspaceLane, Sector, MapOverlay } from '@/lib/data';
 import { polygonIntersection } from '@/lib/polygon-ops';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -94,6 +94,21 @@ const FACTION_DOT_CLASSES: Record<string, string> = {
 const INDEPENDENT_DOT_STYLE = { backgroundColor: 'hsl(140, 52%, 55%)' };
 const INDEPENDENT_DOT_SHADOW = 'shadow-[0_0_12px_hsl(140,90%,45%)]';
 const NAMED_FACTIONS = ['Empire', 'Hutt Cartel', 'Chiss Ascendancy', 'Galactic Republic'];
+
+const DEFAULT_OVERLAY_ID = 'default-reference-map';
+const DEFAULT_REFERENCE_OVERLAY: MapOverlay = {
+  id: DEFAULT_OVERLAY_ID,
+  name: 'Reference map (built-in)',
+  imageData: '/reference-map.webp',
+  x: 0,
+  y: 0,
+  width: 5000,
+  height: 5000,
+  opacity: 50,
+};
+const OVERLAY_MIN_SIZE = 100;
+const OVERLAY_MAX_SIZE = 100000;
+const OVERLAY_COORDINATE_LIMIT = 1000000;
 
 const PlanetMarker = React.memo<PlanetMarkerProps>(({
   planet, pad, isSelected, isHovered, hasOtherHovered, isLaneStart,
@@ -253,28 +268,48 @@ export const GalaxyMap = () => {
     type: 'move' | 'resize';
     startX: number;
     startY: number;
-    origin: import('@/lib/data').MapOverlay;
+    origin: MapOverlay;
   } | null>(null);
-  const [overlayPreview, setOverlayPreview] = useState<import('@/lib/data').MapOverlay | null>(null);
+  const overlayGestureRef = useRef<typeof overlayGesture>(null);
+  const [overlayPreview, setOverlayPreview] = useState<MapOverlay | null>(null);
+  const overlayPreviewRef = useRef<MapOverlay | null>(null);
+  const overlayPreviewVersionRef = useRef(0);
   const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
   const selectionBaseRef = useRef<string[]>([]);
   const planetMouseDownRef = useRef(false);
   const selectionJustCompletedRef = useRef(false);
 
   const SECTOR_SNAP_RADIUS = 45;
+  const overlayOptions = useMemo(
+    () => [DEFAULT_REFERENCE_OVERLAY, ...overlays.filter(overlay => overlay.id !== DEFAULT_OVERLAY_ID)],
+    [overlays],
+  );
+  const savedActiveOverlay = overlayOptions.find(overlay => overlay.id === activeOverlayId) ?? null;
   const activeOverlay = overlayPreview?.id === activeOverlayId
     ? overlayPreview
-    : overlays.find(overlay => overlay.id === activeOverlayId) ?? null;
+    : savedActiveOverlay;
   const canManageOverlays = !!(currentUser?.isAdmin || currentUser?.canEditPlanets);
+  const activeOverlayIsReadOnly = activeOverlay?.id === DEFAULT_OVERLAY_ID;
+
+  const setOverlayPreviewValue = (next: MapOverlay | null) => {
+    overlayPreviewVersionRef.current += 1;
+    overlayPreviewRef.current = next;
+    setOverlayPreview(next);
+  };
+
+  const setOverlayGestureValue = (next: typeof overlayGesture) => {
+    overlayGestureRef.current = next;
+    setOverlayGesture(next);
+  };
 
   useEffect(() => {
-    if (!activeOverlayId || !overlays.some(overlay => overlay.id === activeOverlayId)) {
-      setActiveOverlayId(overlays[0]?.id ?? null);
+    if (!activeOverlayId || !overlayOptions.some(overlay => overlay.id === activeOverlayId)) {
+      setActiveOverlayId(DEFAULT_OVERLAY_ID);
     }
-    if (overlayPreview && !overlays.some(overlay => overlay.id === overlayPreview.id)) {
-      setOverlayPreview(null);
+    if (overlayPreview && !overlayOptions.some(overlay => overlay.id === overlayPreview.id)) {
+      setOverlayPreviewValue(null);
     }
-  }, [activeOverlayId, overlays, overlayPreview]);
+  }, [activeOverlayId, overlayOptions, overlayPreview]);
 
   const closestPointOnSegment = (px: number, py: number, ax: number, ay: number, bx: number, by: number): [number, number] => {
     const abx = bx - ax, aby = by - ay;
@@ -354,6 +389,7 @@ export const GalaxyMap = () => {
   const transformRef = useRef<ReactZoomPanPinchRef | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapContentRef = useRef<HTMLDivElement | null>(null);
 
   // Targeting overlay state (shared between planets and fleets)
   const [overlayTarget, setOverlayTarget] = useState<{ name: string; type: 'planet' | 'fleet'; x: number; y: number } | null>(null);
@@ -455,6 +491,11 @@ export const GalaxyMap = () => {
         setIsDrawing(false);
         setDrawingMode(null);
         setDrawingPoints([]);
+        setOverlayTransformMode(false);
+        const gesture = overlayGestureRef.current;
+        setOverlayGestureValue(null);
+        if (gesture) setOverlayPreviewValue(gesture.origin);
+        setSelectionBox(null);
       }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -467,6 +508,36 @@ export const GalaxyMap = () => {
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, []);
+
+  // Leaving edit mode must release every map-capture interaction.  Otherwise
+  // a half-finished overlay gesture or selection box can intercept the first
+  // pan/click when the map is viewed normally again.
+  useEffect(() => {
+    if (editMode) return;
+    setOverlayTransformMode(false);
+    setOverlayGestureValue(null);
+    overlayPreviewRef.current = null;
+    setOverlayPreview(null);
+    setSelectionBox(null);
+    setSectorSnapPoint(null);
+    setDraggingPlanet(null);
+    setDraggingSectorPoint(null);
+    setDraggingFleet(null);
+    setDraggingLanePoint(null);
+    setSnapActive(false);
+    setSnapFirstNode(null);
+    setLaneDrawMode(false);
+    setSectorDrawMode(false);
+    setLaneDrawStartPlanet(null);
+    setLaneDrawPoints([]);
+    setIsLaneDrawing(false);
+    setSectorDrawPoints([]);
+    setIsSectorDrawing(false);
+    setIsDrawing(false);
+    setDrawingMode(null);
+    setDrawingPoints([]);
+    setShowOverlay(false);
+  }, [editMode, setLaneDrawMode, setSectorDrawMode, setShowOverlay]);
 
   // LOD thresholds
   const ZOOM_HIDE_MINOR = 0.18;     // minor planets hidden only at galaxy-level zoom
@@ -600,7 +671,10 @@ export const GalaxyMap = () => {
   const totalHeight = mapHeight + pad * 2;
 
   const getMapCoords = (e: React.MouseEvent) => {
-    const rect = e.currentTarget.getBoundingClientRect();
+    // Use the transformed map content rather than the event target.  Overlay
+    // gestures originate on the image layer, whose own bounds are unrelated
+    // to map coordinates.
+    const rect = mapContentRef.current?.getBoundingClientRect() ?? e.currentTarget.getBoundingClientRect();
     const rawX = ((e.clientX - rect.left) / rect.width) * totalWidth;
     const rawY = ((e.clientY - rect.top) / rect.height) * totalHeight;
     const x = Math.round(rawX - pad);
@@ -608,81 +682,147 @@ export const GalaxyMap = () => {
     return { x, y };
   };
 
-  const patchActiveOverlay = (patch: Partial<import('@/lib/data').MapOverlay>) => {
-    if (!activeOverlay || !canManageOverlays) return;
-    const next = { ...activeOverlay, ...patch };
-    setOverlayPreview(next);
-    updateOverlay(next).catch(() => {
-      setOverlayPreview(null);
+  const normalizeOverlay = (overlay: MapOverlay): MapOverlay => ({
+    ...overlay,
+    x: Math.max(-OVERLAY_COORDINATE_LIMIT, Math.min(OVERLAY_COORDINATE_LIMIT, Math.round(Number.isFinite(overlay.x) ? overlay.x : 0))),
+    y: Math.max(-OVERLAY_COORDINATE_LIMIT, Math.min(OVERLAY_COORDINATE_LIMIT, Math.round(Number.isFinite(overlay.y) ? overlay.y : 0))),
+    width: Math.max(OVERLAY_MIN_SIZE, Math.min(OVERLAY_MAX_SIZE, Math.round(Number.isFinite(overlay.width) ? overlay.width : mapWidth))),
+    height: Math.max(OVERLAY_MIN_SIZE, Math.min(OVERLAY_MAX_SIZE, Math.round(Number.isFinite(overlay.height) ? overlay.height : mapHeight))),
+    opacity: Math.max(0, Math.min(100, Math.round(Number.isFinite(overlay.opacity) ? overlay.opacity : 50))),
+  });
+
+  // Panel edits are deliberately previews.  A single explicit Save sends the
+  // complete mutable state, avoiding one PATCH per keystroke and the races
+  // those requests caused.
+  const previewActiveOverlay = (patch: Partial<MapOverlay>) => {
+    if (!activeOverlay || !canManageOverlays || activeOverlayIsReadOnly) return;
+    const next = normalizeOverlay({ ...activeOverlay, ...patch });
+    setOverlayPreviewValue(next);
+  };
+
+  const saveActiveOverlay = async (overlay: MapOverlay) => {
+    if (!canManageOverlays || overlay.id === DEFAULT_OVERLAY_ID) return;
+    const next = normalizeOverlay(overlay);
+    const saveVersion = overlayPreviewVersionRef.current;
+    try {
+      await updateOverlay(next);
+      // Editing remains enabled while the request is in flight.  Do not clear
+      // a newer draft that was entered during the save.
+      if (
+        overlayPreviewVersionRef.current === saveVersion &&
+        overlayPreviewRef.current?.id === next.id
+      ) {
+        setOverlayPreviewValue(null);
+      }
+    } catch (err) {
+      console.error('Failed to save overlay:', err);
       toast({
         variant: 'destructive',
         title: 'Overlay save failed',
-        description: 'The overlay change could not be saved.',
+        description: `${err instanceof Error ? err.message : 'The overlay change could not be saved.'} Your preview is still available to retry.`,
       });
+      throw err;
+    }
+  };
+
+  const resetActiveOverlay = () => {
+    if (!activeOverlay) return;
+    const aspectRatio = activeOverlay.width / activeOverlay.height;
+    const ratio = Number.isFinite(aspectRatio) && aspectRatio > 0 ? aspectRatio : 1;
+    let width = mapWidth;
+    let height = Math.round(width / ratio);
+    if (height > OVERLAY_MAX_SIZE) {
+      height = OVERLAY_MAX_SIZE;
+      width = Math.round(height * ratio);
+    } else if (height < OVERLAY_MIN_SIZE) {
+      height = OVERLAY_MIN_SIZE;
+      width = Math.round(height * ratio);
+    }
+    previewActiveOverlay({
+      x: 0,
+      y: 0,
+      width: Math.max(OVERLAY_MIN_SIZE, Math.min(OVERLAY_MAX_SIZE, width)),
+      height: Math.max(OVERLAY_MIN_SIZE, Math.min(OVERLAY_MAX_SIZE, height)),
     });
   };
 
   const beginOverlayGesture = (e: React.MouseEvent, type: 'move' | 'resize') => {
-    if (!activeOverlay || !overlayTransformMode || !canManageOverlays) return;
+    if (!activeOverlay || !overlayTransformMode || !canManageOverlays || activeOverlayIsReadOnly) return;
     e.preventDefault();
     e.stopPropagation();
     const { x, y } = getMapCoords(e);
-    setOverlayPreview(activeOverlay);
-    setOverlayGesture({ type, startX: x, startY: y, origin: activeOverlay });
+    setOverlayPreviewValue(activeOverlay);
+    setOverlayGestureValue({ type, startX: x, startY: y, origin: activeOverlay });
   };
 
   const finishOverlayGesture = () => {
     if (!overlayGesture) return;
-    const finalOverlay = overlayPreview;
-    setOverlayGesture(null);
-    setOverlayPreview(null);
-    if (finalOverlay) {
-      updateOverlay(finalOverlay).catch(() => {
-        toast({
-          variant: 'destructive',
-          title: 'Overlay save failed',
-          description: 'The overlay position could not be saved.',
-        });
-      });
-    }
+    // State updates from the last mousemove may not have committed before
+    // mouseup.  The ref always contains the latest gesture frame.
+    const finalOverlay = overlayPreviewRef.current;
+    setOverlayGestureValue(null);
+    // Gestures are previews too.  The panel's explicit Save is the only path
+    // that persists an overlay, so a move cannot race an in-flight panel save
+    // or accidentally include unrelated draft fields.
+    if (finalOverlay) setOverlayPreviewValue(normalizeOverlay(finalOverlay));
   };
 
-  const handleOverlayUpload = (name: string, imageData: string) => {
+  const handleOverlayUpload = async (
+    name: string,
+    imageData: string,
+    dimensions: { width: number; height: number },
+  ) => {
     const id = `overlay-${Date.now()}`;
-    const overlay = {
+    const aspectRatio = dimensions.width / dimensions.height;
+    let width = mapWidth;
+    let height = Math.round(width / aspectRatio);
+    if (height > OVERLAY_MAX_SIZE) {
+      height = OVERLAY_MAX_SIZE;
+      width = Math.round(height * aspectRatio);
+    } else if (height < OVERLAY_MIN_SIZE) {
+      height = OVERLAY_MIN_SIZE;
+      width = Math.round(height * aspectRatio);
+    }
+    width = Math.max(OVERLAY_MIN_SIZE, Math.min(OVERLAY_MAX_SIZE, width));
+    height = Math.max(OVERLAY_MIN_SIZE, Math.min(OVERLAY_MAX_SIZE, height));
+    const overlay: MapOverlay = {
       id,
       name,
       imageData,
       x: 0,
       y: 0,
-      width: mapWidth,
-      height: mapHeight,
+      width,
+      height,
       opacity: 50,
     };
-    addOverlay(overlay).then(() => {
+    try {
+      await addOverlay(overlay);
       setActiveOverlayId(id);
       setShowOverlay(true);
-    }).catch(() => {
+    } catch (err) {
+      console.error('Failed to upload overlay:', err);
       toast({
         variant: 'destructive',
         title: 'Overlay upload failed',
-        description: 'The overlay image could not be saved.',
+        description: err instanceof Error ? err.message : 'The overlay image could not be saved.',
       });
-    });
+    }
   };
 
-  const handleOverlayDelete = () => {
-    if (!activeOverlay) return;
-    deleteOverlay(activeOverlay.id).then(() => {
-      setOverlayPreview(null);
-      setActiveOverlayId(null);
-    }).catch(() => {
+  const handleOverlayDelete = async () => {
+    if (!activeOverlay || activeOverlay.id === DEFAULT_OVERLAY_ID) return;
+    try {
+      await deleteOverlay(activeOverlay.id);
+      setOverlayPreviewValue(null);
+      setActiveOverlayId(DEFAULT_OVERLAY_ID);
+    } catch (err) {
+      console.error('Failed to delete overlay:', err);
       toast({
         variant: 'destructive',
         title: 'Overlay delete failed',
-        description: 'The overlay could not be deleted.',
+        description: err instanceof Error ? err.message : 'The overlay could not be deleted.',
       });
-    });
+    }
   };
 
   const isInLaneCreation = laneDrawMode || laneDrawStartPlanet !== null || isLaneDrawing;
@@ -742,12 +882,25 @@ export const GalaxyMap = () => {
       const dy = y - overlayGesture.startY;
       const next = overlayGesture.type === 'move'
         ? { ...overlayGesture.origin, x: overlayGesture.origin.x + dx, y: overlayGesture.origin.y + dy }
-        : {
-            ...overlayGesture.origin,
-            width: Math.max(100, overlayGesture.origin.width + dx),
-            height: Math.max(100, overlayGesture.origin.height + dy),
-          };
-      setOverlayPreview(next);
+        : (() => {
+            // The lower-right handle scales the image uniformly.  Use the
+            // dominant axis so either horizontal or vertical dragging remains
+            // useful while preserving the uploaded image's aspect ratio.
+            const widthCandidate = overlayGesture.origin.width + dx;
+            const heightCandidate = overlayGesture.origin.height + dy;
+            const widthScale = widthCandidate / overlayGesture.origin.width;
+            const heightScale = heightCandidate / overlayGesture.origin.height;
+            const scale = Math.max(
+              OVERLAY_MIN_SIZE / Math.max(overlayGesture.origin.width, overlayGesture.origin.height),
+              Math.abs(widthScale - 1) >= Math.abs(heightScale - 1) ? widthScale : heightScale,
+            );
+            return {
+              ...overlayGesture.origin,
+              width: Math.max(OVERLAY_MIN_SIZE, overlayGesture.origin.width * scale),
+              height: Math.max(OVERLAY_MIN_SIZE, overlayGesture.origin.height * scale),
+            };
+          })();
+      setOverlayPreviewValue(normalizeOverlay(next));
       return;
     }
 
@@ -1175,7 +1328,7 @@ export const GalaxyMap = () => {
 
     const { minX, minY, maxX, maxY } = visibleBounds;
     const added = new Set<string>();
-    for (const [pid, count] of planetLaneCount) {
+    planetLaneCount.forEach((count, pid) => {
       if (count >= 2 && !added.has(pid)) {
         added.add(pid);
         const planet = planets.find(p => p.id === pid);
@@ -1183,11 +1336,19 @@ export const GalaxyMap = () => {
           junctions.push({ x: planet.x, y: planet.y, count });
         }
       }
-    }
+    });
     return junctions;
   }, [filteredLanes, planets, showLanes, viewTransform.scale, visibleBounds]);
 
-  const isDragging = draggingPlanet !== null || draggingSectorPoint !== null || draggingFleet !== null || draggingLanePoint !== null || isDrawing || isLaneDrawing || isSectorDrawing;
+  const isDragging = draggingPlanet !== null ||
+    draggingSectorPoint !== null ||
+    draggingFleet !== null ||
+    draggingLanePoint !== null ||
+    isDrawing ||
+    isLaneDrawing ||
+    isSectorDrawing ||
+    overlayGesture !== null ||
+    selectionBox !== null;
 
   const getLaneDrawStatus = () => {
     if (!laneDrawMode && !laneDrawStartPlanet) return null;
@@ -1246,19 +1407,24 @@ export const GalaxyMap = () => {
       )}
       {editMode && canManageOverlays && (
         <MapOverlayManager
-          overlays={overlays}
+          overlays={overlayOptions}
           activeOverlayId={activeOverlayId}
           activeOverlay={activeOverlay}
+          savedOverlay={savedActiveOverlay}
           transformMode={overlayTransformMode}
           canManage={canManageOverlays}
+          readOnly={activeOverlayIsReadOnly}
+          showOverlay={showOverlay}
+          onToggleVisibility={setShowOverlay}
           onSelect={id => {
             setActiveOverlayId(id);
-            setOverlayPreview(null);
+            setOverlayPreviewValue(null);
           }}
           onUpload={handleOverlayUpload}
-          onPatch={patchActiveOverlay}
+          onPreview={previewActiveOverlay}
+          onSave={saveActiveOverlay}
           onDelete={handleOverlayDelete}
-          onReset={() => patchActiveOverlay({ x: 0, y: 0, width: mapWidth, height: mapHeight })}
+          onReset={resetActiveOverlay}
           onToggleTransformMode={() => setOverlayTransformMode(prev => !prev)}
         />
       )}
@@ -1340,6 +1506,7 @@ export const GalaxyMap = () => {
 
             <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }} contentStyle={{ willChange: 'transform' }}>
               <div 
+                ref={mapContentRef}
                 className={cn("relative origin-top-left", (isDrawing || isLaneDrawing || isSectorDrawing || sectorDrawMode) ? "cursor-crosshair" : "cursor-grab active:cursor-grabbing")}
                 style={{ 
                   width: `${totalWidth}px`, 
@@ -1400,10 +1567,26 @@ export const GalaxyMap = () => {
                       width: `${activeOverlay.width}px`,
                       height: `${activeOverlay.height}px`,
                       zIndex: 5,
-                      pointerEvents: overlayTransformMode && canManageOverlays ? 'auto' : 'none',
-                      cursor: overlayTransformMode && canManageOverlays ? 'move' : 'default',
+                      pointerEvents: overlayTransformMode && canManageOverlays && !activeOverlayIsReadOnly ? 'auto' : 'none',
+                      cursor: overlayTransformMode && canManageOverlays && !activeOverlayIsReadOnly ? 'move' : 'default',
                     }}
-                    onMouseDown={e => beginOverlayGesture(e, 'move')}
+                    onMouseDown={e => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      beginOverlayGesture(e, 'move');
+                    }}
+                    onMouseMove={e => {
+                      if (overlayGesture) {
+                        e.stopPropagation();
+                        handleMouseMove(e);
+                      }
+                    }}
+                    onMouseUp={e => {
+                      if (overlayGesture) {
+                        e.stopPropagation();
+                        finishOverlayGesture();
+                      }
+                    }}
                   >
                     <img
                       src={activeOverlay.imageData}
@@ -1412,12 +1595,16 @@ export const GalaxyMap = () => {
                       className="w-full h-full object-fill select-none"
                       style={{ opacity: activeOverlay.opacity / 100, pointerEvents: 'none' }}
                     />
-                    {overlayTransformMode && canManageOverlays && (
+                    {overlayTransformMode && canManageOverlays && !activeOverlayIsReadOnly && (
                       <>
                         <div className="absolute inset-0 border-2 border-primary border-dashed pointer-events-none" />
                         <div
                           className="absolute -right-2 -bottom-2 w-5 h-5 rounded-sm bg-primary border-2 border-background cursor-nwse-resize"
-                          onMouseDown={e => beginOverlayGesture(e, 'resize')}
+                          onMouseDown={e => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            beginOverlayGesture(e, 'resize');
+                          }}
                         />
                       </>
                     )}
