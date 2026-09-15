@@ -7,6 +7,7 @@ import { toast } from '@/hooks/use-toast';
 import { Crown, Ship, Plus, Pencil, AlertTriangle, GitMerge, X, Crosshair } from 'lucide-react';
 import { TargetingOverlay } from './TargetingOverlay';
 import { MapOverlayManager } from './MapOverlayManager';
+import { transformOverlay, type OverlayGesture } from '@/lib/overlay-transform';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
@@ -249,12 +250,8 @@ export const GalaxyMap = () => {
   const [sectorSnapPoint, setSectorSnapPoint] = useState<[number, number] | null>(null);
   const [activeOverlayId, setActiveOverlayId] = useState<string | null>(null);
   const [overlayTransformMode, setOverlayTransformMode] = useState(false);
-  const [overlayGesture, setOverlayGesture] = useState<{
-    type: 'move' | 'resize';
-    startX: number;
-    startY: number;
-    origin: import('@/lib/data').MapOverlay;
-  } | null>(null);
+  const [overlayGesture, setOverlayGesture] = useState<OverlayGesture | null>(null);
+  const overlayGestureRef = useRef<(OverlayGesture & { pointerId: number }) | null>(null);
   const [overlayPreview, setOverlayPreview] = useState<import('@/lib/data').MapOverlay | null>(null);
   const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
   const selectionBaseRef = useRef<string[]>([]);
@@ -622,21 +619,35 @@ export const GalaxyMap = () => {
     });
   };
 
-  const beginOverlayGesture = (e: React.MouseEvent, type: 'move' | 'resize') => {
-    if (!activeOverlay || !overlayTransformMode || !canManageOverlays) return;
+  const beginOverlayGesture = (e: React.PointerEvent, type: 'move' | 'resize') => {
+    if (!activeOverlay || !editMode || !overlayTransformMode || !canManageOverlays || e.button !== 0 || overlayGestureRef.current) return;
     e.preventDefault();
     e.stopPropagation();
-    const { x, y } = getMapCoords(e);
+    const scale = (svgRef.current?.getBoundingClientRect().width ?? 0) / mapWidth;
+    if (scale <= 0) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const gesture = { type, startX: e.clientX, startY: e.clientY, scale, origin: activeOverlay, pointerId: e.pointerId };
+    overlayGestureRef.current = gesture;
     setOverlayPreview(activeOverlay);
-    setOverlayGesture({ type, startX: x, startY: y, origin: activeOverlay });
+    setOverlayGesture(gesture);
   };
 
-  const finishOverlayGesture = () => {
-    if (!overlayGesture) return;
-    const finalOverlay = overlayPreview;
+  const moveOverlayGesture = (e: React.PointerEvent) => {
+    const gesture = overlayGestureRef.current;
+    if (!gesture || gesture.pointerId !== e.pointerId) return;
+    e.stopPropagation();
+    setOverlayPreview(transformOverlay(gesture, e.clientX, e.clientY));
+  };
+
+  const finishOverlayGesture = (e: React.PointerEvent, cancelled = false) => {
+    const gesture = overlayGestureRef.current;
+    if (!gesture || gesture.pointerId !== e.pointerId) return;
+    e.stopPropagation();
+    overlayGestureRef.current = null;
     setOverlayGesture(null);
     setOverlayPreview(null);
-    if (finalOverlay) {
+    if (!cancelled) {
+      const finalOverlay = transformOverlay(gesture, e.clientX, e.clientY);
       updateOverlay(finalOverlay).catch(() => {
         toast({
           variant: 'destructive',
@@ -737,19 +748,7 @@ export const GalaxyMap = () => {
       }
       return;
     }
-    if (overlayGesture && activeOverlay) {
-      const dx = x - overlayGesture.startX;
-      const dy = y - overlayGesture.startY;
-      const next = overlayGesture.type === 'move'
-        ? { ...overlayGesture.origin, x: overlayGesture.origin.x + dx, y: overlayGesture.origin.y + dy }
-        : {
-            ...overlayGesture.origin,
-            width: Math.max(100, overlayGesture.origin.width + dx),
-            height: Math.max(100, overlayGesture.origin.height + dy),
-          };
-      setOverlayPreview(next);
-      return;
-    }
+    if (overlayGestureRef.current) return;
 
     if (selectionBox) {
       setSelectionBox(prev => prev ? { ...prev, currentX: x, currentY: y } : prev);
@@ -843,10 +842,7 @@ export const GalaxyMap = () => {
       setDrawingMode(null);
       return;
     }
-    if (overlayGesture) {
-      finishOverlayGesture();
-      return;
-    }
+    if (overlayGestureRef.current) return;
     if (selectionBox) {
       const minX = Math.min(selectionBox.startX, selectionBox.currentX);
       const maxX = Math.max(selectionBox.startX, selectionBox.currentX);
@@ -1187,7 +1183,7 @@ export const GalaxyMap = () => {
     return junctions;
   }, [filteredLanes, planets, showLanes, viewTransform.scale, visibleBounds]);
 
-  const isDragging = draggingPlanet !== null || draggingSectorPoint !== null || draggingFleet !== null || draggingLanePoint !== null || isDrawing || isLaneDrawing || isSectorDrawing;
+  const isDragging = overlayGesture !== null || draggingPlanet !== null || draggingSectorPoint !== null || draggingFleet !== null || draggingLanePoint !== null || isDrawing || isLaneDrawing || isSectorDrawing;
 
   const getLaneDrawStatus = () => {
     if (!laneDrawMode && !laneDrawStartPlanet) return null;
@@ -1400,10 +1396,17 @@ export const GalaxyMap = () => {
                       width: `${activeOverlay.width}px`,
                       height: `${activeOverlay.height}px`,
                       zIndex: 5,
-                      pointerEvents: overlayTransformMode && canManageOverlays ? 'auto' : 'none',
-                      cursor: overlayTransformMode && canManageOverlays ? 'move' : 'default',
+                      pointerEvents: editMode && overlayTransformMode && canManageOverlays ? 'auto' : 'none',
+                      cursor: editMode && overlayTransformMode && canManageOverlays ? 'move' : 'default',
+                      touchAction: 'none',
                     }}
-                    onMouseDown={e => beginOverlayGesture(e, 'move')}
+                    onMouseDown={e => e.stopPropagation()}
+                    onClick={e => e.stopPropagation()}
+                    onPointerDown={e => beginOverlayGesture(e, 'move')}
+                    onPointerMove={moveOverlayGesture}
+                    onPointerUp={e => finishOverlayGesture(e)}
+                    onPointerCancel={e => finishOverlayGesture(e, true)}
+                    onLostPointerCapture={e => finishOverlayGesture(e, true)}
                   >
                     <img
                       src={activeOverlay.imageData}
@@ -1412,12 +1415,12 @@ export const GalaxyMap = () => {
                       className="w-full h-full object-fill select-none"
                       style={{ opacity: activeOverlay.opacity / 100, pointerEvents: 'none' }}
                     />
-                    {overlayTransformMode && canManageOverlays && (
+                    {editMode && overlayTransformMode && canManageOverlays && (
                       <>
                         <div className="absolute inset-0 border-2 border-primary border-dashed pointer-events-none" />
                         <div
                           className="absolute -right-2 -bottom-2 w-5 h-5 rounded-sm bg-primary border-2 border-background cursor-nwse-resize"
-                          onMouseDown={e => beginOverlayGesture(e, 'resize')}
+                          onPointerDown={e => beginOverlayGesture(e, 'resize')}
                         />
                       </>
                     )}

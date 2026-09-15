@@ -107,6 +107,8 @@ export const MapOverlayManager = ({
                     {label}
                     <Input
                       type="number"
+                      onWheel={event => event.currentTarget.blur()}
+                      min={field === 'width' || field === 'height' ? 100 : undefined}
                       value={activeOverlay[field]}
                       onChange={event => onPatch({ [field]: Number(event.target.value) })}
                       className="h-6 mt-0.5 bg-black/60 border-primary/20 text-[9px]"
