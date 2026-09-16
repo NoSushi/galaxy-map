@@ -10,6 +10,7 @@ import { Switch } from './ui/switch';
 import { Checkbox } from './ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from '@/hooks/use-toast';
+import { PlanetSectorField } from './PlanetSectorField';
 
 function TheatreButton({ planetId, variant = "inline" }: { planetId: string; variant?: "inline" | "panel" }) {
   const [, navigate] = useLocation();
@@ -672,6 +673,13 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
           <Label className="text-[10px] uppercase text-primary/70">Region</Label>
           <Input value={planet.oversector || ''} onChange={e => updatePlanet({...planet, oversector: e.target.value})} className="bg-black/60 border-primary/20 h-8 text-xs" placeholder="e.g. Outer Region" />
         </div>
+
+        <PlanetSectorField
+          key={`${planet.id}:${planet.sectorId ?? ''}`}
+          sectorId={planet.sectorId}
+          sectors={sectors}
+          onSave={sectorId => updatePlanet({ ...planet, sectorId }, { sectorId })}
+        />
 
         <div className="space-y-1">
           <Label className="text-[10px] uppercase text-primary/70">Marker URL (PNG/WebP)</Label>
