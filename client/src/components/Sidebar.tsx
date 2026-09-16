@@ -10,7 +10,6 @@ import { Switch } from './ui/switch';
 import { Checkbox } from './ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from '@/hooks/use-toast';
-import { PlanetSectorField } from './PlanetSectorField';
 
 function TheatreButton({ planetId, variant = "inline" }: { planetId: string; variant?: "inline" | "panel" }) {
   const [, navigate] = useLocation();
@@ -294,21 +293,7 @@ const BulkPlanetDetails = ({ selectedIds, planets, sectors, editMode }: { select
         .map(field => [field, values[field] ?? defaults[field]])
     ) as Partial<Planet>;
     if (enabled.sectorId) {
-      const sectorName = String(values.sectorId ?? '').trim();
-      if (!sectorName) {
-        changes.sectorId = null;
-      } else {
-        const matchingSector = sectors.find(sector => sector.name.trim().toLowerCase() === sectorName.toLowerCase());
-        if (!matchingSector) {
-          toast({
-            variant: 'destructive',
-            title: 'Sector not found',
-            description: `No sector named "${sectorName}" exists. Enter an existing sector name or leave the field blank to clear it.`,
-          });
-          return;
-        }
-        changes.sectorId = matchingSector.id;
-      }
+      changes.sectorId = String(values.sectorId ?? '').trim() || null;
     }
     if (!canEdit || selected.length === 0 || Object.keys(changes).length === 0) return;
     selected.forEach(planet => updatePlanet({ ...planet, ...changes }, changes));
@@ -356,7 +341,8 @@ const BulkPlanetDetails = ({ selectedIds, planets, sectors, editMode }: { select
           <Input
             value={String(values.sectorId ?? '')}
             onChange={event => setField('sectorId', event.target.value)}
-            placeholder="Type an existing sector name"
+            placeholder="Enter sector"
+            maxLength={64}
             className="bg-black/60 border-primary/20 h-8 text-xs"
           />
         )}
@@ -469,7 +455,6 @@ export const Sidebar = () => {
 
 const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: Planet, editMode: boolean, sectors: Sector[], lanes: HyperspaceLane[], planets: Planet[] }) => {
   const { updatePlanet, deletePlanet, setSelectedPlanet, unlockedPlanetIds, unlockPlanet, lockPlanet, currentUser } = useMap();
-  const sector = sectors.find(s => s.id === planet.sectorId);
   const connectedLanes = lanes.filter(l => l.planetIds.includes(planet.id));
   const isUnlocked = unlockedPlanetIds.has(planet.id);
   const canFullEdit = !!(currentUser?.isAdmin || currentUser?.canEditPlanets);
@@ -674,12 +659,20 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
           <Input value={planet.oversector || ''} onChange={e => updatePlanet({...planet, oversector: e.target.value})} className="bg-black/60 border-primary/20 h-8 text-xs" placeholder="e.g. Outer Region" />
         </div>
 
-        <PlanetSectorField
-          key={`${planet.id}:${planet.sectorId ?? ''}`}
-          sectorId={planet.sectorId}
-          sectors={sectors}
-          onSave={sectorId => updatePlanet({ ...planet, sectorId }, { sectorId })}
-        />
+        <div className="space-y-1">
+          <Label htmlFor="planet-sector" className="text-[10px] uppercase text-primary/70">Sector</Label>
+          <Input
+            id="planet-sector"
+            value={planet.sectorId || ''}
+            onChange={event => {
+              const sectorId = event.target.value || null;
+              updatePlanet({ ...planet, sectorId }, { sectorId });
+            }}
+            maxLength={64}
+            className="bg-black/60 border-primary/20 h-8 text-xs"
+            placeholder="Enter sector"
+          />
+        </div>
 
         <div className="space-y-1">
           <Label className="text-[10px] uppercase text-primary/70">Marker URL (PNG/WebP)</Label>
@@ -743,7 +736,7 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
       )}
 
       <div className="space-y-2 bg-black/40 p-3 rounded border border-white/5 shadow-2xl">
-        <DataRow label="Sector" value={sector?.name || 'Unknown'} />
+        <DataRow label="Sector" value={planet.sectorId || 'Unknown'} />
         <DataRow label="Political Affiliation" value={planet.faction} valueClass={planet.faction === 'Empire' ? 'text-destructive' : 'text-primary'} />
         <DataRow label="Primary Biome" value={planet.environment} />
         <DataRow label="Habitable" value={planet.habitable ? 'Yes' : 'No'} valueClass={planet.habitable ? 'text-green-400' : 'text-red-400'} />
@@ -791,7 +784,7 @@ const PlanetDetails = ({ planet, editMode, sectors, lanes, planets }: { planet: 
 const SectorDetails = ({ sector, editMode, planets }: { sector: Sector, editMode: boolean, planets: Planet[] }) => {
   const { updateSector, deleteSector, currentUser } = useMap();
   const sectorPlanets = planets.filter(p => 
-    p.sectorId === sector.id || (sector.points.length >= 3 && pointInPolygon(p.x, p.y, sector.points))
+    sector.points.length >= 3 && pointInPolygon(p.x, p.y, sector.points)
   );
 
   if (editMode && (currentUser?.isAdmin || currentUser?.canEditSectors)) {

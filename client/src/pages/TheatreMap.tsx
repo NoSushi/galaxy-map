@@ -486,7 +486,6 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
     saveToDb({ bodies: updated });
   }
 
-  const sector       = sectors.find(s => s.id === planet?.sectorId);
   const selectedBody = systemBodies.find(b => b.id === selectedId);
   const selectedFleet = fleetPositions.find(f => f.id === selectedId);
   const editingBody  = systemBodies.find(b => b.id === editingBodyId);
@@ -540,7 +539,7 @@ function TheatreMapInner({ planetId }: { planetId: string }) {
             {planet.name.toUpperCase()}
           </div>
           <div style={{ fontSize:8, color:BLUE+"44", letterSpacing:2, marginTop:1, fontFamily:"'Orbitron',monospace" }}>
-            {sector?.name || "Unknown Sector"} · {planet.oversector || planet.environment?.toUpperCase() || "UNKNOWN"}
+            {planet.sectorId || "Unknown Sector"} · {planet.oversector || planet.environment?.toUpperCase() || "UNKNOWN"}
           </div>
           <div style={{ display:"flex", gap:2, marginTop:8 }}>
             {Array.from({length:20}).map((_,i) => (
