@@ -4,7 +4,6 @@ import { MapOverlay } from '@/lib/data';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { RegionImportPanel } from './RegionImportPanel';
-import { AppendixRegionImportPanel } from './AppendixRegionImportPanel';
 
 interface Props {
   overlays: MapOverlay[];
@@ -41,7 +40,7 @@ export const MapOverlayManager = ({
   };
 
   return (
-    <div className="absolute top-4 right-4 z-30 w-64 glass-panel rounded-md border border-primary/30 p-3 text-[10px] font-display">
+    <div className="w-64 max-w-[calc(100vw-2rem)] glass-panel rounded-md border border-primary/30 p-3 text-[10px] font-display">
       <div className="flex items-center justify-between gap-1 mb-2">
         <div className="flex min-w-0 flex-1 items-center gap-1.5 text-primary uppercase tracking-widest">
           <Layers className="w-3.5 h-3.5" /> Map overlays
@@ -57,9 +56,6 @@ export const MapOverlayManager = ({
         </Button>
         <RegionImportPanel canManage={canManage} />
         <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleFile} />
-      </div>
-      <div className="mb-2 border-t border-primary/10 pt-1">
-        <AppendixRegionImportPanel canManage={canManage} />
       </div>
 
       {overlays.length === 0 ? (

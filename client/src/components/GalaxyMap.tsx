@@ -1250,24 +1250,6 @@ export const GalaxyMap = () => {
           CTRL/CMD-CLICK TO ADD · DRAG MAP TO SELECT MULTIPLE
         </div>
       )}
-      {editMode && canManageOverlays && (
-        <MapOverlayManager
-          overlays={overlays}
-          activeOverlayId={activeOverlayId}
-          activeOverlay={activeOverlay}
-          transformMode={overlayTransformMode}
-          canManage={canManageOverlays}
-          onSelect={id => {
-            setActiveOverlayId(id);
-            setOverlayPreview(null);
-          }}
-          onUpload={handleOverlayUpload}
-          onPatch={patchActiveOverlay}
-          onDelete={handleOverlayDelete}
-          onReset={() => patchActiveOverlay({ x: 0, y: 0, width: mapWidth, height: mapHeight })}
-          onToggleTransformMode={() => setOverlayTransformMode(prev => !prev)}
-        />
-      )}
       
       <TransformWrapper
         ref={transformRef}
@@ -1281,7 +1263,7 @@ export const GalaxyMap = () => {
       >
         {({ zoomIn, zoomOut, resetTransform, centerView }) => (
           <>
-            <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
+            <div className="absolute top-4 left-4 z-30 flex max-h-[calc(100%-2rem)] flex-col items-start gap-2 overflow-y-auto">
               <div className="glass-panel rounded-md p-1 flex gap-1">
                 <button onClick={() => zoomIn()} className="w-8 h-8 flex items-center justify-center text-foreground hover:text-primary transition-colors bg-white/5 rounded">+</button>
                 <button onClick={() => zoomOut()} className="w-8 h-8 flex items-center justify-center text-foreground hover:text-primary transition-colors bg-white/5 rounded">-</button>
@@ -1313,6 +1295,25 @@ export const GalaxyMap = () => {
                 >
                   <GitMerge className="w-3 h-3" /> SNAP NODES
                 </button>
+              )}
+
+              {editMode && canManageOverlays && showOverlay && (
+                <MapOverlayManager
+                  overlays={overlays}
+                  activeOverlayId={activeOverlayId}
+                  activeOverlay={activeOverlay}
+                  transformMode={overlayTransformMode}
+                  canManage={canManageOverlays}
+                  onSelect={id => {
+                    setActiveOverlayId(id);
+                    setOverlayPreview(null);
+                  }}
+                  onUpload={handleOverlayUpload}
+                  onPatch={patchActiveOverlay}
+                  onDelete={handleOverlayDelete}
+                  onReset={() => patchActiveOverlay({ x: 0, y: 0, width: mapWidth, height: mapHeight })}
+                  onToggleTransformMode={() => setOverlayTransformMode(prev => !prev)}
+                />
               )}
 
               {/* ── Snap nodes panel ── */}
