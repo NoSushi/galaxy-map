@@ -3,3 +3,4 @@
 - [Custom DB fallback trap](custom-db-schema-drift.md) — if CUSTOM_DATABASE_URL secret vanishes, app silently uses seed-data built-in DB; check the env var before diagnosing "lost data" or schema drift.
 - [Production image compatibility](production-image-compatibility.md) — target VM reportedly cannot load Sharp; keep conversion compatible with ImageMagick 6.
 - [Planet sector text](planet-sector-text.md) — Sector is independent free text; the user rejected linking it to political map sectors.
+- [Browser test runtime](browser-runtime.md) — System Chromium works where the bundled Playwright browser lacks shared libraries.

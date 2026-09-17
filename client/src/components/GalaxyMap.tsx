@@ -1185,7 +1185,9 @@ export const GalaxyMap = () => {
       if (count >= 2 && !added.has(pid)) {
         added.add(pid);
         const planet = planets.find(p => p.id === pid);
-        if (planet && planet.x >= minX && planet.x <= maxX && planet.y >= minY && planet.y <= maxY) {
+        // Junction glow protrudes beyond small dots and transparent custom
+        // markers. Minor planets already mark the junction themselves.
+        if (planet && !planet.isMinor && planet.x >= minX && planet.x <= maxX && planet.y >= minY && planet.y <= maxY) {
           junctions.push({ x: planet.x, y: planet.y, count });
         }
       }
