@@ -226,7 +226,7 @@ export const GalaxyMap = () => {
   const { 
     planets, sectors, lanes, fleets, factionList, overlays, currentUser,
     showLanes, showSectors, showLabels, showOverlay, setShowOverlay,
-    selectedPlanet, selectedPlanetIds, setSelectedPlanet, setPlanetSelection, togglePlanetSelection,
+    selectedPlanet, selectedPlanetIds, setSelectedPlanet, togglePlanetSelection,
     selectedSector, setSelectedSector,
     selectedLane, setSelectedLane,
     selectedFleet, setSelectedFleet,
@@ -253,10 +253,7 @@ export const GalaxyMap = () => {
   const [overlayGesture, setOverlayGesture] = useState<OverlayGesture | null>(null);
   const overlayGestureRef = useRef<(OverlayGesture & { pointerId: number }) | null>(null);
   const [overlayPreview, setOverlayPreview] = useState<import('@/lib/data').MapOverlay | null>(null);
-  const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
-  const selectionBaseRef = useRef<string[]>([]);
   const planetMouseDownRef = useRef(false);
-  const selectionJustCompletedRef = useRef(false);
 
   const SECTOR_SNAP_RADIUS = 45;
   const activeOverlay = overlayPreview?.id === activeOverlayId
@@ -760,11 +757,6 @@ export const GalaxyMap = () => {
     }
     if (overlayGestureRef.current) return;
 
-    if (selectionBox) {
-      setSelectionBox(prev => prev ? { ...prev, currentX: x, currentY: y } : prev);
-      return;
-    }
-
     if (draggingPlanet) {
       const planet = planets.find(p => p.id === draggingPlanet);
       if (planet) updatePlanet({ ...planet, x, y }, { x, y });
@@ -853,22 +845,6 @@ export const GalaxyMap = () => {
       return;
     }
     if (overlayGestureRef.current) return;
-    if (selectionBox) {
-      const minX = Math.min(selectionBox.startX, selectionBox.currentX);
-      const maxX = Math.max(selectionBox.startX, selectionBox.currentX);
-      const minY = Math.min(selectionBox.startY, selectionBox.currentY);
-      const maxY = Math.max(selectionBox.startY, selectionBox.currentY);
-      const dragged = Math.abs(maxX - minX) > 12 || Math.abs(maxY - minY) > 12;
-      if (dragged) {
-        const ids = planets
-          .filter(p => p.x >= minX && p.x <= maxX && p.y >= minY && p.y <= maxY)
-          .map(p => p.id);
-        setPlanetSelection([...selectionBaseRef.current, ...ids]);
-        selectionJustCompletedRef.current = true;
-      }
-      setSelectionBox(null);
-      return;
-    }
     // Fleet dropped: auto-assign to a warzone theatre if released on/near a warzone planet
     if (draggingFleet) {
       const fleet = fleets.find(f => f.id === draggingFleet);
@@ -1120,10 +1096,6 @@ export const GalaxyMap = () => {
   };
 
   const handleMapClick = (e: React.MouseEvent) => {
-    if (selectionJustCompletedRef.current) {
-      selectionJustCompletedRef.current = false;
-      return;
-    }
     if (isDrawing || isLaneDrawing || isSectorDrawing) return;
     if (snapActive) return; // don't deselect anything while snapping
     if (editMode && selectedSector) {
@@ -1249,7 +1221,7 @@ export const GalaxyMap = () => {
       )}
       {editMode && !isInAnyDrawCreation && !snapActive && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 glass-panel rounded-md px-3 py-1.5 text-[9px] font-display text-primary/70 tracking-widest pointer-events-none">
-          CTRL/CMD-CLICK TO ADD · DRAG MAP TO SELECT MULTIPLE
+          CTRL/CMD-CLICK TO SELECT MULTIPLE · DRAG MAP TO PAN
         </div>
       )}
       
@@ -1366,12 +1338,6 @@ export const GalaxyMap = () => {
                     const { x, y } = getMapCoords(e);
                     setSectorDrawPoints([[x, y]]);
                     setIsSectorDrawing(true);
-                  } else if (editMode && !isInAnyDrawCreation && !snapActive && e.button === 0) {
-                    const { x, y } = getMapCoords(e);
-                    selectionBaseRef.current = e.ctrlKey || e.metaKey ? selectedPlanetIds : [];
-                    setSelectionBox({ startX: x, startY: y, currentX: x, currentY: y });
-                    e.stopPropagation();
-                    e.preventDefault();
                   }
                 }}
               >
@@ -1718,18 +1684,6 @@ export const GalaxyMap = () => {
                     onMouseDown={handlePlanetMouseDownStable}
                   />
                 ))}
-
-                {selectionBox && (
-                  <div
-                    className="absolute border border-primary bg-primary/10 pointer-events-none z-50"
-                    style={{
-                      left: Math.min(selectionBox.startX, selectionBox.currentX) + pad,
-                      top: Math.min(selectionBox.startY, selectionBox.currentY) + pad,
-                      width: Math.abs(selectionBox.currentX - selectionBox.startX),
-                      height: Math.abs(selectionBox.currentY - selectionBox.startY),
-                    }}
-                  />
-                )}
 
                 {filteredFleets.map(fleet => {
                   const isSelected = selectedFleet?.id === fleet.id;
