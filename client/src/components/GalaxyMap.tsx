@@ -449,7 +449,10 @@ export const GalaxyMap = () => {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Shift') setShiftHeld(true);
+      if (e.key === 'Shift') {
+        setShiftHeld(true);
+        setSectorSnapPoint(null);
+      }
       if (e.key === 'Escape') {
         setLaneDrawMode(false);
         setLaneDrawStartPlanet(null);
@@ -466,11 +469,14 @@ export const GalaxyMap = () => {
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'Shift') setShiftHeld(false);
     };
+    const handleBlur = () => setShiftHeld(false);
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
     };
   }, []);
 
@@ -765,7 +771,7 @@ export const GalaxyMap = () => {
     } else if (draggingSectorPoint) {
       const sector = sectors.find(s => s.id === draggingSectorPoint.sectorId);
       if (sector) {
-        const snap = findSectorSnapPoint(x, y, sector.id);
+        const snap = e.shiftKey ? null : findSectorSnapPoint(x, y, sector.id);
         setSectorSnapPoint(snap);
         const finalPoint: [number, number] = snap ?? [x, y];
         const newPoints = [...sector.points] as [number, number][];
@@ -1494,7 +1500,7 @@ export const GalaxyMap = () => {
                     );
                   })}
 
-                  {draggingSectorPoint && sectorSnapPoint && (
+                  {draggingSectorPoint && sectorSnapPoint && !shiftHeld && (
                     <circle
                       cx={sectorSnapPoint[0]} cy={sectorSnapPoint[1]} r={16}
                       fill="none" stroke="#22d3ee" strokeWidth={3}

@@ -794,6 +794,7 @@ const SectorDetails = ({ sector, editMode, planets }: { sector: Sector, editMode
           <Label className="text-[10px] uppercase text-primary/70">Sector Settings</Label>
           <Button variant="ghost" size="sm" onClick={() => deleteSector(sector.id)} className="h-6 text-[9px] text-destructive hover:text-destructive/80 hover:bg-destructive/10 gap-1"><Trash2 className="w-3 h-3" /> DELETE</Button>
         </div>
+        <p className="text-[10px] text-muted-foreground">Hold Shift while dragging a border point to disable snapping.</p>
         <div className="space-y-1">
           <Label className="text-[10px] uppercase text-primary/70">Sector Designation</Label>
           <Input value={sector.name} onChange={e => updateSector({...sector, name: e.target.value})} className="bg-black/60 border-primary/20 h-8 text-xs" />
