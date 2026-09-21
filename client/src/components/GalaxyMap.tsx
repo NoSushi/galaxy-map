@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { TransformWrapper, TransformComponent, ReactZoomPanPinchRef } from 'react-zoom-pan-pinch';
 import { useMap, Planet, Fleet, HyperspaceLane, Sector } from '@/lib/data';
 import { polygonIntersection } from '@/lib/polygon-ops';
+import { sectorTerritory, territoryPath } from '@/lib/sector-enclaves';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { Crown, Ship, Plus, Pencil, AlertTriangle, GitMerge, X, Crosshair } from 'lucide-react';
@@ -1434,12 +1435,13 @@ export const GalaxyMap = () => {
 
                   {filteredSectors.map(sector => {
                     const isSelected = selectedSector?.id === sector.id;
-                    const pathD = `M ${sector.points.map(p => `${p[0]},${p[1]}`).join(' L ')} Z`;
+                    const pathD = territoryPath(sectorTerritory(sector, sectors));
                     
                     return (
                       <g key={sector.id}>
                         <path
                           d={pathD}
+                          fillRule="evenodd"
                           fill={sector.isContested ? `url(#stripe-${sector.id})` : `hsl(${sector.color} / ${isSelected ? '0.25' : '0.12'})`}
                           stroke={`hsl(${sector.color} / ${isSelected ? '0.9' : '0.35'})`}
                           strokeWidth={isSelected ? 4 : 1.5}
