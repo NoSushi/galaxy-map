@@ -7,6 +7,7 @@ import { toast } from '@/hooks/use-toast';
 import { Crown, Ship, Plus, Pencil, AlertTriangle, GitMerge, X, Crosshair } from 'lucide-react';
 import { TargetingOverlay } from './TargetingOverlay';
 import { MapOverlayManager } from './MapOverlayManager';
+import { AutoContestedAreas } from './AutoContestedAreas';
 import { transformOverlay, type OverlayGesture } from '@/lib/overlay-transform';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
@@ -1498,6 +1499,8 @@ export const GalaxyMap = () => {
                       className="pointer-events-none animate-pulse"
                     />
                   )}
+
+                  <AutoContestedAreas sectors={filteredSectors} />
 
                   {[...filteredLanes]
                     .sort((a, b) => {

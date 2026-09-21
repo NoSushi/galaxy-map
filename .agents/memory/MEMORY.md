@@ -4,3 +4,4 @@
 - [Production image compatibility](production-image-compatibility.md) — target VM reportedly cannot load Sharp; keep conversion compatible with ImageMagick 6.
 - [Planet sector text](planet-sector-text.md) — Sector is independent free text; the user rejected linking it to political map sectors.
 - [Browser test runtime](browser-runtime.md) — System Chromium works where the bundled Playwright browser lacks shared libraries.
+- [Automatic contested areas](automatic-contested-areas.md) — Derive overlap shading without clipping original territory or creating stale contested records.

@@ -445,24 +445,14 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateSectorPoints = (sectorId: string, points: [number, number][]) => {
-    let fullSector: Sector | null = null;
-    setSectors(prev => {
-      const updated = prev.map(s => {
-        if (s.id === sectorId) {
-          fullSector = { ...s, points };
-          return fullSector;
-        }
-        return s;
-      });
-      return updated;
-    });
+    const existing = sectors.find(s => s.id === sectorId);
+    if (!existing) return;
+    const sectorToUpdate = { ...existing, points };
+    setSectors(prev => prev.map(s => s.id === sectorId ? { ...s, points } : s));
     if (selectedSector?.id === sectorId) {
       setSelectedSector(prev => prev ? { ...prev, points } : null);
     }
-    if (fullSector) {
-      const sectorToUpdate = fullSector;
-      debouncedApiCall(`sector-points-${sectorId}`, () => sectorApi.update(sectorToUpdate));
-    }
+    debouncedApiCall(`sector-points-${sectorId}`, () => sectorApi.update(sectorToUpdate));
   };
 
   const updateLane = (updatedLane: HyperspaceLane) => {
