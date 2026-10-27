@@ -9,3 +9,8 @@ vite.config.ts.*
 .env
 .env.*
 !.env.example
+
+# Local backups and temporary archives
+*.backup-*
+*.pre-*
+*.tgz
