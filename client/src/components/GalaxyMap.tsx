@@ -1161,7 +1161,7 @@ export const GalaxyMap = () => {
 
     const { minX, minY, maxX, maxY } = visibleBounds;
     const added = new Set<string>();
-    for (const [pid, count] of planetLaneCount) {
+    for (const [pid, count] of Array.from(planetLaneCount.entries())) {
       if (count >= 2 && !added.has(pid)) {
         added.add(pid);
         const planet = planets.find(p => p.id === pid);

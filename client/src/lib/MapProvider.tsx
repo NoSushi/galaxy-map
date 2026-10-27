@@ -116,7 +116,7 @@ export const MapProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const setPlanetSelection = useCallback((ids: string[], primaryId?: string) => {
-    const uniqueIds = [...new Set(ids)];
+    const uniqueIds = Array.from(new Set(ids));
     setSelectedPlanetIds(uniqueIds);
     const primary = planets.find(p => p.id === (primaryId ?? uniqueIds[0]));
     setSelectedPlanetState(primary ?? null);

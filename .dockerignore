@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+
+.git
+.github
+
+node_modules
+dist
+client/dist
+
+*.backup-*
+*.pre-*
+*.tgz
+
+npm-debug.log*

@@ -869,7 +869,7 @@ const LaneDetails = ({ lane, editMode, planets }: { lane: HyperspaceLane, editMo
   const routePlanets = (() => {
     const startPlanet = p1;
     const endPlanet = p2 && !isLoop ? p2 : null;
-    const intermediates = [...new Set(intermediatePlanetIds)]
+    const intermediates = Array.from(new Set(intermediatePlanetIds))
       .map(id => planets.find(p => p.id === id))
       .filter(Boolean) as Planet[];
 

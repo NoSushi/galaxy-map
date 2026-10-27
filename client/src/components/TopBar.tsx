@@ -271,7 +271,7 @@ export const TopBar = () => {
     const route: { planetId: string, planetName: string, laneName: string }[] = [];
     let current: string | null = travelCalc.end;
     while (current) {
-      const prevEntry = prev[current];
+      const prevEntry: { node: string; laneName: string } | null = prev[current];
       const planet = travelP.find(p => p.id === current);
       route.unshift({ planetId: current, planetName: planet?.name || 'Unknown', laneName: prevEntry?.laneName || '' });
       current = prevEntry?.node || null;

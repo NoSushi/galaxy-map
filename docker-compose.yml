@@ -1,0 +1,9 @@
+services:
+  galaxymap:
+    build: .
+    container_name: galaxymap
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
